@@ -1,0 +1,56 @@
+[project]
+name = "ml4b-gym-exercise-recognition"
+version = "0.1.0"
+description = "ML4B SoSe 2026 – Gym Exercise Recognition from Sensor Data (e.g. Apple Watch)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Your Name", email = "your@email.com" },
+]
+
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.26",
+  "scikit-learn>=1.4",
+  "streamlit>=1.35",
+  "ipykernel>=6.29",
+  "matplotlib>=3.8",
+  "seaborn>=0.13",
+  "plotly>=5.20",
+]
+
+[project.optional-dependencies]
+dev = [
+  "jupyter>=1.0",
+  "pytest>=8.0",
+  "black>=24.0",
+  "ruff>=0.4",
+  "mypy>=1.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]   # E/F/W = pycodestyle+pyflakes, I = isort
+ignore = ["E501"]                 # Ignore line-too-long (black handles it)
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true   # Viele ML-Libs haben keine vollständigen Stubs
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
