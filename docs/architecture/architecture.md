@@ -9,7 +9,7 @@
 > "Can machine learning models trained on publicly available wrist-worn sensor data accurately classify gym exercises, and how well do these models generalize to new data collected from an Apple Watch during real workout sessions?"
 
 ### Primary Goal
-Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **7 exercise classes**: Bicep Curl, Shoulder Press, Lateral Raise, Squat, Bench Press, Deadlift, and Rest/No Exercise.
+Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **N exercise classes** (exact set pending RecoFit dataset exploration in Phase 2 — see `docs/data_understanding/dataset_evaluation.md`). Candidate classes include Bicep Curl, Shoulder Press, Lateral Raise, Squat, Bench Press, Deadlift, and Rest/No Exercise; the final selection depends on class availability in the RecoFit dataset.
 
 ### Two-Dataset Validation Strategy
 | Phase | Data Source | Purpose |
@@ -64,31 +64,38 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 ## 3. System Context
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      External World                      │
-│                                                         │
-│  Apple Watch ──► raw CSV / sensor logs (accelerometer,  │
-│                  gyroscope, timestamps, labels)         │
-└───────────────────────────┬─────────────────────────────┘
-                            │ data/raw/
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                   ML4B System                            │
-│                                                         │
-│  notebooks/  ──► exploration & CRISP-DM documentation   │
-│  src/ml4b/   ──► reusable pipeline package              │
-│  app/        ──► Streamlit prediction UI                 │
-│  models/     ──► saved model artefacts (.joblib)        │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            ▼
-              Streamlit App (localhost:8501)
-              User uploads sensor window →
-              receives predicted exercise label
+┌──────────────────────────────────────────────────────────────────┐
+│                          External World                           │
+│                                                                  │
+│  RecoFit (Microsoft) ──► MATLAB .mat file (~2.5 GB)             │
+│    200+ subjects, 50 Hz, wrist-worn acc+gyro                     │
+│    Loaded via: scipy.io.loadmat(path, simplify_cells=True)       │
+│                                                                  │
+│  Apple Watch (Sensor Logger app) ──► CSV export                  │
+│    Personal recordings for generalization test                   │
+│    Channels used: Wrist Motion (acc+gyro), optionally Heart Rate │
+└──────────────────────┬───────────────────────────────────────────┘
+                       │ data/raw/recofit/   (training)
+                       │ data/raw/personal/  (generalization test)
+                       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        ML4B System                                │
+│                                                                  │
+│  notebooks/  ──► exploration & CRISP-DM documentation            │
+│  src/ml4b/   ──► reusable pipeline package                       │
+│  app/        ──► Streamlit prediction UI                          │
+│  models/     ──► saved model artefacts (.joblib)                 │
+└──────────────────────┬───────────────────────────────────────────┘
+                       │
+                       ▼
+         Streamlit App (localhost:8501)
+         User uploads sensor window CSV →
+         receives predicted exercise label + confidence
 ```
 
-**Inputs:** Raw sensor data files (CSV) collected from Apple Watch during labelled exercise sessions.  
-**Outputs:** Trained ML model + Streamlit web app for exercise prediction.
+**Primary training input:** RecoFit MATLAB `.mat` file parsed with `scipy.io.loadmat`. Sampling rate: 50 Hz. Sensors: accelerometer (g) + gyroscope (dps), 3 axes each.  
+**Generalization test input:** Self-recorded Apple Watch data via Sensor Logger app (Wrist Motion channel only).  
+**Outputs:** Trained scikit-learn Pipeline (`.joblib`) + Streamlit web app for exercise prediction.
 
 ---
 
@@ -136,16 +143,20 @@ ml4b-project/
 
 ### Training Pipeline
 ```
-data/raw/*.csv
+data/raw/recofit/exercise_data.50.0000_singleonly.mat
     │
-    ▼ src/ml4b/data/loader.py
-Validated DataFrame (timestamps, ax, ay, az, gx, gy, gz, label)
+    ▼ scipy.io.loadmat(path, simplify_cells=True)
+Raw cell matrix: subject_data (n_subjects × n_exercises)
+exerciseConstants.activities → exercise label strings
     │
-    ▼ src/ml4b/data/features.py
-Feature matrix X, label vector y (sliding window aggregations)
+    ▼ src/ml4b/data/loader.py  — load_recofit()
+Flat DataFrame (subject_id, exercise_label, timestamps, ax, ay, az, gx, gy, gz)
+    │
+    ▼ src/ml4b/data/features.py  — sliding window segmentation
+Feature matrix X, label vector y (window-level aggregations at 50 Hz)
     │
     ▼ src/ml4b/models/train.py
-Trained scikit-learn Pipeline (scaler + classifier)
+Trained scikit-learn Pipeline (StandardScaler + classifier)
     │
     ▼ models/saved/model_<timestamp>.joblib
 ```

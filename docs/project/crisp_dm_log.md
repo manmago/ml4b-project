@@ -12,7 +12,7 @@ Phase 1 completed: 2026-05-15
 | # | Phase | Status | Responsible | Notebook | Notes |
 |---|-------|--------|-------------|----------|-------|
 | 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, 7 exercise classes selected, two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
-| 2 | Data Understanding | todo | — | `notebooks/02_data_understanding.ipynb` | EDA, sensor visualisation, quality checks |
+| 2 | Data Understanding | in progress | Anshul Agrawal | `notebooks/02_data_understanding.ipynb` | Dataset evaluation complete. RecoFit selected (wrist, 50Hz, 200+ participants, acc+gyro). Full class list pending notebook exploration. scipy added as dependency. |
 | 3 | Data Preparation | todo | — | `notebooks/03_data_preparation.ipynb` | Windowing, feature engineering, train/test split |
 | 4 | Modeling | todo | — | `notebooks/04_modeling.ipynb` | Baseline + tuned classifiers, cross-validation |
 | 5 | Evaluation | todo | — | `notebooks/05_evaluation.ipynb` | Confusion matrix, per-class metrics, error analysis |
