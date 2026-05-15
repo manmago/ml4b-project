@@ -5,8 +5,19 @@
 
 ## 1. Goals and Requirements
 
+### Primary Research Question
+> "Can machine learning models trained on publicly available wrist-worn sensor data accurately classify gym exercises, and how well do these models generalize to new data collected from an Apple Watch during real workout sessions?"
+
 ### Primary Goal
-Recognise gym exercises (e.g. bicep curl, squat, push-up) from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning.
+Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **7 exercise classes**: Bicep Curl, Shoulder Press, Lateral Raise, Squat, Bench Press, Deadlift, and Rest/No Exercise.
+
+### Two-Dataset Validation Strategy
+| Phase | Data Source | Purpose |
+|-------|------------|---------|
+| Training & validation | Public wrist-sensor datasets (MMFIT, Kaggle, WHARF) | Build and validate the full ML pipeline |
+| Generalization test | Self-recorded Apple Watch data via Sensor Logger app | Measure transfer to a new individual and device |
+
+Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are used as features. Location, Barometer, Magnetometer, and Compass channels from Sensor Logger are discarded.
 
 ### Quality Goals
 | Priority | Quality Goal | Scenario |
@@ -14,6 +25,12 @@ Recognise gym exercises (e.g. bicep curl, squat, push-up) from Apple Watch senso
 | 1 | Reproducibility | Any team member can re-run the full pipeline on a new machine with `uv sync` + `uv run` |
 | 2 | Modularity | Data loading, feature engineering, and modelling are decoupled Python modules |
 | 3 | Explainability | Model predictions can be explained to non-ML stakeholders via the Streamlit app |
+
+### Performance Targets
+| Criterion | Target |
+|-----------|--------|
+| Classification accuracy (public test set) | ≥ 80% macro-averaged |
+| Generalization accuracy (Apple Watch data) | ≥ 65% macro-averaged |
 
 ### Stakeholders
 | Role | Concern |

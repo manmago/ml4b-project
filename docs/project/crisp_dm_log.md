@@ -3,6 +3,7 @@
 Project: ML4B SoSe 2026 — Gym Exercise Recognition  
 Team: Anshul Agrawal  
 Last updated: 2026-05-15
+Phase 1 completed: 2026-05-15
 
 ---
 
@@ -10,7 +11,7 @@ Last updated: 2026-05-15
 
 | # | Phase | Status | Responsible | Notebook | Notes |
 |---|-------|--------|-------------|----------|-------|
-| 1 | Business Understanding | todo | — | `notebooks/01_business_understanding.ipynb` | Define success criteria, KPIs, project plan |
+| 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, 7 exercise classes selected, two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
 | 2 | Data Understanding | todo | — | `notebooks/02_data_understanding.ipynb` | EDA, sensor visualisation, quality checks |
 | 3 | Data Preparation | todo | — | `notebooks/03_data_preparation.ipynb` | Windowing, feature engineering, train/test split |
 | 4 | Modeling | todo | — | `notebooks/04_modeling.ipynb` | Baseline + tuned classifiers, cross-validation |
