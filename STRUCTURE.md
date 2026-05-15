@@ -57,7 +57,8 @@ All data files. **This folder is in `.gitignore` — nothing inside it is ever c
 
 ```
 data/
-├── raw/                    ← Original sensor recordings, exactly as collected
+├── raw/
+│   └── recofit/            ← RecoFit .mat files (~2.5 GB, NOT in git — see README.md inside)
 └── processed/              ← Cleaned, windowed, feature-engineered datasets
 ```
 
@@ -80,20 +81,22 @@ All project documentation, organised by topic.
 ```
 docs/
 ├── architecture/
-│   └── architecture.md     ← arc42 architecture document (keep updated!)
+│   └── architecture.md          ← arc42 architecture document (keep updated!)
 ├── business_understanding/
 │   └── business_understanding.md ← CRISP-DM Phase 1 deliverable
 ├── data/
-│   └── data_dictionary.md  ← Sensor columns, engineered features, label definitions
+│   └── data_dictionary.md       ← Sensor columns, engineered features, label definitions
+├── data_understanding/
+│   └── dataset_evaluation.md    ← CRISP-DM Phase 2: dataset comparison & selection rationale
 ├── decisions/
 │   ├── ADR-001-python-package-manager.md
 │   └── ADR-002-ml-framework.md
 ├── project/
-│   └── crisp_dm_log.md     ← CRISP-DM phase progress tracker
+│   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
 └── setup/
-    ├── Setup_macOS.md      ← Environment setup guide for macOS
-    ├── Setup_Windows.md    ← Environment setup guide for Windows
-    └── Setup_WSL_Windows.md ← Environment setup guide for WSL
+    ├── Setup_macOS.md           ← Environment setup guide for macOS
+    ├── Setup_Windows.md         ← Environment setup guide for Windows
+    └── Setup_WSL_Windows.md     ← Environment setup guide for WSL
 ```
 
 **Rules:**

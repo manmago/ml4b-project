@@ -98,10 +98,19 @@ The project uses a deliberate two-phase data strategy to rigorously test model g
 | Sensor modalities | Accelerometer (ax, ay, az) + Gyroscope (gx, gy, gz) — must be available |
 | Split | Standard train/validation/test split within the public dataset |
 
-**Candidate datasets (to be evaluated in Phase 2 — Data Understanding):**
-- **MMFIT Dataset** — Multi-modal fitness exercise dataset with wrist sensor data
-- **Exercise Recognition datasets on Kaggle** — Various community-contributed wrist IMU datasets
-- **WHARF Dataset** — Wrist Hand Action Recognition Framework dataset
+**Dataset evaluation completed in Phase 2 — Data Understanding.**
+
+Five candidate datasets were systematically evaluated. **RecoFit (Microsoft Research)** has been selected as the primary training dataset. See [`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md) for the full evaluation with selection rationale.
+
+| Dataset | Verdict | Reason |
+|---------|---------|--------|
+| RecoFit (Microsoft) | ✅ Primary | Wrist, 50 Hz, 200+ participants, acc+gyro, CHI 2014 |
+| MM-Fit | ⚠️ Rejected | Only 10 participants |
+| IEEE Gym Gesture | ⚠️ Rejected | Only 5 participants; exercise overlap minimal |
+| WEAR | ❌ Rejected | No gyroscope; outdoor activities only |
+| Kaggle Fitness Tracker | ❌ Rejected | No peer review; undocumented placement |
+
+> **Note on target exercise classes:** The final set of target exercise classes will be confirmed after Phase 2 notebook exploration of the RecoFit class list (`notebooks/02_data_understanding.ipynb`). Section 3 (Business Goals) of this document will be updated accordingly once the complete RecoFit label list is known.
 
 Datasets that rely on hip, pocket, or chest placement will be excluded or treated as secondary comparisons, as they produce fundamentally different motion signatures than wrist-worn sensors.
 
