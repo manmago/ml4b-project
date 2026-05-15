@@ -81,6 +81,8 @@ All project documentation, organised by topic.
 docs/
 ├── architecture/
 │   └── architecture.md     ← arc42 architecture document (keep updated!)
+├── business_understanding/
+│   └── business_understanding.md ← CRISP-DM Phase 1 deliverable
 ├── data/
 │   └── data_dictionary.md  ← Sensor columns, engineered features, label definitions
 ├── decisions/
