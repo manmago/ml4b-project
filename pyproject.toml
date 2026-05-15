@@ -5,7 +5,7 @@ description = "ML4B SoSe 2026 – Gym Exercise Recognition from Sensor Data (e.g
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-  { name = "Your Name", email = "your@email.com" },
+  { name = "Anshul Agrawal", email = "anshul.2001a2@googlemail.com" },
 ]
 
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
   "matplotlib>=3.8",
   "seaborn>=0.13",
   "plotly>=5.20",
+  "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
