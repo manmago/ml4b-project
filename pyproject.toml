@@ -54,3 +54,6 @@ ignore_missing_imports = true   # Viele ML-Libs haben keine vollständigen Stubs
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ml4b"]
