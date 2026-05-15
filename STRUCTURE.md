@@ -86,8 +86,12 @@ docs/
 ├── decisions/
 │   ├── ADR-001-python-package-manager.md
 │   └── ADR-002-ml-framework.md
-└── project/
-    └── crisp_dm_log.md     ← CRISP-DM phase progress tracker
+├── project/
+│   └── crisp_dm_log.md     ← CRISP-DM phase progress tracker
+└── setup/
+    ├── Setup_macOS.md      ← Environment setup guide for macOS
+    ├── Setup_Windows.md    ← Environment setup guide for Windows
+    └── Setup_WSL_Windows.md ← Environment setup guide for WSL
 ```
 
 **Rules:**
