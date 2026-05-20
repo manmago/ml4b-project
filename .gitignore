@@ -120,6 +120,14 @@ coverage.xml
 dmypy.json
 
 # =============================================================================
+# Reports — generated figures and result summaries
+# Ignore file contents but keep .gitkeep placeholders so folder is tracked
+# =============================================================================
+reports/**
+!reports/**/
+!reports/**/.gitkeep
+
+# =============================================================================
 # Logs & Temp Files
 # =============================================================================
 *.log

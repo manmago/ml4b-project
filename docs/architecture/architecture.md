@@ -14,7 +14,7 @@ Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscop
 ### Two-Dataset Validation Strategy
 | Phase | Data Source | Purpose |
 |-------|------------|---------|
-| Training & validation | Public wrist-sensor datasets (MMFIT, Kaggle, WHARF) | Build and validate the full ML pipeline |
+| Training & validation | RecoFit (Microsoft Research) — MATLAB .mat, 50 Hz, wrist-worn, 200+ subjects | Build and validate the full ML pipeline |
 | Generalization test | Self-recorded Apple Watch data via Sensor Logger app | Measure transfer to a new individual and device |
 
 Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are used as features. Location, Barometer, Magnetometer, and Compass channels from Sensor Logger are discarded.
@@ -103,8 +103,9 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 
 ```
 ml4b-project/
+├── agents/                     # Claude Code specialist agent instruction files
 ├── app/                        # Streamlit application
-│   └── main.py                 #   entry point: uv run streamlit run app/main.py
+│   └── streamlit_app.py        #   entry point: uv run streamlit run app/streamlit_app.py
 ├── src/ml4b/                   # Installable Python package
 │   ├── data/                   #   data loading & validation
 │   ├── models/                 #   model training & inference
@@ -131,11 +132,13 @@ ml4b-project/
 
 | Module | Responsibility |
 |--------|---------------|
-| `src/ml4b/data/` | Load raw CSVs, validate schema, split train/test |
+| `src/ml4b/data/` | Load raw .mat files via scipy, validate schema, split train/test |
 | `src/ml4b/models/` | Feature engineering, model training, serialisation |
 | `src/ml4b/utils/config.py` | Centralised path resolution via env vars |
-| `app/main.py` | Streamlit UI: file upload → feature extraction → prediction |
+| `app/streamlit_app.py` | Streamlit UI: file upload → feature extraction → prediction |
 | `notebooks/` | CRISP-DM phase documentation and exploratory analysis |
+| `agents/` | Claude Code specialist agent instruction files |
+| `reports/figures/` | Generated evaluation plots and result figures |
 
 ---
 

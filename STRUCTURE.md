@@ -9,12 +9,14 @@
 ```
 ml4b-project/
 │
+├── agents/                 ← Claude Code specialist agent instruction files
 ├── app/                    ← Streamlit web application
 ├── Course_Files/           ← University materials (READ-ONLY, never touch)
 ├── data/                   ← All data (NOT in git — see .gitignore)
 ├── docs/                   ← Project documentation
 ├── models/                 ← Trained model files (NOT in git)
 ├── notebooks/              ← Jupyter notebooks (one per CRISP-DM phase)
+├── reports/                ← Generated figures and result summaries (NOT in git)
 ├── src/ml4b/               ← Reusable Python package
 ├── tests/                  ← Unit tests
 │
@@ -31,12 +33,27 @@ ml4b-project/
 
 ## Folder-by-Folder Breakdown
 
+### `agents/`
+Claude Code specialist agent instruction files. Each file defines a focused role with explicit responsibilities, code standards, and output requirements.
+
+```
+agents/
+├── data_scientist.md       ← ML & data science work: feature engineering, modeling, notebooks
+├── documenter.md           ← Documentation: arc42, ADRs, CRISP-DM log, setup guides
+└── reviewer.md             ← Pre-commit review checklist for code and documentation
+```
+
+- **What goes here:** `.md` files containing Claude Code agent instructions only.
+- **When to use:** Select the appropriate agent based on the task type (see CLAUDE.md for guidance).
+
+---
+
 ### `app/`
 The Streamlit web application for live exercise prediction.
 
 ```
 app/
-└── main.py                 ← Entry point: uv run streamlit run app/main.py
+└── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
 ```
 
 - **What goes here:** UI code only — file upload, result display, visualisations.
@@ -90,7 +107,9 @@ docs/
 │   └── dataset_evaluation.md    ← CRISP-DM Phase 2: dataset comparison & selection rationale
 ├── decisions/
 │   ├── ADR-001-python-package-manager.md
-│   └── ADR-002-ml-framework.md
+│   ├── ADR-002-ml-framework.md
+│   ├── ADR-003-multi-agent-documentation-strategy.md
+│   └── ADR-004-code-comment-and-documentation-standard.md
 ├── project/
 │   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
 └── setup/
@@ -175,13 +194,28 @@ src/ml4b/
 
 ---
 
+### `reports/`
+Generated output files from analysis and model evaluation. **Not committed to git** (generated artefacts).
+
+```
+reports/
+└── figures/                ← Matplotlib/seaborn plots saved during notebooks and evaluation
+    └── .gitkeep            ← Keeps folder tracked by git even when empty
+```
+
+**Rules:**
+- Save all plots here from notebooks and evaluation scripts.
+- Never commit actual figure files — only the `.gitkeep` placeholder.
+- Reference figures from notebook markdown cells using relative paths.
+
+---
+
 ### `tests/`
 Unit tests. Mirror the structure of `src/ml4b/`.
 
 ```
 tests/
-└── utils/
-    └── test_config.py      ← Example: mirrors src/ml4b/utils/config.py
+└── __init__.py             ← Package marker; add test_<module>.py files alongside it
 ```
 
 **Naming convention:** `test_<module_name>.py` — must start with `test_` for pytest to discover it.
@@ -225,7 +259,7 @@ git checkout develop
 git checkout -b feature/your-feature-name
 
 # 5. Run the Streamlit app
-uv run streamlit run app/main.py
+uv run streamlit run app/streamlit_app.py
 
 # 6. Run tests
 uv run pytest
