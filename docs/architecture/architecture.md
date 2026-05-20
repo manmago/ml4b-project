@@ -56,7 +56,6 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 | Constraint | Rationale |
 |-----------|-----------|
 | University project (SoSe 2026) | Scope limited to semester timeline |
-| `Course_Files/` is read-only | University materials; must not be modified or imported |
 | No cloud infrastructure | All processing runs locally (WSL/macOS/Windows) |
 
 ---
@@ -124,8 +123,7 @@ ml4b-project/
 ├── models/
 │   └── saved/                  #   serialised model files (.joblib)
 ├── tests/                      # pytest unit tests
-├── docs/                       # Project documentation (this folder)
-└── Course_Files/               # University materials — read-only
+└── docs/                       # Project documentation (this folder)
 ```
 
 ### Key Module Responsibilities
