@@ -51,8 +51,6 @@ ml4b-project/
 │   ├── fixtures/                 # Kleine Testdaten (in git OK)
 │   └── test_preprocessing.py
 │
-├── Course_Files/                 # Uni-Materialien (read-only)
-│
 ├── .vscode/
 │   ├── settings.json             # Workspace-Einstellungen (in git)
 │   └── extensions.json           # Empfohlene Extensions (in git)
