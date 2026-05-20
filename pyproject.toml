@@ -59,3 +59,8 @@ python_functions = ["test_*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ml4b"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.13",
+]
