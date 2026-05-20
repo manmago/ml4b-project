@@ -150,6 +150,35 @@ uv add --dev jupyter pytest black ruff mypy
 uv sync
 ```
 
+### 5b. Umgebungsvariablen konfigurieren (.env)
+
+```bash
+# .env.example als Vorlage kopieren
+cp .env.example .env
+```
+
+Die `.env` ist **optional** — du brauchst sie nur, wenn deine RecoFit-Daten **nicht** unter `data/raw/` im Projektordner liegen (z.B. auf einer externen Festplatte oder einem anderen WSL-Pfad):
+
+```bash
+# .env öffnen und Pfade anpassen (nur wenn nötig)
+nano .env
+```
+
+```
+# Beispiel: Daten liegen auf D:-Laufwerk, eingehängt unter /mnt/d/
+ML4B_DATA_RAW=/mnt/d/datasets/recofit
+ML4B_DATA_PROCESSED=/mnt/d/datasets/processed
+ML4B_MODELS_DIR=/mnt/d/datasets/models
+```
+
+| Variable | Standard | Bedeutung |
+|----------|----------|-----------|
+| `ML4B_DATA_RAW` | `data/raw` | Ordner mit der RecoFit `.mat`-Datei |
+| `ML4B_DATA_PROCESSED` | `data/processed` | Ausgabe für Feature-CSVs |
+| `ML4B_MODELS_DIR` | `models/saved` | Ausgabe für trainierte Modelle |
+
+> **Tipp:** Wenn deine RecoFit-Datei unter `ml4b-project/data/raw/recofit/` liegt, musst du **nichts ändern** — die Standardpfade greifen automatisch.
+
 ---
 
 ## 6. VS Code einrichten
