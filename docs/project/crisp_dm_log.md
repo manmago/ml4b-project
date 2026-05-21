@@ -2,7 +2,7 @@
 
 Project: ML4B SoSe 2026 — Gym Exercise Recognition  
 Team: Anshul Agrawal  
-Last updated: 2026-05-15
+Last updated: 2026-05-22
 Phase 1 completed: 2026-05-15
 
 ---
@@ -11,8 +11,8 @@ Phase 1 completed: 2026-05-15
 
 | # | Phase | Status | Responsible | Notebook | Notes |
 |---|-------|--------|-------------|----------|-------|
-| 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, 7 exercise classes selected, two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
-| 2 | Data Understanding | in progress | Anshul Agrawal | `notebooks/02_data_understanding.ipynb` | Dataset evaluation complete. RecoFit selected (wrist, 50Hz, 200+ participants, acc+gyro). Full class list pending notebook exploration. scipy added as dependency. |
+| 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, exercise classes defined (refined to 6 in Phase 2), two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
+| 2 | Data Understanding | done | Anshul Agrawal | `notebooks/02_data_understanding.ipynb` | 75 exercise classes found in RecoFit. 6 final classes selected data-driven based on subject coverage (>30 participants threshold). Class mapping confirmed. See ADR-005. |
 | 3 | Data Preparation | todo | — | `notebooks/03_data_preparation.ipynb` | Windowing, feature engineering, train/test split |
 | 4 | Modeling | todo | — | `notebooks/04_modeling.ipynb` | Baseline + tuned classifiers, cross-validation |
 | 5 | Evaluation | todo | — | `notebooks/05_evaluation.ipynb` | Confusion matrix, per-class metrics, error analysis |

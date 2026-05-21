@@ -40,7 +40,7 @@ This question deliberately separates two concerns:
 
 ### Secondary Research Questions
 
-1. **Feature importance:** Which sensor-derived features (e.g., mean acceleration magnitude, spectral energy, cross-axis correlations) are most informative for distinguishing between the 7 target exercise classes?
+1. **Feature importance:** Which sensor-derived features (e.g., mean acceleration magnitude, spectral energy, cross-axis correlations) are most informative for distinguishing between the 6 target exercise classes?
 2. **Algorithm comparison:** Which ML algorithm (e.g., Random Forest, SVM, k-NN, Gradient Boosting) achieves the best classification performance on this type of high-frequency, multi-axis time-series data?
 3. **Generalization gap:** By how much does model accuracy degrade when evaluated on self-recorded Apple Watch data compared to the public test set? What factors explain this gap (subject variability, device differences, recording conditions)?
 
@@ -50,19 +50,20 @@ This question deliberately separates two concerns:
 
 ### Classification Target
 
-The model must classify sensor data windows into exactly **7 classes**:
+The model must classify sensor data windows into exactly **6 classes**:
 
-| # | Class | Notes |
-|---|-------|-------|
-| 1 | Bicep Curl | Dumbbell, standing |
-| 2 | Shoulder Press | Dumbbell or barbell, seated or standing |
-| 3 | Lateral Raise | Dumbbell, standing |
-| 4 | Squat | Bodyweight or barbell |
-| 5 | Bench Press | Barbell or dumbbell, lying |
-| 6 | Deadlift | Barbell, standing |
-| 7 | Rest / No Exercise | Idle periods between sets |
+| # | Class | RecoFit Source | Participants |
+|---|-------|----------------|--------------|
+| 1 | bicep_curl | Two-arm Dumbbell Curl (both arms, not alternating) | ~45 |
+| 2 | shoulder_press | Shoulder Press (dumbbell) | ~43 |
+| 3 | squat | Squat (arms in front of body) + Squat | ~43+25 combined |
+| 4 | tricep_extension | Overhead Triceps Extension | ~42 |
+| 5 | lateral_raise | Lateral Raise | ~30 |
+| 6 | rest | Non-Exercise + Device on Table | ~90 |
 
 The "Rest" class is critical — without it, a classifier would always predict an exercise even during idle periods, making it unusable in practice.
+
+The final exercise classes were selected data-driven based on the RecoFit dataset exploration in Phase 2. Only exercises with recordings from more than 30 participants (above the 50% subject threshold visible in the class distribution plot) were included. Bench Press (Chest Press rack, ~20 participants) and Deadlift (Dumbbell Deadlift Row, ~20 participants) were excluded due to insufficient data. Tricep Extension was added as a replacement with ~42 participants. This data-driven selection ensures the model is trained on classes with sufficient data for robust learning.
 
 ### Performance Target
 
@@ -110,7 +111,7 @@ Five candidate datasets were systematically evaluated. **RecoFit (Microsoft Rese
 | WEAR | ❌ Rejected | No gyroscope; outdoor activities only |
 | Kaggle Fitness Tracker | ❌ Rejected | No peer review; undocumented placement |
 
-> **Note on target exercise classes:** The final set of target exercise classes will be confirmed after Phase 2 notebook exploration of the RecoFit class list (`notebooks/02_data_understanding.ipynb`). Section 3 (Business Goals) of this document will be updated accordingly once the complete RecoFit label list is known.
+**RecoFit contains 75 exercise classes total.** Multiple RecoFit classes are merged into single target classes where appropriate (e.g. all Squat variants → squat). Classes with fewer than 30 participants were excluded from the target class set. See [`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md) for the full evaluation and class selection rationale.
 
 Datasets that rely on hip, pocket, or chest placement will be excluded or treated as secondary comparisons, as they produce fundamentally different motion signatures than wrist-worn sensors.
 
@@ -158,11 +159,11 @@ Apple Watch via Sensor Logger delivers Wrist Motion data at approximately **50�
 
 - **Deadline:** End of lecture period, SoSe 2026
 - **Tech stack is fixed:** Python 3.11, scikit-learn, Streamlit, uv — no alternatives
-- **All 7 exercise classes must be performable:** The team member recording personal data must be able to safely perform and record all 7 exercises (including Deadlift, Squat, Bench Press) in a real gym session
+- **All 6 exercise classes must be performable:** The team member recording personal data must be able to safely perform and record all 6 exercises (Bicep Curl, Shoulder Press, Squat, Tricep Extension, Lateral Raise) in a real gym session
 
 ### Assumptions
 
-- Public wrist-sensor datasets exist with sufficient labeled data for all 7 (or a subset of) the target exercise classes
+- Public wrist-sensor datasets exist with sufficient labeled data for the 6 target exercise classes
 - The Sensor Logger app records IMU data at a consistent and documentable sampling rate
 - scikit-learn with classical ML algorithms (Random Forest, SVM) is sufficient — deep learning approaches (CNNs on raw signal) are out of scope for this project
 

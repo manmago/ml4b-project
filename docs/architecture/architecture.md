@@ -9,7 +9,7 @@
 > "Can machine learning models trained on publicly available wrist-worn sensor data accurately classify gym exercises, and how well do these models generalize to new data collected from an Apple Watch during real workout sessions?"
 
 ### Primary Goal
-Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **N exercise classes** (exact set pending RecoFit dataset exploration in Phase 2 — see `docs/data_understanding/dataset_evaluation.md`). Candidate classes include Bicep Curl, Shoulder Press, Lateral Raise, Squat, Bench Press, Deadlift, and Rest/No Exercise; the final selection depends on class availability in the RecoFit dataset.
+Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **6 exercise classes**: bicep_curl, shoulder_press, squat, tricep_extension, lateral_raise, rest. Classes were selected data-driven based on subject coverage in the RecoFit dataset (minimum 30 participants threshold). See `docs/decisions/ADR-005-exercise-class-selection.md` for the selection rationale.
 
 ### Two-Dataset Validation Strategy
 | Phase | Data Source | Purpose |
@@ -92,7 +92,7 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
          receives predicted exercise label + confidence
 ```
 
-**Primary training input:** RecoFit MATLAB `.mat` file parsed with `scipy.io.loadmat`. Sampling rate: 50 Hz. Sensors: accelerometer (g) + gyroscope (dps), 3 axes each.  
+**Primary training input:** RecoFit MATLAB `.mat` file parsed with `scipy.io.loadmat`. Sampling rate: 50 Hz. Sensors: accelerometer (g) + gyroscope (dps), 3 axes each. Dataset contains 75 exercise classes total; 6 target classes selected based on subject coverage analysis (>30 participants threshold — see ADR-005).  
 **Generalization test input:** Self-recorded Apple Watch data via Sensor Logger app (Wrist Motion channel only).  
 **Outputs:** Trained scikit-learn Pipeline (`.joblib`) + Streamlit web app for exercise prediction.
 
