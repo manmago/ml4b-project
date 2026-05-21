@@ -11,7 +11,6 @@ ml4b-project/
 │
 ├── agents/                 ← Claude Code specialist agent instruction files
 ├── app/                    ← Streamlit web application
-├── Course_Files/           ← University materials (READ-ONLY, never touch)
 ├── data/                   ← All data (NOT in git — see .gitignore)
 ├── docs/                   ← Project documentation
 ├── models/                 ← Trained model files (NOT in git)
@@ -58,14 +57,6 @@ app/
 
 - **What goes here:** UI code only — file upload, result display, visualisations.
 - **What does NOT go here:** ML logic, data loading, feature engineering — those belong in `src/ml4b/`.
-
----
-
-### `Course_Files/`
-University-provided lecture slides, datasets, and example code.
-
-- **READ-ONLY.** Never modify, delete, or import from this folder.
-- Not relevant to the actual project code — for reference only.
 
 ---
 

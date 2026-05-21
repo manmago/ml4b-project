@@ -44,4 +44,4 @@ We use **uv** (by Astral) as the sole package and environment manager.
 - The lockfile (`uv.lock`) must be updated and committed whenever dependencies change (`uv add <pkg>` does this automatically)
 
 **Neutral:**
-- `conda` is not used; the `Course_Files/` conda environment files are for reference only and must not be imported into this project
+- `conda` is not used in this project
