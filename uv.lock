@@ -1550,6 +1550,8 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "nbconvert" },
+    { name = "nbformat" },
     { name = "ruff" },
 ]
 
@@ -1574,7 +1576,11 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.15.13" }]
+dev = [
+    { name = "nbconvert", specifier = ">=7.17.1" },
+    { name = "nbformat", specifier = ">=5.10.4" },
+    { name = "ruff", specifier = ">=0.15.13" },
+]
 
 [[package]]
 name = "mypy"
