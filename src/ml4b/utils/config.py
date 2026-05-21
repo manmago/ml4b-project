@@ -6,12 +6,7 @@ relative to the project root so the package works regardless of where
 it is installed or invoked.
 
 Typical usage:
-    from ml4b.utils.config import DATA_RAW, DATA_PROCESSED, MODELS_DIR
-
-Notebooks and scripts should use find_project_root() to locate the root
-from the current working directory rather than relying on __file__:
-    from ml4b.utils.config import find_project_root
-    PROJECT_ROOT = find_project_root()
+    from ml4b.utils.config import PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR
 """
 
 import os
@@ -19,10 +14,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Project root: src/ml4b/utils/config.py → utils → ml4b → src → root
-_PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
+# Derived from __file__ — reliable in all contexts (installed package, editable install,
+# Jupyter kernel regardless of CWD, VS Code, command line).
+# src/ml4b/utils/config.py → utils → ml4b → src → project root
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 
-load_dotenv(_PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 def find_project_root(marker: str = "pyproject.toml") -> Path:
@@ -65,7 +62,7 @@ def _resolve(env_var: str, default: str) -> Path:
     """
     raw = os.getenv(env_var, default)
     p = Path(raw)
-    return p if p.is_absolute() else _PROJECT_ROOT / p
+    return p if p.is_absolute() else PROJECT_ROOT / p
 
 
 DATA_RAW: Path = _resolve("ML4B_DATA_RAW", "data/raw")
