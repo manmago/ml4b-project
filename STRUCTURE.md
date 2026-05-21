@@ -100,7 +100,8 @@ docs/
 │   ├── ADR-001-python-package-manager.md
 │   ├── ADR-002-ml-framework.md
 │   ├── ADR-003-multi-agent-documentation-strategy.md
-│   └── ADR-004-code-comment-and-documentation-standard.md
+│   ├── ADR-004-code-comment-and-documentation-standard.md
+│   └── ADR-005-exercise-class-selection.md
 ├── project/
 │   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
 └── setup/
