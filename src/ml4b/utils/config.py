@@ -7,6 +7,11 @@ it is installed or invoked.
 
 Typical usage:
     from ml4b.utils.config import DATA_RAW, DATA_PROCESSED, MODELS_DIR
+
+Notebooks and scripts should use find_project_root() to locate the root
+from the current working directory rather than relying on __file__:
+    from ml4b.utils.config import find_project_root
+    PROJECT_ROOT = find_project_root()
 """
 
 import os
@@ -18,6 +23,32 @@ from dotenv import load_dotenv
 _PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 
 load_dotenv(_PROJECT_ROOT / ".env")
+
+
+def find_project_root(marker: str = "pyproject.toml") -> Path:
+    """Find the project root by walking up from the current working directory.
+
+    Designed for use in Jupyter notebooks, scripts, and any context where
+    ``__file__`` is unavailable or points to a temporary location. Works
+    identically on WSL, macOS, and Windows.
+
+    Args:
+        marker: Filename that must exist in the project root directory.
+            Defaults to ``"pyproject.toml"``.
+
+    Returns:
+        Absolute Path to the project root directory.
+
+    Raises:
+        FileNotFoundError: If no parent directory contains the marker file.
+    """
+    current = Path.cwd()
+    for parent in [current, *current.parents]:
+        if (parent / marker).exists():
+            return parent
+    raise FileNotFoundError(
+        f"Could not find project root (no {marker} found starting from {current})"
+    )
 
 
 def _resolve(env_var: str, default: str) -> Path:
