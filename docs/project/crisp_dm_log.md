@@ -6,7 +6,8 @@ Last updated: 2026-05-28
 Phase 1 completed: 2026-05-15
 Phase 2 completed: 2026-05-22
 Phase 3 completed: 2026-05-28
-Phase 4 started:   2026-05-28
+Phase 4 completed: 2026-05-28
+Phase 5 started:   2026-05-28
 
 ---
 
@@ -17,8 +18,8 @@ Phase 4 started:   2026-05-28
 | 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, exercise classes defined (refined to 6 in Phase 2), two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
 | 2 | Data Understanding | done | Anshul Agrawal | `notebooks/02_data_understanding.ipynb` | 75 exercise classes found in RecoFit. 6 final classes selected data-driven based on subject coverage (>30 participants threshold). Class mapping confirmed. See ADR-005. |
 | 3 | Data Preparation | done | Anshul Agrawal | `notebooks/03_data_preparation.ipynb` | Pipeline modules created: `loader.py`, `windowing.py`, `features.py`, `splitting.py`. ADR-006 (window 2 s, 50% overlap) and ADR-007 (subject-based split) accepted. Notebook ready to run end-to-end. |
-| 4 | Modeling | in progress | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Training modules created: `train.py`, `evaluate.py`. Three classifiers: Random Forest, XGBoost, SVM. ADR-009 accepted. Notebook ready to run. |
-| 5 | Evaluation | todo | — | `notebooks/05_evaluation.ipynb` | Confusion matrix, per-class metrics, error analysis |
+| 4 | Modeling | done | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Random Forest selected as best model (macro F1 = 0.8136 on val). XGBoost = 0.8057, SVM = 0.7478. ADR-009, ADR-010 accepted. best_model.joblib saved. |
+| 5 | Evaluation | in progress | Anshul Agrawal | `notebooks/05_evaluation.ipynb` | Final test set evaluation, error analysis, Apple Watch generalization placeholder. `apple_watch_loader.py` created. |
 | 6 | Deployment | todo | — | `notebooks/06_deployment.ipynb` | Streamlit app, model serialisation, demo |
 
 ---
@@ -54,10 +55,18 @@ Phase 4 started:   2026-05-28
   - `notebooks/04_modeling.ipynb` — full pipeline from data loading to best model serialisation; ready to run
   - ADR accepted: `ADR-009-model-selection-rationale.md` — RF baseline, XGBoost, SVM selected; Deep Learning, k-NN, Logistic Regression rejected with rationale
   - `xgboost>=2.0` added to `pyproject.toml`; `uv sync` updated
+  - **Results (validation set):** Random Forest macro F1 = 0.8136 (best), XGBoost = 0.8057, SVM = 0.7478
+  - ADR accepted: `ADR-010-random-forest-as-final-model.md`; `best_model.joblib` saved
 
 ### Phase 5 — Evaluation
-- **Goal:** Evaluate best model on held-out test set, analyse confusion matrix, per-exercise F1
-- **Deliverable:** Evaluation report in notebook, updated `docs/architecture/architecture.md`
+- **Goal:** Final unbiased test set evaluation; Apple Watch generalization test (pending data collection)
+- **Deliverable:** `notebooks/05_evaluation.ipynb`, `src/ml4b/data/apple_watch_loader.py`, data collection guide
+- **Status (2026-05-28):**
+  - `src/ml4b/data/apple_watch_loader.py` — `load_sensor_logger_csv()`, `predict_from_sensor_logger()` — handles Sensor Logger CSV format variations, unit conversion (m/s² → g), dummy metadata for inference
+  - `notebooks/05_evaluation.ipynb` — test set evaluation, val vs test comparison, error analysis, Apple Watch placeholder (Cell 14)
+  - `docs/project/apple_watch_data_collection_guide.md` — recording protocol, export instructions, troubleshooting
+  - `data/raw/apple_watch/` — directory created for future Apple Watch CSV files
+  - Apple Watch generalization test: **PENDING** — data not yet collected
 
 ### Phase 6 — Deployment
 - **Goal:** Wrap model in Streamlit app, demo live predictions from uploaded CSV window
