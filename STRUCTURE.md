@@ -52,7 +52,10 @@ The Streamlit web application for live exercise prediction.
 
 ```
 app/
-└── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
+├── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
+└── pages/
+    ├── prediction.py       ← Phase 6: upload CSV, run inference, display results per window
+    └── model_performance.py ← Phase 6: metrics dashboard, confusion matrix, feature importance
 ```
 
 - **What goes here:** UI code only — file upload, result display, visualisations.
@@ -67,7 +70,13 @@ All data files. **This folder is in `.gitignore` — nothing inside it is ever c
 data/
 ├── raw/
 │   └── recofit/            ← RecoFit .mat files (~2.5 GB, NOT in git — see README.md inside)
-└── processed/              ← Cleaned, windowed, feature-engineered datasets
+└── processed/              ← Output of notebooks/03_data_preparation.ipynb
+    ├── .gitkeep            ← Keeps folder tracked even when empty
+    ├── README.md           ← Describes the expected CSV files and how to reproduce them
+    ├── train_features.csv  ← NOT in git — ~70% of subjects (features + labels)
+    ├── val_features.csv    ← NOT in git — ~10% of subjects (features + labels)
+    ├── test_features.csv   ← NOT in git — ~20% of subjects (features + labels)
+    └── feature_names.txt   ← NOT in git — ordered list of 47 feature column names
 ```
 
 **Naming conventions for data files:**
@@ -100,9 +109,17 @@ docs/
 │   ├── ADR-001-python-package-manager.md
 │   ├── ADR-002-ml-framework.md
 │   ├── ADR-003-multi-agent-documentation-strategy.md
-│   └── ADR-004-code-comment-and-documentation-standard.md
+│   ├── ADR-004-code-comment-and-documentation-standard.md
+│   ├── ADR-005-exercise-class-selection.md
+│   ├── ADR-006-sliding-window-parameters.md
+│   ├── ADR-007-subject-based-train-test-split.md
+│   ├── ADR-008-undersampling-strategy.md
+│   ├── ADR-009-model-selection-rationale.md
+│   └── ADR-010-random-forest-as-final-model.md
 ├── project/
-│   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
+│   ├── crisp_dm_log.md          ← CRISP-DM phase progress tracker
+│   ├── project_overview.md      ← Plain-language project overview — read this first
+│   └── apple_watch_data_collection_guide.md ← Recording protocol for Sensor Logger / Apple Watch data
 └── setup/
     ├── Setup_macOS.md           ← Environment setup guide for macOS
     ├── Setup_Windows.md         ← Environment setup guide for Windows
@@ -162,12 +179,19 @@ The installable Python package. All reusable, tested code lives here.
 src/ml4b/
 ├── __init__.py
 ├── data/
-│   └── __init__.py         ← Data loading, validation, train/test splitting
+│   ├── __init__.py
+│   ├── loader.py           ← Read RecoFit .mat → long-format DataFrame, filter to 6 target classes
+│   ├── windowing.py        ← Sliding-window segmentation (2 s windows, 50% overlap — ADR-006)
+│   ├── features.py         ← Statistical + FFT feature extraction per window (47 features)
+│   ├── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
+│   └── apple_watch_loader.py ← Sensor Logger CSV loader + predict_from_sensor_logger() for Streamlit app
 ├── models/
-│   └── __init__.py         ← Feature engineering, model training, serialisation
+│   ├── __init__.py         ← Models subpackage marker
+│   ├── train.py            ← train_random_forest(), train_xgboost(), train_svm() — see ADR-009
+│   └── evaluate.py         ← evaluate_model(), compare_models(), save_model()
 └── utils/
     ├── __init__.py
-    └── config.py           ← Path configuration via environment variables
+    └── config.py           ← Path configuration via environment variables (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR)
 ```
 
 **Naming conventions for Python files:**

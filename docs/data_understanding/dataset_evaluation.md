@@ -133,3 +133,31 @@ No peer-reviewed paper or validated methodology. Participant count and sensor pl
 1. Download RecoFit `.mat` files from https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors
 2. Place files in `data/raw/recofit/` (see `data/raw/recofit/README.md` for filenames)
 3. Run `notebooks/02_data_understanding.ipynb` to explore class list, signal properties, and data quality
+
+---
+
+## 5. Final Exercise Class Selection
+
+The RecoFit dataset contains **75 exercise classes** in total. The following criteria were used to select the final 6 target classes for model training:
+
+**Selection criteria:**
+- Wrist-worn exercises only (gym resistance exercises, not machine-based)
+- Minimum 30 participants (above the 50% subject threshold visible in the class distribution plot from `notebooks/02_data_understanding.ipynb`)
+- Clearly defined wrist movement pattern distinguishable from other classes
+
+**Final mapping table:**
+
+| # | Target Class | RecoFit Source | Participants |
+|---|-------------|----------------|--------------|
+| 1 | bicep_curl | Two-arm Dumbbell Curl (both arms, not alternating) | ~45 |
+| 2 | shoulder_press | Shoulder Press (dumbbell) | ~43 |
+| 3 | squat | Squat (arms in front of body) + Squat | ~43+25 combined |
+| 4 | tricep_extension | Overhead Triceps Extension | ~42 |
+| 5 | lateral_raise | Lateral Raise | ~30 |
+| 6 | rest | Non-Exercise + Device on Table | ~90 |
+
+**Classes considered but rejected:**
+- **Bench Press** (Chest Press rack, ~20 participants) — insufficient data, below 50% threshold
+- **Deadlift** (Dumbbell Deadlift Row, ~20 participants) — insufficient data, below 50% threshold
+
+**Rationale:** This data-driven selection approach is methodologically stronger than an arbitrary upfront selection. By anchoring class selection on actual subject coverage in the dataset, the model is guaranteed sufficient training samples for each class. See `docs/decisions/ADR-005-exercise-class-selection.md` for the full decision rationale.
