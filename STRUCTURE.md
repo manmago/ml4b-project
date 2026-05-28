@@ -110,7 +110,8 @@ docs/
 │   ├── ADR-005-exercise-class-selection.md
 │   ├── ADR-006-sliding-window-parameters.md
 │   ├── ADR-007-subject-based-train-test-split.md
-│   └── ADR-008-undersampling-strategy.md
+│   ├── ADR-008-undersampling-strategy.md
+│   └── ADR-009-model-selection-rationale.md
 ├── project/
 │   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
 └── setup/
@@ -178,7 +179,9 @@ src/ml4b/
 │   ├── features.py         ← Statistical + FFT feature extraction per window (47 features)
 │   └── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
 ├── models/
-│   └── __init__.py         ← Model training, evaluation, serialisation (filled in Phase 4)
+│   ├── __init__.py         ← Models subpackage marker
+│   ├── train.py            ← train_random_forest(), train_xgboost(), train_svm() — see ADR-009
+│   └── evaluate.py         ← evaluate_model(), compare_models(), save_model()
 └── utils/
     ├── __init__.py
     └── config.py           ← Path configuration via environment variables (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR)
