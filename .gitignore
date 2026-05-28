@@ -35,7 +35,9 @@ ENV/
 # Use DVC, Git LFS, or a shared drive instead
 # =============================================================================
 data/raw/
-data/processed/
+data/processed/*
+!data/processed/.gitkeep
+!data/processed/README.md
 data/external/
 *.csv
 *.parquet
