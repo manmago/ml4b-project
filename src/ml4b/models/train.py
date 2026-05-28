@@ -14,85 +14,10 @@ See ADR-009 for the model selection rationale.
 from typing import Any
 
 import numpy as np
-from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-
-
-class _XGBStringLabelClassifier(BaseEstimator, ClassifierMixin):
-    """Sklearn-compatible wrapper that adds string-label support to XGBClassifier.
-
-    XGBoost raises ``ValueError: Invalid classes`` when ``sample_weight`` is
-    passed together with string class labels — it requires numeric targets in
-    that code path. This wrapper applies ``LabelEncoder`` internally so the
-    rest of the pipeline (evaluate_model, Streamlit app) can use string labels
-    at both fit and predict time without any changes.
-
-    Attributes:
-        classes_: Array of original string class names in encoder order.
-        feature_importances_: Delegated to the wrapped XGBClassifier.
-    """
-
-    def __init__(self, xgb_model: Any) -> None:
-        self._model = xgb_model
-        self._encoder = LabelEncoder()
-
-    def fit(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray | None = None,
-    ) -> "_XGBStringLabelClassifier":
-        """Encode string labels to integers, then fit the XGBClassifier.
-
-        Args:
-            X: Feature matrix of shape (n_samples, n_features)
-            y: String class labels of shape (n_samples,)
-            sample_weight: Per-sample weights for class balancing. Default None.
-
-        Returns:
-            self
-        """
-        # LabelEncoder is required here: XGBoost's C++ backend rejects string
-        # targets when sample_weight is provided (it falls back to a code path
-        # that only accepts contiguous integer labels starting at 0).
-        y_encoded = self._encoder.fit_transform(y)
-        self.classes_ = self._encoder.classes_  # expose for sklearn convention
-        self._model.fit(X, y_encoded, sample_weight=sample_weight)
-        return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict class labels, decoded back to original strings.
-
-        Args:
-            X: Feature matrix of shape (n_samples, n_features)
-
-        Returns:
-            Array of string class labels of shape (n_samples,)
-        """
-        y_encoded = self._model.predict(X).astype(int)
-        return self._encoder.inverse_transform(y_encoded)
-
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Return class probabilities in the order of self.classes_.
-
-        Args:
-            X: Feature matrix of shape (n_samples, n_features)
-
-        Returns:
-            Array of shape (n_samples, n_classes) — columns match self.classes_
-        """
-        # XGBoost outputs columns in the same order as LabelEncoder.classes_,
-        # which is alphabetical — the same order we expose in self.classes_.
-        # No reordering needed.
-        return self._model.predict_proba(X)
-
-    @property
-    def feature_importances_(self) -> np.ndarray:
-        """Feature importance scores from the underlying XGBClassifier."""
-        return self._model.feature_importances_
 
 
 def train_random_forest(
@@ -149,47 +74,64 @@ def train_xgboost(
     It natively handles multi-class via softmax and does not require feature
     scaling. See ADR-009 for model selection rationale.
 
+    String class labels are encoded to integers internally via LabelEncoder
+    (XGBoost requires numeric targets when sample_weight is provided).
+    The returned object decodes predictions back to string labels transparently.
+
     Args:
         X_train: Feature matrix
-        y_train: Class labels (string or numeric)
+        y_train: Class labels (string labels, e.g. 'bicep_curl', 'rest')
         random_state: Seed. Default 42.
 
     Returns:
-        Trained XGBClassifier.
+        XGBWithEncoder instance — sklearn-compatible, accepts/returns string labels.
     """
+    from sklearn.preprocessing import LabelEncoder
     from sklearn.utils.class_weight import compute_sample_weight
     from xgboost import XGBClassifier  # Deferred import — optional dependency
 
-    # n_estimators=300, learning_rate=0.1: standard starting point for XGBoost
-    # on tabular data. More trees with a lower rate generalise better than
-    # fewer trees with a higher rate.
-    # max_depth=6: shallower than RF since boosting corrects bias incrementally —
-    # deep individual trees would overfit in the boosting context.
-    # subsample=0.8, colsample_bytree=0.8: stochastic subsampling of rows and
-    # columns per tree — reduces overfitting without sacrificing much accuracy.
-    xgb = XGBClassifier(
-        n_estimators=300,
+    # Encode string labels to integers — XGBoost requires numeric classes
+    # when sample_weight is passed; string labels cause ValueError: Invalid classes.
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y_train)
+
+    # Compute sample weights on encoded labels (same result as on string labels)
+    sample_weights = compute_sample_weight(class_weight="balanced", y=y_encoded)
+
+    model = XGBClassifier(
+        n_estimators=200,
         max_depth=6,
         learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        eval_metric="mlogloss",  # Multi-class log-loss; avoids a verbose warning
-        n_jobs=-1,
+        eval_metric="mlogloss",
         random_state=random_state,
+        n_jobs=-1,
     )
+    model.fit(X_train, y_encoded, sample_weight=sample_weights)
 
-    # XGBClassifier does not accept class_weight= like sklearn estimators.
-    # Instead we compute per-sample weights so each sample is reweighted by
-    # the inverse of its class frequency — equivalent to class_weight='balanced'.
-    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
+    # Wrap in a simple object that decodes predictions back to string labels
+    # so the rest of the pipeline (evaluate_model, Streamlit app) is unaffected.
+    class XGBWithEncoder:
+        """Thin wrapper exposing a sklearn-compatible interface with string labels."""
 
-    # _XGBStringLabelClassifier wraps xgb and applies LabelEncoder internally
-    # before fit(), then decodes predictions back to strings. This is required
-    # because XGBoost's C++ backend raises ValueError when sample_weight is
-    # combined with non-numeric (string) class labels.
-    model = _XGBStringLabelClassifier(xgb)
-    model.fit(X_train, y_train, sample_weight=sample_weights)
-    return model
+        def __init__(self, model: Any, encoder: LabelEncoder) -> None:
+            self.model = model
+            self.encoder = encoder
+            self.classes_ = encoder.classes_  # string class names in label order
+
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            """Return string class labels."""
+            return self.encoder.inverse_transform(self.model.predict(X).astype(int))
+
+        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+            """Return class probabilities; columns match self.classes_ order."""
+            return self.model.predict_proba(X)
+
+        @property
+        def feature_importances_(self) -> np.ndarray:
+            """Delegate feature importances to the underlying XGBClassifier."""
+            return self.model.feature_importances_
+
+    return XGBWithEncoder(model, le)
 
 
 def train_svm(
