@@ -157,7 +157,7 @@ Every decision has a full ADR in `docs/decisions/`. Here is a plain-language sum
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Streamlit App | ⏳ Phase 6 | Core prediction UI needs implementation |
+| Streamlit App | ✅ Phase 6 complete | Home, Predict Exercise, Model Performance pages implemented |
 | Apple Watch generalization test | ⏳ Pending | Record gym session with Sensor Logger |
 | WristMotion.csv column mapping | ⏳ Pending | Need to verify Sensor Logger column names match pipeline |
 
