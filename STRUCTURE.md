@@ -109,7 +109,8 @@ docs/
 │   ├── ADR-004-code-comment-and-documentation-standard.md
 │   ├── ADR-005-exercise-class-selection.md
 │   ├── ADR-006-sliding-window-parameters.md
-│   └── ADR-007-subject-based-train-test-split.md
+│   ├── ADR-007-subject-based-train-test-split.md
+│   └── ADR-008-undersampling-strategy.md
 ├── project/
 │   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
 └── setup/
@@ -175,7 +176,7 @@ src/ml4b/
 │   ├── loader.py           ← Read RecoFit .mat → long-format DataFrame, filter to 6 target classes
 │   ├── windowing.py        ← Sliding-window segmentation (2 s windows, 50% overlap — ADR-006)
 │   ├── features.py         ← Statistical + FFT feature extraction per window (47 features)
-│   └── splitting.py        ← Subject-based train/val/test split — no subject overlap (ADR-007)
+│   └── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
 ├── models/
 │   └── __init__.py         ← Model training, evaluation, serialisation (filled in Phase 4)
 └── utils/

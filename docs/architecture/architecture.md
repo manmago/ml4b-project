@@ -138,7 +138,7 @@ ml4b-project/
 | `src/ml4b/data/loader.py` | Read RecoFit `.mat` via scipy.io.loadmat, flatten to a long-format DataFrame, filter to the 6 target classes via `EXERCISE_MAPPING` |
 | `src/ml4b/data/windowing.py` | Segment continuous recordings into 100-sample (2 s) windows with 50% overlap, never crossing subject/exercise/recording boundaries (ADR-006) |
 | `src/ml4b/data/features.py` | Extract 47 features per window: 7 statistics × 6 axes, 3 magnitude features, 2 FFT features |
-| `src/ml4b/data/splitting.py` | Partition the feature matrix by `subject_id` into disjoint train / val / test sets (ADR-007) |
+| `src/ml4b/data/splitting.py` | Partition by `subject_id` into disjoint train/val/test (ADR-007); undersample `rest` class in train to `2×` largest exercise class to fix 89% imbalance (ADR-008) |
 | `src/ml4b/models/` | Model training, evaluation, serialisation (filled in Phase 4) |
 | `src/ml4b/utils/config.py` | Centralised path resolution via env vars (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR) |
 | `app/streamlit_app.py` | Streamlit UI: file upload → feature extraction → prediction |
@@ -173,7 +173,11 @@ Feature matrix: 47 numeric features + (subject_id, exercise_name, window_id)
     │
     ▼ src/ml4b/data/splitting.py  — subject_based_split(test=0.2, val=0.1, seed=42)
     │   No subject appears in more than one split (ADR-007)
-Three CSVs in data/processed/: train_features.csv, val_features.csv, test_features.csv
+    │
+    ▼ src/ml4b/data/splitting.py  — undersample_majority_class(multiplier=2.0)  [TRAIN ONLY]
+    │   rest class capped at 2× largest exercise class to fix 89% imbalance (ADR-008)
+    │   Val and test keep original distribution for honest evaluation
+Three CSVs in data/processed/: train_features.csv (balanced), val_features.csv, test_features.csv
                                 + feature_names.txt
     │
     ▼ Phase 4 — src/ml4b/models/  (training, hyperparameter tuning)

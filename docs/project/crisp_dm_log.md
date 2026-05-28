@@ -42,6 +42,7 @@ Phase 3 started:   2026-05-28
   - `src/ml4b/data/splitting.py` — subject-disjoint train/val/test split (ADR-007)
   - `notebooks/03_data_preparation.ipynb` — orchestrates the full pipeline and asserts no subject overlap / no NaN-inf
   - ADRs accepted: `ADR-006-sliding-window-parameters.md`, `ADR-007-subject-based-train-test-split.md`
+  - **Class imbalance detected:** `rest` = 88.8% of windows. Fixed with `undersample_majority_class(multiplier=2.0)` on train set only. `class_weight='balanced'` planned for all Phase 4 models. Primary metric: macro-averaged F1. See ADR-008.
 
 ### Phase 4 — Modeling
 - **Goal:** Fit baseline (k-NN or Decision Tree), then tune (Random Forest, SVM, XGBoost)
