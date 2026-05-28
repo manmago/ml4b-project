@@ -1,17 +1,20 @@
-"""Subject-based train/validation/test splitting for ML4B.
+"""Subject-based train/validation/test splitting and class-imbalance correction for ML4B.
 
-This module is the fourth and final stage of the data preparation pipeline.
-It takes the feature DataFrame produced by
-:func:`ml4b.data.features.extract_features` and partitions it into three
-disjoint sets — train, validation, test — at the **subject** level.
+This module covers two responsibilities:
 
-Why subject-based? Wrist-motion data from the same person contains a
-person-specific signature (handedness, joint geometry, motion style). If
-windows from subject S appear in both train and test, the model can learn
-to recognize S rather than the underlying exercise, which inflates test
-metrics and gives no honest signal about how the model will perform on a
-new individual (the project's actual deployment scenario — Apple Watch on
-an unseen user). See ADR-007.
+1. **Subject-based splitting** (:func:`subject_based_split`) — partitions the
+   feature DataFrame into disjoint train / val / test sets at the *subject*
+   level to prevent data leakage.  See ADR-007.
+
+2. **Majority-class undersampling** (:func:`undersample_majority_class`) —
+   reduces the dominance of the ``rest`` class, which accounts for ~89% of
+   windows after windowing.  Without correction a model predicting "rest"
+   for every window would achieve ~89% accuracy — useless in practice.
+   See ADR-008.
+
+Only the *training* set is undersampled.  Val and test sets intentionally
+keep the original distribution so evaluation metrics reflect real-world
+conditions.
 """
 
 import numpy as np
@@ -88,3 +91,78 @@ def subject_based_split(
     test_df = df[df["subject_id"].isin(test_subjects)].reset_index(drop=True)
 
     return train_df, val_df, test_df
+
+
+def undersample_majority_class(
+    df: pd.DataFrame,
+    label_column: str = "exercise_name",
+    majority_class: str = "rest",
+    multiplier: float = 2.0,
+    random_state: int = 42,
+) -> pd.DataFrame:
+    """Undersample the majority class to reduce class imbalance.
+
+    The rest/non-exercise class dominates the dataset (88.8% of windows)
+    because participants spend more time resting than exercising.
+    Without correction, a model could achieve ~89% accuracy by always
+    predicting 'rest' — making it useless in practice.
+
+    Strategy: cap the majority class at multiplier × size of the
+    largest minority class. This preserves enough rest examples for
+    the model to learn the rest pattern while reducing dominance.
+    See ADR-008 for full rationale.
+
+    Args:
+        df: Feature DataFrame with label_column.
+        label_column: Name of the class label column. Default 'exercise_name'.
+        majority_class: Class to undersample. Default 'rest'.
+        multiplier: Cap majority class at multiplier × largest minority class size.
+                    Default 2.0 means rest gets at most 2× the largest exercise class.
+        random_state: Seed for reproducibility. Default 42.
+
+    Returns:
+        Balanced DataFrame with undersampled majority class.
+    """
+    if label_column not in df.columns:
+        raise ValueError(f"Column '{label_column}' not found in DataFrame.")
+    if majority_class not in df[label_column].values:
+        raise ValueError(
+            f"majority_class '{majority_class}' not found in '{label_column}'."
+        )
+
+    counts = df[label_column].value_counts()
+    print("Class distribution BEFORE undersampling:")
+    print(counts.to_string())
+
+    # Find the largest minority class (any class that is NOT the majority).
+    # multiplier=2.0 means rest will have at most 2× that count — concretely,
+    # if the largest exercise class has ~5,700 windows, rest is capped at
+    # ~11,400, down from ~138,000.  This is the cap, not an exact target.
+    minority_counts = counts.drop(labels=majority_class, errors="ignore")
+    largest_minority_count = int(minority_counts.max())
+    cap = int(round(largest_minority_count * multiplier))
+
+    majority_rows = df[df[label_column] == majority_class]
+    minority_rows = df[df[label_column] != majority_class]
+
+    if len(majority_rows) <= cap:
+        # Already below the cap — no sampling needed; return as-is.
+        print(
+            f"\nNo undersampling needed: majority class has {len(majority_rows)} rows "
+            f"(<= cap of {cap})."
+        )
+        return df.reset_index(drop=True)
+
+    # Sample without replacement so every kept row is a real observation.
+    # random_state=42 ensures the same rows are selected across reruns,
+    # which is critical for reproducibility of all downstream metrics.
+    majority_sampled = majority_rows.sample(n=cap, random_state=random_state)
+
+    balanced_df = pd.concat([minority_rows, majority_sampled], ignore_index=True)
+
+    print(
+        f"\nClass distribution AFTER undersampling (cap = {cap} = {multiplier}× largest minority):"
+    )
+    print(balanced_df[label_column].value_counts().to_string())
+
+    return balanced_df
