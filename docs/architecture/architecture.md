@@ -110,7 +110,8 @@ ml4b-project/
 │   │   ├── loader.py           #     RecoFit .mat → long-format DataFrame (filters to 6 target classes)
 │   │   ├── windowing.py        #     Sliding-window segmentation (2 s, 50% overlap — ADR-006)
 │   │   ├── features.py         #     Per-window statistical + FFT features (47 dims)
-│   │   └── splitting.py        #     Subject-based train/val/test split (ADR-007)
+│   │   ├── splitting.py        #     Subject-based train/val/test split (ADR-007)
+│   │   └── apple_watch_loader.py #   Sensor Logger CSV → sliding window → features → predict (Phase 5 / app)
 │   ├── models/                 #   model training & inference (Phase 4)
 │   │   ├── train.py            #     train_random_forest(), train_xgboost(), train_svm() (ADR-009)
 │   │   └── evaluate.py         #     evaluate_model(), compare_models(), save_model()
@@ -143,6 +144,7 @@ ml4b-project/
 | `src/ml4b/data/splitting.py` | Partition by `subject_id` into disjoint train/val/test (ADR-007); undersample `rest` class in train to `2×` largest exercise class to fix 89% imbalance (ADR-008) |
 | `src/ml4b/models/train.py` | Train Random Forest, XGBoost, SVM classifiers; all use `class_weight='balanced'`; SVM wrapped in `Pipeline` with `StandardScaler` (ADR-009) |
 | `src/ml4b/models/evaluate.py` | Compute accuracy, macro F1, per-class F1, confusion matrix; save plots to `reports/figures/`; serialise best model with `joblib.dump` |
+| `src/ml4b/data/apple_watch_loader.py` | Load Sensor Logger CSV → column auto-detection + unit conversion → sliding window → `extract_features()` → `model.predict()`; used in Streamlit app |
 | `src/ml4b/utils/config.py` | Centralised path resolution via env vars (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR) |
 | `app/streamlit_app.py` | Streamlit UI: file upload → feature extraction → prediction |
 | `notebooks/` | CRISP-DM phase documentation and exploratory analysis |
@@ -191,17 +193,22 @@ Trained classifiers evaluated via src/ml4b/models/evaluate.py — evaluate_model
     ▼ models/saved/best_model.joblib  (joblib.dump — loaded by Streamlit app)
 ```
 
-### Prediction Flow (Streamlit)
+### Prediction Flow (Streamlit / Apple Watch generalization)
 ```
-User uploads CSV window via browser
+User uploads Sensor Logger CSV via browser (or data/raw/apple_watch/ for Phase 5 test)
     │
-    ▼ app/main.py — feature extraction (same as training)
-Feature vector (1 × n_features)
+    ▼ src/ml4b/data/apple_watch_loader.py — load_sensor_logger_csv()
+    │   Column auto-detection, unit conversion (m/s² → g)
     │
-    ▼ model.predict()
-Exercise label + confidence score
+    ▼ predict_from_sensor_logger()
+    │   Sliding window (100 samples, 50% overlap — same params as training)
+    │   extract_features() — same function as training, guaranteed identical
+Feature matrix (n_windows × 47)
     │
-    ▼ Streamlit UI — result displayed to user
+    ▼ models/saved/best_model.joblib — model.predict() + model.predict_proba()
+Predicted exercise labels + confidence scores (one row per 2-s window)
+    │
+    ▼ app/streamlit_app.py — result displayed to user
 ```
 
 ---

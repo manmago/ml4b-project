@@ -111,9 +111,11 @@ docs/
 │   ├── ADR-006-sliding-window-parameters.md
 │   ├── ADR-007-subject-based-train-test-split.md
 │   ├── ADR-008-undersampling-strategy.md
-│   └── ADR-009-model-selection-rationale.md
+│   ├── ADR-009-model-selection-rationale.md
+│   └── ADR-010-random-forest-as-final-model.md
 ├── project/
-│   └── crisp_dm_log.md          ← CRISP-DM phase progress tracker
+│   ├── crisp_dm_log.md          ← CRISP-DM phase progress tracker
+│   └── apple_watch_data_collection_guide.md ← Recording protocol for Sensor Logger / Apple Watch data
 └── setup/
     ├── Setup_macOS.md           ← Environment setup guide for macOS
     ├── Setup_Windows.md         ← Environment setup guide for Windows
@@ -177,7 +179,8 @@ src/ml4b/
 │   ├── loader.py           ← Read RecoFit .mat → long-format DataFrame, filter to 6 target classes
 │   ├── windowing.py        ← Sliding-window segmentation (2 s windows, 50% overlap — ADR-006)
 │   ├── features.py         ← Statistical + FFT feature extraction per window (47 features)
-│   └── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
+│   ├── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
+│   └── apple_watch_loader.py ← Sensor Logger CSV loader + predict_from_sensor_logger() for Streamlit app
 ├── models/
 │   ├── __init__.py         ← Models subpackage marker
 │   ├── train.py            ← train_random_forest(), train_xgboost(), train_svm() — see ADR-009
