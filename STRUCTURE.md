@@ -54,8 +54,10 @@ The Streamlit web application for live exercise prediction.
 app/
 ├── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
 └── pages/
-    ├── prediction.py       ← Phase 6: upload CSV, run inference, display results per window
-    └── model_performance.py ← Phase 6: metrics dashboard, confusion matrix, feature importance
+    ├── __init__.py          ← Makes pages/ a Python package
+    ├── home.py              ← Home page: project overview, instructions, key metrics
+    ├── prediction.py        ← Predict Exercise: upload CSV, run inference, display results
+    └── model_performance.py ← Model Performance: metrics dashboard, confusion matrix, F1 chart
 ```
 
 - **What goes here:** UI code only — file upload, result display, visualisations.

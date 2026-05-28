@@ -78,6 +78,7 @@ Phase 6 started:   2026-05-28
 - **Goal:** Wrap model in Streamlit app, demo live predictions from uploaded CSV window
 - **Deliverable:** Working `app/streamlit_app.py`, final demo recording
 - **Status (2026-05-28 — IN PROGRESS):**
-  - `app/streamlit_app.py` — multi-page structure created (Home, Predict Exercise, Model Performance)
-  - `app/pages/prediction.py` — placeholder with full implementation spec for Phase 6
-  - `app/pages/model_performance.py` — placeholder with full implementation spec for Phase 6
+  - `app/streamlit_app.py` — full implementation: model + feature names loaded at startup via `st.cache_resource`, page routing to three pages
+  - `app/pages/home.py` — Home page: project overview, key metrics, step-by-step instructions, per-class F1 cards
+  - `app/pages/prediction.py` — Predict Exercise: CSV upload → `predict_from_sensor_logger()` → workout summary metrics + timeline chart + results table
+  - `app/pages/model_performance.py` — Model Performance: overall metrics, model comparison table, per-class F1 bar chart, confusion matrix heatmap, key findings
