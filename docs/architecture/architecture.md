@@ -112,6 +112,8 @@ ml4b-project/
 │   │   ├── features.py         #     Per-window statistical + FFT features (47 dims)
 │   │   └── splitting.py        #     Subject-based train/val/test split (ADR-007)
 │   ├── models/                 #   model training & inference (Phase 4)
+│   │   ├── train.py            #     train_random_forest(), train_xgboost(), train_svm() (ADR-009)
+│   │   └── evaluate.py         #     evaluate_model(), compare_models(), save_model()
 │   └── utils/
 │       └── config.py           #   env-based path configuration
 │                               #     constants: PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR
@@ -139,7 +141,8 @@ ml4b-project/
 | `src/ml4b/data/windowing.py` | Segment continuous recordings into 100-sample (2 s) windows with 50% overlap, never crossing subject/exercise/recording boundaries (ADR-006) |
 | `src/ml4b/data/features.py` | Extract 47 features per window: 7 statistics × 6 axes, 3 magnitude features, 2 FFT features |
 | `src/ml4b/data/splitting.py` | Partition by `subject_id` into disjoint train/val/test (ADR-007); undersample `rest` class in train to `2×` largest exercise class to fix 89% imbalance (ADR-008) |
-| `src/ml4b/models/` | Model training, evaluation, serialisation (filled in Phase 4) |
+| `src/ml4b/models/train.py` | Train Random Forest, XGBoost, SVM classifiers; all use `class_weight='balanced'`; SVM wrapped in `Pipeline` with `StandardScaler` (ADR-009) |
+| `src/ml4b/models/evaluate.py` | Compute accuracy, macro F1, per-class F1, confusion matrix; save plots to `reports/figures/`; serialise best model with `joblib.dump` |
 | `src/ml4b/utils/config.py` | Centralised path resolution via env vars (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR) |
 | `app/streamlit_app.py` | Streamlit UI: file upload → feature extraction → prediction |
 | `notebooks/` | CRISP-DM phase documentation and exploratory analysis |
@@ -180,10 +183,12 @@ Feature matrix: 47 numeric features + (subject_id, exercise_name, window_id)
 Three CSVs in data/processed/: train_features.csv (balanced), val_features.csv, test_features.csv
                                 + feature_names.txt
     │
-    ▼ Phase 4 — src/ml4b/models/  (training, hyperparameter tuning)
-Trained scikit-learn Pipeline (StandardScaler + classifier)
+    ▼ Phase 4 — src/ml4b/models/train.py  — train_random_forest() / train_xgboost() / train_svm()
+    │   Three classifiers compared by macro F1 on val set (ADR-009)
+    │   SVM wrapped in sklearn Pipeline with StandardScaler
+Trained classifiers evaluated via src/ml4b/models/evaluate.py — evaluate_model() / compare_models()
     │
-    ▼ models/saved/model_<timestamp>.joblib
+    ▼ models/saved/best_model.joblib  (joblib.dump — loaded by Streamlit app)
 ```
 
 ### Prediction Flow (Streamlit)

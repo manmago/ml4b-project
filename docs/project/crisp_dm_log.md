@@ -5,7 +5,8 @@ Team: Anshul Agrawal
 Last updated: 2026-05-28
 Phase 1 completed: 2026-05-15
 Phase 2 completed: 2026-05-22
-Phase 3 started:   2026-05-28
+Phase 3 completed: 2026-05-28
+Phase 4 started:   2026-05-28
 
 ---
 
@@ -15,8 +16,8 @@ Phase 3 started:   2026-05-28
 |---|-------|--------|-------------|----------|-------|
 | 1 | Business Understanding | done | Anshul Agrawal | `notebooks/01_business_understanding.ipynb` | Research question defined, exercise classes defined (refined to 6 in Phase 2), two-dataset validation strategy decided, personal test data via Sensor Logger app on Apple Watch |
 | 2 | Data Understanding | done | Anshul Agrawal | `notebooks/02_data_understanding.ipynb` | 75 exercise classes found in RecoFit. 6 final classes selected data-driven based on subject coverage (>30 participants threshold). Class mapping confirmed. See ADR-005. |
-| 3 | Data Preparation | in progress | Anshul Agrawal | `notebooks/03_data_preparation.ipynb` | Pipeline modules created: `loader.py`, `windowing.py`, `features.py`, `splitting.py`. ADR-006 (window 2 s, 50% overlap) and ADR-007 (subject-based split) accepted. Notebook ready to run end-to-end. |
-| 4 | Modeling | todo | — | `notebooks/04_modeling.ipynb` | Baseline + tuned classifiers, cross-validation |
+| 3 | Data Preparation | done | Anshul Agrawal | `notebooks/03_data_preparation.ipynb` | Pipeline modules created: `loader.py`, `windowing.py`, `features.py`, `splitting.py`. ADR-006 (window 2 s, 50% overlap) and ADR-007 (subject-based split) accepted. Notebook ready to run end-to-end. |
+| 4 | Modeling | in progress | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Training modules created: `train.py`, `evaluate.py`. Three classifiers: Random Forest, XGBoost, SVM. ADR-009 accepted. Notebook ready to run. |
 | 5 | Evaluation | todo | — | `notebooks/05_evaluation.ipynb` | Confusion matrix, per-class metrics, error analysis |
 | 6 | Deployment | todo | — | `notebooks/06_deployment.ipynb` | Streamlit app, model serialisation, demo |
 
@@ -45,8 +46,14 @@ Phase 3 started:   2026-05-28
   - **Class imbalance detected:** `rest` = 88.8% of windows. Fixed with `undersample_majority_class(multiplier=2.0)` on train set only. `class_weight='balanced'` planned for all Phase 4 models. Primary metric: macro-averaged F1. See ADR-008.
 
 ### Phase 4 — Modeling
-- **Goal:** Fit baseline (k-NN or Decision Tree), then tune (Random Forest, SVM, XGBoost)
+- **Goal:** Train and compare three classical ML classifiers; select best by macro F1 on validation set
 - **Deliverable:** Trained pipelines saved to `models/saved/`, comparison table in notebook
+- **Status (2026-05-28):**
+  - `src/ml4b/models/train.py` — `train_random_forest()`, `train_xgboost()`, `train_svm()` (SVM wrapped in sklearn Pipeline with StandardScaler)
+  - `src/ml4b/models/evaluate.py` — `evaluate_model()`, `compare_models()`, `save_model()`; primary metric is macro F1; confusion matrices saved to `reports/figures/`
+  - `notebooks/04_modeling.ipynb` — full pipeline from data loading to best model serialisation; ready to run
+  - ADR accepted: `ADR-009-model-selection-rationale.md` — RF baseline, XGBoost, SVM selected; Deep Learning, k-NN, Logistic Regression rejected with rationale
+  - `xgboost>=2.0` added to `pyproject.toml`; `uv sync` updated
 
 ### Phase 5 — Evaluation
 - **Goal:** Evaluate best model on held-out test set, analyse confusion matrix, per-exercise F1
