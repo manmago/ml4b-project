@@ -52,7 +52,10 @@ The Streamlit web application for live exercise prediction.
 
 ```
 app/
-└── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
+├── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
+└── pages/
+    ├── prediction.py       ← Phase 6: upload CSV, run inference, display results per window
+    └── model_performance.py ← Phase 6: metrics dashboard, confusion matrix, feature importance
 ```
 
 - **What goes here:** UI code only — file upload, result display, visualisations.
@@ -115,6 +118,7 @@ docs/
 │   └── ADR-010-random-forest-as-final-model.md
 ├── project/
 │   ├── crisp_dm_log.md          ← CRISP-DM phase progress tracker
+│   ├── project_overview.md      ← Plain-language project overview — read this first
 │   └── apple_watch_data_collection_guide.md ← Recording protocol for Sensor Logger / Apple Watch data
 └── setup/
     ├── Setup_macOS.md           ← Environment setup guide for macOS
