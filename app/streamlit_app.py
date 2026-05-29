@@ -13,10 +13,21 @@ Requires: models/saved/best_model.joblib and data/processed/feature_names.txt
 Both files are committed to git — no dataset download needed.
 """
 
-import joblib
-import streamlit as st
+import sys
+from pathlib import Path
 
-from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR
+# When launched via `streamlit run app/streamlit_app.py`, Streamlit puts the
+# app/ directory on sys.path — NOT the project root — so `import app` fails.
+# Prepend the project root so the `app.pages.*` imports resolve no matter how
+# the script is launched (streamlit run, AppTest, python -m, …).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import joblib  # noqa: E402 — imported after the sys.path bootstrap above
+import streamlit as st  # noqa: E402
+
+from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR  # noqa: E402
 
 st.set_page_config(
     page_title="ML4B — Gym Exercise Recognition",
