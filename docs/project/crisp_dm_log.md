@@ -2,7 +2,7 @@
 
 Project: ML4B SoSe 2026 — Gym Exercise Recognition  
 Team: Anshul Agrawal  
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 Phase 1 completed: 2026-05-15
 Phase 2 completed: 2026-05-22
 Phase 3 completed: 2026-05-28
@@ -10,6 +10,7 @@ Phase 4 completed: 2026-05-28
 Phase 5 started:   2026-05-28
 Phase 5 completed: 2026-05-28
 Phase 6 started:   2026-05-28
+Phase 6 completed: 2026-05-29
 
 ---
 
@@ -22,7 +23,7 @@ Phase 6 started:   2026-05-28
 | 3 | Data Preparation | done | Anshul Agrawal | `notebooks/03_data_preparation.ipynb` | Pipeline modules created: `loader.py`, `windowing.py`, `features.py`, `splitting.py`. ADR-006 (window 2 s, 50% overlap) and ADR-007 (subject-based split) accepted. Notebook ready to run end-to-end. |
 | 4 | Modeling | done | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Random Forest selected as best model (macro F1 = 0.8136 on val). XGBoost = 0.8057, SVM = 0.7478. ADR-009, ADR-010 accepted. best_model.joblib saved. |
 | 5 | Evaluation | done | Anshul Agrawal | `notebooks/05_evaluation.ipynb` | Test Macro F1 = 0.8006 ✅ target met. Generalization gap 1.3%. No iterative improvement needed. See notebooks/05_evaluation.ipynb for full results. |
-| 6 | Deployment | in progress | Anshul Agrawal | `notebooks/06_deployment.ipynb` | Streamlit app, model serialisation, demo |
+| 6 | Deployment | done | Anshul Agrawal | `notebooks/06_deployment.ipynb` | Full Streamlit app (3 pages) live; model + feature names committed to git; `scripts/train_model.py` added; Sensor Logger CSV/ZIP upload pipeline working. App runs with 3 commands, no dataset needed. |
 
 ---
 
@@ -77,7 +78,27 @@ Phase 6 started:   2026-05-28
 ### Phase 6 — Deployment
 - **Goal:** Wrap model in Streamlit app, demo live predictions from uploaded CSV window
 - **Deliverable:** Working `app/streamlit_app.py`, final demo recording
-- **Status (2026-05-28 — IN PROGRESS):**
-  - `app/streamlit_app.py` — multi-page structure created (Home, Predict Exercise, Model Performance)
-  - `app/pages/prediction.py` — placeholder with full implementation spec for Phase 6
-  - `app/pages/model_performance.py` — placeholder with full implementation spec for Phase 6
+- **Status (2026-05-29 — COMPLETE):**
+  - `app/streamlit_app.py` — entry point: cached model loading, sidebar navigation, routes to 3 pages
+  - `app/pages/home.py` — overview, headline metrics, Sensor Logger collection instructions
+  - `app/pages/prediction.py` — `WristMotion.csv` **and** ZIP upload, full pipeline, timeline chart, distribution pie, results table, CSV download, graceful error handling
+  - `app/pages/model_performance.py` — Phase 5 metrics, model comparison, per-class F1 bar chart, row-normalized confusion matrix, key findings
+  - `app/__init__.py`, `app/pages/__init__.py`, `.streamlit/config.toml` (single clean sidebar nav)
+  - `src/ml4b/data/apple_watch_loader.py` — rewritten: auto-detects 4 Sensor Logger column formats, ZIP support, `predict_from_sensor_logger()` shared with training
+  - `scripts/train_model.py` — reproducible one-shot training (load → window → features → split → train → save)
+  - `models/saved/best_model.joblib`, `models/saved/random_forest.joblib`, `data/processed/feature_names.txt` — committed to git so the app runs after a fresh clone with **no dataset download**
+  - All 3 pages verified via Streamlit `AppTest` (zero exceptions); `uv run ruff check .` passes
+  - **Final results (unchanged from Phase 5):** Test Accuracy = 0.9630, Test Macro F1 = 0.8006 ✅, generalization gap 1.3%
+
+---
+
+## Final Project Summary (2026-05-29)
+
+All six CRISP-DM phases are complete. The deliverable is a working Streamlit app
+that runs with three commands (`git clone`, `uv sync`, `uv run streamlit run
+app/streamlit_app.py`) and needs no dataset download. The best model (Random
+Forest, Test Macro F1 = 0.8006) is committed alongside the feature list and a
+reproducible training script. Sensor Logger (Apple Watch) exports are accepted
+as either `WristMotion.csv` or a full ZIP. The project is handover-ready: every
+decision is documented in `docs/decisions/` (ADR-001–010), and OS-specific setup
+guides cover WSL, macOS, and Windows.

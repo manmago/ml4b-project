@@ -33,6 +33,26 @@ The door remains open to adding **PyTorch** in a later phase if deep learning ap
 
 ---
 
+## Alternatives Considered
+
+| Option | Why not chosen |
+|--------|----------------|
+| **PyTorch** | Built for raw sequence/deep learning; overkill for engineered tabular features and a steeper learning curve for a mixed-experience team. Kept as a future option. |
+| **TensorFlow / Keras** | Same deep-learning overhead as PyTorch, heavier install, and no advantage on small tabular feature sets. |
+| **XGBoost (standalone)** | Excellent gradient boosting, but using it alone would fragment the API; instead it is used *inside* the scikit-learn ecosystem as one estimator among several. |
+
+## Rationale
+
+The pipeline turns each sensor window into a fixed 47-feature vector, so the
+problem is classical tabular classification — exactly scikit-learn's strength.
+Its uniform `fit/predict` API, built-in cross-validation and model comparison,
+`Pipeline` objects (which prevent data leakage), and trivial `joblib`
+serialisation make it the fastest path to a reliable, well-understood model that
+the Streamlit app can load directly. XGBoost still participates as a candidate
+estimator (see ADR-009) without leaving the scikit-learn API.
+
+---
+
 ## Consequences
 
 **Positive:**
