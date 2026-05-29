@@ -25,6 +25,7 @@ ml4b-project/
 ├── .env.example            ← Template showing all available env variables
 ├── .gitignore              ← What git ignores
 ├── CLAUDE.md               ← Instructions for the Claude Code AI assistant
+├── Makefile                ← Shortcuts: make run / train / test / lint / format
 ├── STRUCTURE.md            ← This file
 ├── pyproject.toml          ← Project metadata, dependencies, tool config
 └── uv.lock                 ← Exact pinned versions of every dependency (always commit this)
@@ -176,7 +177,8 @@ notebooks/
 ├── 03_data_preparation.ipynb
 ├── 04_modeling.ipynb
 ├── 05_evaluation.ipynb
-└── 06_deployment.ipynb
+├── 06_deployment.ipynb
+└── 06_streamlit_demo.ipynb   ← Self-contained demo of the app's prediction pipeline
 ```
 
 **Naming convention:** `<two-digit-phase-number>_<phase_name>.ipynb` — always lowercase, underscores.
@@ -262,7 +264,9 @@ Unit tests. Mirror the structure of `src/ml4b/`.
 
 ```
 tests/
-└── __init__.py             ← Package marker; add test_<module>.py files alongside it
+├── __init__.py                  ← Package marker; add test_<module>.py files alongside it
+├── test_features.py             ← Feature extraction: 47 features, finite, deterministic
+└── test_apple_watch_loader.py   ← Column auto-detection, ZIP, predict pipeline, error guards
 ```
 
 **Naming convention:** `test_<module_name>.py` — must start with `test_` for pytest to discover it.
