@@ -110,10 +110,12 @@ def main() -> None:
     feature_names = [c for c in train_df.columns if c not in ID_COLUMNS]
 
     # Cap the dominant 'rest' class on the TRAIN split only — see ADR-008.
-    # Rest is ~80% of windows in MM-Fit, so this matters even more than before.
+    # Rest is ~80% of windows in MM-Fit. multiplier=1.5 (down from 2.0) keeps
+    # rest close to the largest exercise class, which reduces the model's
+    # tendency to over-predict 'rest' on real Apple Watch data — see ADR-015.
     before = len(train_df)
     train_df = undersample_majority_class(
-        train_df, majority_class="rest", multiplier=2.0, random_state=42
+        train_df, majority_class="rest", multiplier=1.5, random_state=42
     )
     print(f"[train]   undersampled rest: {before:,} -> {len(train_df):,} rows")
 
