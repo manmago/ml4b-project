@@ -36,8 +36,8 @@ def render() -> None:
     # Headline metrics from the held-out test set (see Model Performance page).
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Best Model", "Random Forest")
-    col2.metric("Test Macro F1", "0.961", help="Target was ≥ 0.80 — met ✅")
-    col3.metric("Test Accuracy", "98.5%")
+    col2.metric("Test Macro F1", "0.944", help="Target was ≥ 0.80 — met ✅")
+    col3.metric("Test Accuracy", "97.8%")
     col4.metric("Exercises", "7 classes")
 
     st.divider()

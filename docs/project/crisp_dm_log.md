@@ -24,7 +24,7 @@ Phase 6 completed: 2026-05-29
 | 4 | Modeling | done | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Random Forest selected as best model (macro F1 = 0.8136 on val). XGBoost = 0.8057, SVM = 0.7478. ADR-009, ADR-010 accepted. best_model.joblib saved. |
 | 5 | Evaluation | done | Anshul Agrawal | `notebooks/05_evaluation.ipynb` | Test Macro F1 = 0.8006 ✅ target met. Generalization gap 1.3%. No iterative improvement needed. See notebooks/05_evaluation.ipynb for full results. |
 | 6 | Deployment | done | Anshul Agrawal | `notebooks/06_deployment.ipynb` | Full Streamlit app (3 pages) live; model + feature names committed to git; `scripts/train_model.py` added; Sensor Logger CSV/ZIP upload pipeline working. App runs with 3 commands, no dataset needed. |
-| ↻ | **Iteration 2 (CRISP-DM loop): dataset switch** | done | Anshul Agrawal | `scripts/build_mmfit_dataset.py` | Deployment revealed RecoFit (forearm-worn) does not generalize to the wrist-worn Apple Watch. Re-ran Data Understanding → Modeling → Evaluation on **MM-Fit** (wrist-worn smartwatch). 7 classes (added `push_up`). **Val macro F1 = 0.880, Test macro F1 = 0.961.** ADR-013 (dataset switch), ADR-014 (rotation augmentation rejected). |
+| ↻ | **Iteration 2 (CRISP-DM loop): dataset switch + tuning** | done | Anshul Agrawal | `scripts/build_mmfit_dataset.py` | Deployment revealed RecoFit (forearm-worn) does not generalize to the wrist-worn Apple Watch. Re-ran Data Understanding → Modeling → Evaluation on **MM-Fit** (wrist-worn smartwatch). 7 classes (added `push_up`). Then regularized RF + rebalanced `rest` to cut over-fit trees and `rest` over-prediction. **Val macro F1 = 0.866, Test macro F1 = 0.944.** ADR-013 (dataset), ADR-014 (augmentation rejected), ADR-015 (regularization + rest rebalancing). |
 
 ---
 
@@ -109,9 +109,10 @@ while the Apple Watch is on the **wrist**.
   `scripts/build_mmfit_dataset.py` writes the standard processed CSVs. Both
   wrists used; 100→50 Hz decimation kept; 7 classes (added `push_up`); MM-Fit's
   official workout-id split. See ADR-013.
-- **Modeling/Evaluation:** Random Forest retained (ADR-010). **Val macro F1 =
-  0.880 / acc 0.948; Test macro F1 = 0.961 / acc 0.985** on held-out workouts —
-  all 7 classes ≥ 0.80 F1.
+- **Modeling/Evaluation:** Random Forest retained (ADR-010), then regularized +
+  `rest` rebalanced (ADR-015) to reduce over-fit trees and `rest`
+  over-prediction. **Val macro F1 = 0.866 / acc 0.938; Test macro F1 = 0.944 /
+  acc 0.978** on held-out workouts — all 7 classes ≥ 0.84 F1.
 - **Unit re-alignment:** `apple_watch_loader.py` now matches MM-Fit units
   (accel m/s² incl. gravity, gyro rad/s); diagnostic z-scores fell from >10 to <2.
 - **Rotation augmentation** tried to close the residual orientation gap but
@@ -131,8 +132,8 @@ All six CRISP-DM phases are complete, plus a second iteration that switched the
 training dataset to MM-Fit (ADR-013). The deliverable is a working Streamlit app
 that runs with three commands (`git clone`, `uv sync`, `uv run streamlit run
 app/streamlit_app.py`) and needs no dataset download. The best model (Random
-Forest, trained on MM-Fit, **Test Macro F1 = 0.961**) is committed alongside the
+Forest, trained on MM-Fit, **Test Macro F1 = 0.944**) is committed alongside the
 feature list and reproducible build + training scripts. Sensor Logger (Apple
 Watch) exports are accepted as either `WristMotion.csv` or a full ZIP. The
 project is handover-ready: every decision is documented in `docs/decisions/`
-(ADR-001–014), and OS-specific setup guides cover WSL, macOS, and Windows.
+(ADR-001–015), and OS-specific setup guides cover WSL, macOS, and Windows.
