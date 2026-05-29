@@ -82,6 +82,28 @@ data/raw/apple_watch/
 
 ---
 
+## Confirmed WristMotion.csv Columns (from a real Apple Watch export)
+
+```
+time, seconds_elapsed, rotationRateX, rotationRateY, rotationRateZ,
+gravityX, gravityY, gravityZ, accelerationX, accelerationY, accelerationZ,
+quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
+```
+
+- **Used by the model:** `seconds_elapsed` (timestamp), `accelerationX/Y/Z`
+  (linear acceleration → `ax/ay/az`), `rotationRateX/Y/Z` (gyroscope → `gx/gy/gz`).
+- **Discarded:** `gravityX/Y/Z`, `quaternionW/X/Y/Z`, `pitch`, `roll`, `yaw`, `time`.
+- **Sampling rate:** Apple Watch records at **~100 Hz**; the pipeline auto-detects
+  this and decimates to **50 Hz** to match training — see ADR-012.
+
+> ⚠️ **Known calibration caveat (ADR-012):** RecoFit's accelerometer includes
+> gravity (rest ≈ 1 g), whereas Sensor Logger's `accelerationX/Y/Z` has gravity
+> removed (rest ≈ 0). This distribution gap currently degrades real-watch
+> predictions; reconstructing `acceleration + gravity` and/or fine-tuning on
+> Apple Watch recordings are recommended follow-ups.
+
+---
+
 ## Column Format Expected
 The loader (`src/ml4b/data/apple_watch_loader.py`,
 `detect_and_normalize_columns()`) auto-detects the format and normalizes every

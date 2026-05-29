@@ -233,9 +233,12 @@ Stand-alone, runnable scripts that are not part of the importable package.
 
 ```
 scripts/
-└── train_model.py          ← Reproduce the trained model end-to-end without Jupyter:
-                               load → window → features → split → train → save .joblib
-                               Run: uv run python scripts/train_model.py
+├── train_model.py          ← Reproduce the trained model end-to-end without Jupyter:
+│                             load → window → features → split → train → save .joblib
+│                             Run: uv run python scripts/train_model.py
+└── test_apple_watch_prediction.py ← Validate the Apple Watch pipeline on real
+                               WristMotion.csv samples; prints per-file predictions
+                               and an out-of-distribution diagnostic (ADR-012)
 ```
 
 - **What goes here:** one-shot operational scripts (training, data prep helpers).
