@@ -27,23 +27,23 @@ CLASS_NAMES = [
 
 # Per-class F1 on the held-out MM-Fit TEST set (workouts 09/10/11).
 PER_CLASS_F1_TEST = {
-    "bicep_curl": 0.8897,
-    "lateral_raise": 0.9861,
-    "push_up": 1.0000,
-    "rest": 0.9911,
-    "shoulder_press": 0.9905,
-    "squat": 0.8881,
-    "tricep_extension": 0.9825,
+    "bicep_curl": 0.8613,
+    "lateral_raise": 0.9725,
+    "push_up": 0.9968,
+    "rest": 0.9866,
+    "shoulder_press": 0.9863,
+    "squat": 0.8393,
+    "tricep_extension": 0.9656,
 }
 
 # Row-normalized confusion matrix on the MM-Fit TEST set: rows = true class,
 # cols = predicted class, in CLASS_NAMES order (each row sums to ~1.0).
 CONFUSION_MATRIX_TEST_NORM = np.array(
     [
-        [0.954, 0.000, 0.000, 0.046, 0.000, 0.000, 0.000],
+        [0.962, 0.000, 0.000, 0.038, 0.000, 0.000, 0.000],
         [0.000, 0.993, 0.000, 0.007, 0.000, 0.000, 0.000],
         [0.000, 0.000, 1.000, 0.000, 0.000, 0.000, 0.000],
-        [0.006, 0.001, 0.000, 0.984, 0.001, 0.008, 0.001],
+        [0.008, 0.002, 0.000, 0.975, 0.001, 0.012, 0.002],
         [0.000, 0.000, 0.000, 0.000, 1.000, 0.000, 0.000],
         [0.000, 0.000, 0.000, 0.005, 0.000, 0.995, 0.000],
         [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 1.000],
@@ -78,9 +78,9 @@ def render() -> None:
 
     # --- Headline metrics --------------------------------------------------
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Test Macro F1", "0.961", "target ≥ 0.80 ✅")
-    c2.metric("Test Accuracy", "98.5%")
-    c3.metric("Val Macro F1", "0.880")
+    c1.metric("Test Macro F1", "0.944", "target ≥ 0.80 ✅")
+    c2.metric("Test Accuracy", "97.8%")
+    c3.metric("Val Macro F1", "0.866")
     c4.metric("Classes", "7", help="6 original + push_up")
 
     st.divider()
@@ -113,8 +113,8 @@ def render() -> None:
     st.plotly_chart(bar, width="stretch")
     st.caption(
         "**All 7 classes clear the 0.80 target.** Strongest: Push Up (1.00), "
-        "Rest (0.99), Shoulder Press (0.99). Weakest: Squat (0.89) and Bicep Curl "
-        "(0.89) — the two that move the wrist least distinctively."
+        "Rest (0.99), Shoulder Press (0.99). Weakest: Squat (0.84) and Bicep Curl "
+        "(0.86) — the two that move the wrist least distinctively."
     )
 
     st.divider()
