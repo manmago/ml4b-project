@@ -1,300 +1,183 @@
 # Setup Guide — WSL (Ubuntu) on Windows
-> ML4B Gym Exercise Recognition Project | Python 3.11 | uv | VS Code
+
+> ML4B Gym Exercise Recognition | Python 3.11 · uv · VS Code
+> This guide takes a brand-new machine to a running Streamlit app.
 
 ---
 
-## 0. Voraussetzungen prüfen
+## 0. Quick Start vs Full Setup
 
-Öffne ein **WSL-Terminal** (Ubuntu) und prüfe folgendes:
+Choose your goal — most people only need the **Quick Start** path.
 
-```bash
-# Git vorhanden?
-git --version           # sollte >= 2.x sein
+| Goal | Requirements |
+|------|-------------|
+| **Run the Streamlit app** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Explore the notebooks** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Retrain the model from scratch** | RecoFit dataset required (~2.5 GB) |
 
-# uv vorhanden?
-uv --version            # falls nicht → Schritt 1
-
-# Python vorhanden?
-python3 --version       # wird von uv verwaltet, muss nicht systemweit sein
-```
-
----
-
-## 1. uv installieren (Package Manager)
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Shell neu laden (oder Terminal neu öffnen)
-source ~/.bashrc   # oder: source ~/.zshrc
-
-# Prüfen
-uv --version
-```
+The trained model (`models/saved/best_model.joblib`) and the feature list
+(`data/processed/feature_names.txt`) are committed to git, so the app works
+immediately after cloning — you do **not** need to download the dataset.
 
 ---
 
-## 2. Python 3.11 mit uv installieren
+## 1. Prerequisites
+
+Open a **WSL (Ubuntu) terminal** and install the three tools below.
+
+| Tool | Download / Install |
+|------|--------------------|
+| **VS Code** | https://code.visualstudio.com/download (install on Windows, not inside WSL) |
+| **Git** | Pre-installed on Ubuntu; otherwise `sudo apt update && sudo apt install -y git` |
+| **uv** | `curl -LsSf https://astral.sh/uv/install.sh \| sh` then `source ~/.bashrc` |
+
+Verify:
 
 ```bash
-# Verfügbare Versionen anzeigen
-uv python list
-
-# Python 3.11 installieren
-uv python install 3.11
-
-# Prüfen
-uv python list --only-installed
+git --version      # >= 2.x
+uv --version       # any recent version
 ```
+
+> WSL not installed yet? In Windows PowerShell **as Administrator** run
+> `wsl --install -d Ubuntu`, reboot, then create your Linux user.
 
 ---
 
-## 3. Git konfigurieren & SSH-Key für GitHub
-
-### 3a. Name und E-Mail setzen
+## 2. Clone and Setup
 
 ```bash
-git config --global user.name "Dein Name"
-git config --global user.email "deine@email.com"
-
-# Prüfen
-git config --global user.name
-git config --global user.email
-```
-
-### 3b. SSH-Key prüfen oder neu erstellen
-
-```bash
-# Vorhandene Keys prüfen
-ls -la ~/.ssh/
-# Suche nach: id_ed25519.pub oder id_rsa.pub
-```
-
-**Falls kein Key vorhanden:**
-
-```bash
-# Neuen Ed25519-Key erstellen (empfohlen)
-ssh-keygen -t ed25519 -C "deine@email.com"
-# Einfach Enter drücken für Standard-Pfad (~/.ssh/id_ed25519)
-# Optional: Passphrase setzen (empfohlen)
-
-# SSH-Agent starten und Key hinzufügen
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-```
-
-### 3c. Public Key zu GitHub hinzufügen
-
-```bash
-# Public Key anzeigen und kopieren
-cat ~/.ssh/id_ed25519.pub
-```
-
-→ Gehe zu GitHub: **Settings → SSH and GPG keys → New SSH key**  
-→ Titel: z.B. `WSL Ubuntu`  
-→ Key einfügen und speichern
-
-### 3d. Verbindung testen
-
-```bash
-ssh -T git@github.com
-# Erwartete Ausgabe: "Hi <username>! You've successfully authenticated..."
-```
-
-### 3e. SSH-Agent automatisch starten (optional, aber komfortabel)
-
-Füge folgendes in `~/.bashrc` (oder `~/.zshrc`) ein:
-
-```bash
-# SSH-Agent auto-start
-if [ -z "$SSH_AUTH_SOCK" ]; then
-  eval "$(ssh-agent -s)"
-  ssh-add ~/.ssh/id_ed25519 2>/dev/null
-fi
-```
-
----
-
-## 4. Repository clonen
-
-```bash
-# Navigiere zu deinem Projektordner
-cd ~/projects
-
-# Repo clonen (SSH, kein HTTPS → kein Passwort nötig)
-git clone git@github.com:<DEIN_ORG_ODER_USER>/ml4b-project.git
-
-# In den Ordner wechseln
+git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-```
-
----
-
-## 5. Projekt mit uv initialisieren
-
-```bash
-# Im Projektordner (ml4b-project/)
-# Falls pyproject.toml noch nicht existiert:
-uv init --python 3.11
-
-# Python-Version im Projekt fixieren
-echo "3.11" > .python-version
-
-# Benötigte Pakete hinzufügen (erstellt automatisch .venv)
-uv add pandas numpy scikit-learn streamlit ipykernel matplotlib seaborn plotly
-
-# Dev-Dependencies (nur für Entwicklung, nicht in Production)
-uv add --dev jupyter pytest black ruff mypy
-
-# Umgebung synchronisieren (nach git pull / erster Einrichtung)
 uv sync
 ```
 
-### 5b. Umgebungsvariablen konfigurieren (.env)
-
-```bash
-# .env.example als Vorlage kopieren
-cp .env.example .env
-```
-
-Die `.env` ist **optional** — du brauchst sie nur, wenn deine RecoFit-Daten **nicht** unter `data/raw/` im Projektordner liegen (z.B. auf einer externen Festplatte oder einem anderen WSL-Pfad):
-
-```bash
-# .env öffnen und Pfade anpassen (nur wenn nötig)
-nano .env
-```
-
-```
-# Beispiel: Daten liegen auf D:-Laufwerk, eingehängt unter /mnt/d/
-ML4B_DATA_RAW=/mnt/d/datasets/recofit
-ML4B_DATA_PROCESSED=/mnt/d/datasets/processed
-ML4B_MODELS_DIR=/mnt/d/datasets/models
-```
-
-| Variable | Standard | Bedeutung |
-|----------|----------|-----------|
-| `ML4B_DATA_RAW` | `data/raw` | Ordner mit der RecoFit `.mat`-Datei |
-| `ML4B_DATA_PROCESSED` | `data/processed` | Ausgabe für Feature-CSVs |
-| `ML4B_MODELS_DIR` | `models/saved` | Ausgabe für trainierte Modelle |
-
-> **Tipp:** Wenn deine RecoFit-Datei unter `ml4b-project/data/raw/recofit/` liegt, musst du **nichts ändern** — die Standardpfade greifen automatisch.
+`uv sync` creates a `.venv/` and installs every pinned dependency from
+`uv.lock` — reproducible and identical across all machines.
 
 ---
 
-## 6. VS Code einrichten
-
-### 6a. VS Code Extensions installieren
-
-Öffne VS Code und installiere diese Extensions:
-
-- `ms-python.python` — Python Support
-- `ms-toolsai.jupyter` — Jupyter Notebooks
-- `ms-vscode-remote.remote-wsl` — WSL Integration (**wichtig für Windows!**)
-- `charliermarsh.ruff` — Linter/Formatter
-- `eamodio.gitlens` — Git Superpowers
-- `christian-kohler.path-intellisense` — Pfad-Autovervollständigung
-
-### 6b. VS Code aus WSL öffnen
+## 3. Run the Streamlit App
 
 ```bash
-# Im Projektordner
-code .
-# VS Code öffnet sich im WSL-Modus (erkennbar am grünen ">< WSL" Badge links unten)
-```
-
-### 6c. Python Interpreter setzen
-
-1. `Ctrl+Shift+P` → "Python: Select Interpreter"
-2. Wähle den Interpreter aus `.venv` → sollte automatisch erkannt werden
-3. Pfad sollte aussehen wie: `./.venv/bin/python`
-
-### 6d. VS Code Workspace Settings
-
-Erstelle `.vscode/settings.json` im Projektordner:
-
-```json
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.terminal.activateEnvironment": true,
-  "editor.formatOnSave": true,
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true
-  },
-  "jupyter.notebookFileRoot": "${workspaceFolder}",
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/.pytest_cache": true
-  }
-}
-```
-
----
-
-## 7. Streamlit App testen
-
-```bash
-# App starten (aus Projektordner)
 uv run streamlit run app/streamlit_app.py
 ```
 
-Browser öffnet sich automatisch auf `http://localhost:8501`
+→ Open **http://localhost:8501** in your Windows browser.
+WSL forwards `localhost` automatically, so no extra configuration is needed.
+
+You should see three pages: **🏠 Home**, **🔮 Predict Exercise**, and
+**📊 Model Performance**.
 
 ---
 
-## 8. Git Workflow (Tägliche Arbeit)
+## 4. Dataset Download (only if retraining)
+
+Only needed if you want to reproduce the model from raw data.
+
+Download RecoFit from:
+**https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors**
+
+Files needed:
+
+```
+exercise_data.50.0000_singleonly.mat   (~2.5 GB)
+exercise_data.50.0000_multionly.mat
+```
+
+Place them in:
+
+```
+data/raw/recofit/
+```
+
+---
+
+## 5. Retrain the Model (only if needed)
 
 ```bash
-# Vor dem Arbeiten: aktuellen Stand holen
-git pull origin main
-
-# Neuen Feature-Branch erstellen
-git checkout -b feature/dein-feature-name
-
-# Änderungen committen
-git add .
-git commit -m "feat: kurze beschreibung der änderung"
-
-# Branch pushen
-git push origin feature/dein-feature-name
-
-# → Danach: Pull Request auf GitHub erstellen
+uv run python scripts/train_model.py
 ```
 
-### Commit Message Konventionen
-
-```
-feat:     neues Feature
-fix:      Bugfix
-docs:     Dokumentation
-style:    Formatierung (kein Code-Änderung)
-refactor: Code-Umstrukturierung
-data:     Daten hinzugefügt/geändert
-model:    Modell-Änderungen
-```
+This runs the full pipeline (load → window → features → split → train) and
+overwrites `models/saved/best_model.joblib` and `feature_names.txt`. With the
+dataset present it takes a few minutes; if processed features already exist it
+skips straight to training. Uses `random_state=42` everywhere for
+reproducibility.
 
 ---
 
-## 9. Häufige Probleme (WSL)
+## 6. VS Code Setup
 
-| Problem | Lösung |
-|---------|--------|
-| `uv: command not found` | `source ~/.bashrc` ausführen |
-| SSH-Key wird nicht gefunden | `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519` |
-| VS Code öffnet sich nicht im WSL-Modus | Remote-WSL Extension installieren, dann `code .` aus WSL |
-| `.venv` nicht erkannt in VS Code | `Ctrl+Shift+P` → Python: Select Interpreter → `.venv` wählen |
-| `uv sync` schlägt fehl | `uv lock --upgrade` und dann `uv sync` |
+1. Install the **Remote - WSL** extension on Windows so VS Code can open the
+   project inside the Linux filesystem:
+   ```
+   code --install-extension ms-vscode-remote.remote-wsl
+   ```
+2. From the WSL terminal, inside the repo, open VS Code:
+   ```bash
+   code .
+   ```
+3. Install the recommended extensions (run inside the WSL window):
+   ```
+   code --install-extension ms-python.python
+   code --install-extension ms-toolsai.jupyter
+   code --install-extension charliermarsh.ruff
+   ```
+4. Select the Python interpreter: `Ctrl+Shift+P` → **Python: Select
+   Interpreter** → choose `./.venv/bin/python`.
 
 ---
 
-## Schnellreferenz
+## 7. Git Setup
 
 ```bash
-uv add <paket>          # Paket hinzufügen
-uv remove <paket>       # Paket entfernen
-uv sync                 # Umgebung synchronisieren (nach git pull!)
-uv run python script.py # Script ausführen
-uv run streamlit run app/streamlit_app.py  # Streamlit starten
-uv run pytest           # Tests ausführen
-uv run jupyter lab      # Jupyter Lab starten
+# Create an SSH key (press Enter to accept defaults)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+cat ~/.ssh/id_ed25519.pub        # copy this output
+
+# Add the key at: GitHub → Settings → SSH and GPG keys → New SSH key
+ssh -T git@github.com            # verify authentication
+
+# Identify yourself for commits
+git config --global user.name  "Your Name"
+git config --global user.email "your_email@example.com"
 ```
+
+**Branch workflow** (see CLAUDE.md): `main → develop → feature/xxx`.
+Never commit directly to `main`.
+
+```bash
+git checkout develop
+git checkout -b feature/your-feature-name
+```
+
+---
+
+## 8. Sensor Logger Setup (Apple Watch data collection)
+
+1. Install **Sensor Logger** (free) from the iOS App Store — also install it on
+   your **Apple Watch**.
+2. In Sensor Logger, enable the **Wrist Motion** sensor
+   (accelerometer + gyroscope, 50 Hz).
+3. Start a recording, perform your gym exercises, then stop.
+4. Export: tap the recording → **Share / Export** → **Save to Files**
+   (CSV or ZIP).
+5. Transfer the export to your machine and upload it on the app's
+   **🔮 Predict Exercise** page.
+
+**What to upload:** either the single **`WristMotion.csv`**, or the **full ZIP**
+of the export (the app finds `WristMotion.csv` inside automatically).
+See `docs/project/apple_watch_data_collection_guide.md` for the full protocol.
+
+---
+
+## 9. Troubleshooting (WSL-specific)
+
+| Problem | Fix |
+|---------|-----|
+| `uv: command not found` | Run `source ~/.bashrc` or reopen the terminal after installing uv. |
+| `localhost:8501` won't open in Windows browser | Ensure you launched the app from the WSL terminal; try `http://127.0.0.1:8501`. |
+| `ModuleNotFoundError: ml4b` | Run commands with `uv run ...` so the project venv is used. |
+| Slow file access / git | Keep the repo in the Linux filesystem (`~/projects/...`), **not** under `/mnt/c/`. |
+| VS Code opens in Windows mode | Reopen via the green corner button → **Reopen in WSL**, or run `code .` from WSL. |
+| App says model not found | Run `uv run python scripts/train_model.py`, or re-clone to get the committed model. |

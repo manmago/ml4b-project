@@ -11,18 +11,21 @@ ml4b-project/
 │
 ├── agents/                 ← Claude Code specialist agent instruction files
 ├── app/                    ← Streamlit web application
-├── data/                   ← All data (NOT in git — see .gitignore)
+├── data/                   ← All data (mostly NOT in git — except feature_names.txt)
 ├── docs/                   ← Project documentation
-├── models/                 ← Trained model files (NOT in git)
+├── models/                 ← Trained model files (best_model.joblib IS committed)
 ├── notebooks/              ← Jupyter notebooks (one per CRISP-DM phase)
 ├── reports/                ← Generated figures and result summaries (NOT in git)
+├── scripts/                ← Stand-alone scripts (train_model.py)
 ├── src/ml4b/               ← Reusable Python package
 ├── tests/                  ← Unit tests
 │
+├── .streamlit/             ← Streamlit config (single sidebar navigation)
 ├── .env                    ← Your local secrets/paths (NOT in git — copy from .env.example)
 ├── .env.example            ← Template showing all available env variables
 ├── .gitignore              ← What git ignores
 ├── CLAUDE.md               ← Instructions for the Claude Code AI assistant
+├── Makefile                ← Shortcuts: make run / train / test / lint / format
 ├── STRUCTURE.md            ← This file
 ├── pyproject.toml          ← Project metadata, dependencies, tool config
 └── uv.lock                 ← Exact pinned versions of every dependency (always commit this)
@@ -52,14 +55,22 @@ The Streamlit web application for live exercise prediction.
 
 ```
 app/
-├── streamlit_app.py        ← Entry point: uv run streamlit run app/streamlit_app.py
+├── __init__.py             ← Makes `app` importable so the entry point can load pages
+├── streamlit_app.py        ← Entry point: cached model loading + sidebar navigation
 └── pages/
-    ├── prediction.py       ← Phase 6: upload CSV, run inference, display results per window
-    └── model_performance.py ← Phase 6: metrics dashboard, confusion matrix, feature importance
+    ├── __init__.py         ← Package marker for the page modules
+    ├── home.py             ← render(): overview, metrics, Sensor Logger instructions
+    ├── prediction.py       ← render(model, feature_names): CSV/ZIP upload → predictions,
+    │                          timeline + pie charts, results table, CSV download
+    └── model_performance.py ← render(): test metrics, model comparison, per-class F1,
+                               row-normalized confusion matrix
 ```
 
 - **What goes here:** UI code only — file upload, result display, visualisations.
 - **What does NOT go here:** ML logic, data loading, feature engineering — those belong in `src/ml4b/`.
+- **Navigation:** a sidebar radio in `streamlit_app.py` routes to each page's `render()`.
+  `.streamlit/config.toml` disables Streamlit's automatic `pages/` discovery so there is
+  exactly one navigation control.
 
 ---
 
@@ -76,7 +87,7 @@ data/
     ├── train_features.csv  ← NOT in git — ~70% of subjects (features + labels)
     ├── val_features.csv    ← NOT in git — ~10% of subjects (features + labels)
     ├── test_features.csv   ← NOT in git — ~20% of subjects (features + labels)
-    └── feature_names.txt   ← NOT in git — ordered list of 47 feature column names
+    └── feature_names.txt   ← IN git (exception) — ordered list of 47 feature column names; the app needs it
 ```
 
 **Naming conventions for data files:**
@@ -134,14 +145,21 @@ docs/
 ---
 
 ### `models/`
-Serialised, trained model files. **Not committed to git** (binaries are large and environment-specific).
+Serialised, trained model files.
 
 ```
 models/
-└── saved/                  ← Joblib-serialised scikit-learn pipelines
+└── saved/
+    ├── best_model.joblib    ← IN git (exception) — Random Forest used by the app
+    └── random_forest.joblib ← IN git (exception) — archive copy of the same model
 ```
 
-**Naming convention for model files:**
+**Committed on purpose:** `best_model.joblib` and `random_forest.joblib` are
+re-included via `.gitignore` exceptions so the Streamlit app works after a fresh
+clone with no dataset download. Any *other* `*.joblib` (experiments, larger
+models) stays ignored.
+
+**Naming convention for additional model files:**
 ```
 <algorithm>_<feature_set>_<date>.joblib
 # Example: random_forest_v1_20260601.joblib
@@ -159,7 +177,8 @@ notebooks/
 ├── 03_data_preparation.ipynb
 ├── 04_modeling.ipynb
 ├── 05_evaluation.ipynb
-└── 06_deployment.ipynb
+├── 06_deployment.ipynb
+└── 06_streamlit_demo.ipynb   ← Self-contained demo of the app's prediction pipeline
 ```
 
 **Naming convention:** `<two-digit-phase-number>_<phase_name>.ipynb` — always lowercase, underscores.
@@ -209,6 +228,21 @@ src/ml4b/
 
 ---
 
+### `scripts/`
+Stand-alone, runnable scripts that are not part of the importable package.
+
+```
+scripts/
+└── train_model.py          ← Reproduce the trained model end-to-end without Jupyter:
+                               load → window → features → split → train → save .joblib
+                               Run: uv run python scripts/train_model.py
+```
+
+- **What goes here:** one-shot operational scripts (training, data prep helpers).
+- Always resolve paths via `find_project_root()` / `ml4b.utils.config` — never hardcode.
+
+---
+
 ### `reports/`
 Generated output files from analysis and model evaluation. **Not committed to git** (generated artefacts).
 
@@ -230,7 +264,9 @@ Unit tests. Mirror the structure of `src/ml4b/`.
 
 ```
 tests/
-└── __init__.py             ← Package marker; add test_<module>.py files alongside it
+├── __init__.py                  ← Package marker; add test_<module>.py files alongside it
+├── test_features.py             ← Feature extraction: 47 features, finite, deterministic
+└── test_apple_watch_loader.py   ← Column auto-detection, ZIP, predict pipeline, error guards
 ```
 
 **Naming convention:** `test_<module_name>.py` — must start with `test_` for pytest to discover it.
@@ -244,7 +280,7 @@ tests/
 | What | Why |
 |------|-----|
 | `data/` | Data files can be large and contain personal/sensitive info |
-| `models/saved/*.joblib` | Binary files; environment-specific |
+| `models/saved/*.joblib` (except `best_model.joblib`, `random_forest.joblib`) | Binary files; large. The two committed exceptions let the app run without the dataset. |
 | `.env` | Contains secrets and local paths |
 | `.venv/` | Reproducible via `uv sync` — no need to commit |
 | `__pycache__/`, `*.pyc` | Auto-generated bytecode |
@@ -257,29 +293,28 @@ All of these are already covered by `.gitignore`. If you're unsure, run `git sta
 
 ## Quick Start for New Team Members
 
+# Run the app in 3 commands — no dataset download needed:
 ```bash
-# 1. Clone the repo
-git clone https://github.com/AnshulAgrawal7/ml4b-project.git
+git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-
-# 2. Install all dependencies (creates .venv automatically)
 uv sync
+uv run streamlit run app/streamlit_app.py   # → http://localhost:8501
+```
 
-# 3. Copy environment config
+Then, to contribute:
+```bash
+# Copy environment config (optional — only if your data lives elsewhere)
 cp .env.example .env
-# Edit .env if your data lives somewhere other than data/raw/
 
-# 4. Check out the develop branch (never work directly on main)
+# Work on a feature branch (never commit directly to main)
 git checkout develop
 git checkout -b feature/your-feature-name
 
-# 5. Run the Streamlit app
-uv run streamlit run app/streamlit_app.py
-
-# 6. Run tests
+# Run tests, format, and lint before committing
 uv run pytest
-
-# 7. Format and lint before committing
 uv run ruff format .
 uv run ruff check .
+
+# Retrain the model from scratch (requires the RecoFit dataset)
+uv run python scripts/train_model.py
 ```

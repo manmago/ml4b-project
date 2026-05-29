@@ -36,24 +36,25 @@ you performed in each time window — with a confidence score.
 
 ---
 
-## 3. How to Run the Project (Quickstart)
+## 3. How to Run the Project (Quickstart — 3 Commands)
 
 ```bash
-# 1. Clone the repo
 git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-
-# 2. Install dependencies (one command)
 uv sync
-
-# 3. Download the dataset (see data/raw/recofit/README.md)
-# Place .mat files in data/raw/recofit/
-
-# 4. Run the Streamlit app
 uv run streamlit run app/streamlit_app.py
 ```
 
-For OS-specific setup: see `Setup_WSL_Windows.md`, `Setup_macOS.md`, `Setup_Windows.md`
+→ Open **http://localhost:8501**
+
+**No dataset download needed** — the trained model
+(`models/saved/best_model.joblib`) and feature list
+(`data/processed/feature_names.txt`) are committed to git. The dataset is only
+required if you want to **retrain** the model (`uv run python
+scripts/train_model.py`).
+
+For OS-specific setup: see `docs/setup/Setup_WSL_Windows.md`,
+`docs/setup/Setup_macOS.md`, `docs/setup/Setup_Windows.md`.
 
 ---
 
@@ -142,7 +143,7 @@ Every decision has a full ADR in `docs/decisions/`. Here is a plain-language sum
 | System architecture | `docs/architecture/architecture.md` |
 | How to collect Apple Watch data | `docs/project/apple_watch_data_collection_guide.md` |
 | Folder and file descriptions | `STRUCTURE.md` |
-| OS-specific setup guides | `Setup_WSL_Windows.md`, `Setup_macOS.md`, `Setup_Windows.md` |
+| OS-specific setup guides | `docs/setup/Setup_WSL_Windows.md`, `docs/setup/Setup_macOS.md`, `docs/setup/Setup_Windows.md` |
 | Data exploration | `notebooks/02_data_understanding.ipynb` |
 | Data preparation pipeline | `notebooks/03_data_preparation.ipynb` |
 | Model training and comparison | `notebooks/04_modeling.ipynb` |
@@ -153,13 +154,37 @@ Every decision has a full ADR in `docs/decisions/`. Here is a plain-language sum
 
 ---
 
-## 8. What Still Needs to Be Done
+## 8. Project Status
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Streamlit App | ⏳ Phase 6 | Core prediction UI needs implementation |
-| Apple Watch generalization test | ⏳ Pending | Record gym session with Sensor Logger |
-| WristMotion.csv column mapping | ⏳ Pending | Need to verify Sensor Logger column names match pipeline |
+| Streamlit App | ✅ Done | 3 pages: Home, Predict Exercise, Model Performance. Accepts `WristMotion.csv` and ZIP uploads. Verified via Streamlit `AppTest`. |
+| WristMotion.csv column mapping | ✅ Done | Loader auto-detects 4 Sensor Logger formats and ZIP exports — see Section 8b. |
+| Trained model in git | ✅ Done | `best_model.joblib` + `feature_names.txt` committed — app runs without the dataset. |
+| Apple Watch generalization test | ⏳ Pending | Optional: record a real gym session with Sensor Logger and evaluate. |
+
+---
+
+## 8b. Sensor Logger Data Format
+
+The app accepts exports from the **Sensor Logger** iOS app (free). Upload either:
+
+- the single **`WristMotion.csv`** file, **or**
+- the **full ZIP** of the export (the app finds `WristMotion.csv` inside).
+
+`src/ml4b/data/apple_watch_loader.py` auto-detects the column format and
+normalizes everything to `[timestamp, ax, ay, az, gx, gy, gz]`. Supported
+source formats:
+
+| Format | Columns |
+|--------|---------|
+| A — default WristMotion.csv | `time, seconds_elapsed, x, y, z, roll, pitch, yaw` |
+| B — pre-normalized | `timestamp, ax, ay, az, gx, gy, gz` |
+| C — seconds_elapsed variant | `seconds_elapsed, x, y, z, roll, pitch, yaw` |
+| D — DeviceMotion export | `time, accelerationX/Y/Z, rotationRateX/Y/Z` |
+
+Full collection + export protocol:
+`docs/project/apple_watch_data_collection_guide.md`.
 
 ---
 
