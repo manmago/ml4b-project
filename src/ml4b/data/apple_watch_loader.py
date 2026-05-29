@@ -24,9 +24,17 @@ All formats are normalized to the internal schema:
 Apple Watch records at ~100 Hz, but the model was trained on 50 Hz RecoFit data.
 The prediction pipeline auto-detects the sampling rate and decimates to 50 Hz so
 that a 100-sample window stays ~2 seconds long — see ADR-012.
+
+Sensor Logger's accelerationX/Y/Z is *user* acceleration with gravity removed
+(~0 g at rest), whereas RecoFit's accelerometer includes gravity (~1 g at rest).
+When gravityX/Y/Z is present, this loader reconstructs total acceleration
+(ax = userAccel + gravity) so the signal matches the training units — ADR-012.
+Sensor Logger's rotationRate is in rad/s while RecoFit's gyroscope is in deg/s,
+so rotationRate columns are converted to deg/s as well — ADR-012.
 """
 
 import io
+import math
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -39,6 +47,10 @@ from ml4b.data.windowing import apply_sliding_window
 # Sampling rate of the wrist sensor, in Hz. Sensor Logger Wrist Motion records
 # at 50 Hz, matching the RecoFit training data — see ADR-006.
 SAMPLING_RATE_HZ = 50
+
+# RecoFit's gyroscope is in degrees/second; Sensor Logger's rotationRate is in
+# radians/second. Multiply by this to convert rad/s -> deg/s — see ADR-012.
+RAD_TO_DEG = 180.0 / math.pi
 
 # Internal schema every loader output must conform to. These names match
 # ml4b.data.features._AXES so feature extraction works without changes.
@@ -132,7 +144,38 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
                 actual = df.columns[cols_lower.index(src.lower())]
                 col_map[actual] = dst
             renamed = df.rename(columns=col_map)
-            return renamed[INTERNAL_COLUMNS]
+            result = renamed[INTERNAL_COLUMNS].copy()
+
+            # Restore gravity when the mapping read Sensor Logger's
+            # accelerationX/Y/Z (linear / user acceleration with gravity
+            # REMOVED) and a gravityX/Y/Z vector is available. RecoFit's
+            # accelerometer includes gravity (~1 g at rest), so we reconstruct
+            # the total acceleration ax = userAccel + gravity to match the
+            # training distribution — see ADR-012.
+            mapped_from_acceleration = any(
+                key.lower().startswith("acceleration") for key in mapping
+            )
+            grav = {c.lower(): c for c in df.columns}
+            has_gravity = all(f"gravity{axis}" in grav for axis in ("x", "y", "z"))
+            if mapped_from_acceleration and has_gravity:
+                # .to_numpy() sidesteps index-alignment surprises; both frames
+                # share the same row order here anyway.
+                result["ax"] = result["ax"].to_numpy() + df[grav["gravityx"]].to_numpy()
+                result["ay"] = result["ay"].to_numpy() + df[grav["gravityy"]].to_numpy()
+                result["az"] = result["az"].to_numpy() + df[grav["gravityz"]].to_numpy()
+
+            # Convert the gyroscope from rad/s to deg/s when the mapping read
+            # Sensor Logger's rotationRateX/Y/Z, so it matches RecoFit's deg/s
+            # gyroscope (training gyro_magnitude_mean ~53 vs ~1 in rad/s) — ADR-012.
+            mapped_from_rotation_rate = any(
+                key.lower().startswith("rotationrate") for key in mapping
+            )
+            if mapped_from_rotation_rate:
+                result["gx"] = result["gx"].to_numpy() * RAD_TO_DEG
+                result["gy"] = result["gy"].to_numpy() * RAD_TO_DEG
+                result["gz"] = result["gz"].to_numpy() * RAD_TO_DEG
+
+            return result
 
     # No mapping matched — raise a clear, actionable error listing the columns.
     raise ValueError(
