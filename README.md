@@ -49,9 +49,9 @@ Tricep Extension · Lateral Raise · Push Up · Rest.
 |--------|-------|
 | Best model | Random Forest |
 | Training dataset | **MM-Fit** (wrist-worn smartwatch — see ADR-013) |
-| Test Macro F1 | **0.961** ✅ (target ≥ 0.80) |
-| Test Accuracy | 98.5% |
-| Val Macro F1 | 0.880 |
+| Test Macro F1 | **0.944** ✅ (target ≥ 0.80) |
+| Test Accuracy | 97.8% |
+| Val Macro F1 | 0.866 |
 
 > **Real Apple Watch note:** the model is now trained on wrist-worn smartwatch
 > data (MM-Fit) instead of the forearm-worn RecoFit (ADR-013). Push-ups are

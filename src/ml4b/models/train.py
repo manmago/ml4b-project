@@ -41,19 +41,22 @@ def train_random_forest(
     Returns:
         Trained RandomForestClassifier.
     """
-    # n_estimators=200: balances bias-variance for 6 classes.
-    # 100 can underfit; 500+ adds diminishing returns on tabular sensor data.
-    # max_depth=None: grow full trees — variance is controlled by averaging
-    # across 200 trees, not by limiting individual tree depth.
-    # min_samples_split=5 / min_samples_leaf=2: reduce sensitivity to noise
-    # at leaf level without aggressively pruning the tree.
+    # n_estimators=300: more trees give steadier, better-calibrated class
+    # probabilities (the app shows them as confidence) at modest extra cost.
+    # max_depth=20 / min_samples_leaf=4: regularize the trees so they do not
+    # grow to full depth (~28) and memorize the training set. Unconstrained
+    # trees scored ~1.0 macro F1 on TRAIN — a sign of over-confident
+    # memorization that generalizes worse across devices. Capping depth and
+    # enlarging leaves trades almost no validation F1 for a less over-fit,
+    # better-calibrated model — see ADR-015.
+    # min_samples_split=5: avoid splitting on tiny, noise-driven subsets.
     # class_weight='balanced': reweights each class by inverse frequency —
-    # second safety net on top of the undersampling done in Phase 3.
+    # second safety net on top of the undersampling done in data preparation.
     model = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=None,
+        n_estimators=300,
+        max_depth=20,
         min_samples_split=5,
-        min_samples_leaf=2,
+        min_samples_leaf=4,
         class_weight="balanced",
         n_jobs=-1,  # Use all CPU cores — no effect on outputs, only speed
         random_state=random_state,

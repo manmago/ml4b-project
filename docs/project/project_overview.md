@@ -108,11 +108,11 @@ The pipeline has 5 steps — each step has a corresponding notebook and source m
 |--------|-------|
 | Best model | Random Forest |
 | Training dataset | MM-Fit (wrist-worn smartwatch — ADR-013) |
-| Test Macro F1 | 0.961 ✅ (target: ≥ 0.80) |
-| Test Accuracy | 98.5% |
-| Val Macro F1 | 0.880 |
+| Test Macro F1 | 0.944 ✅ (target: ≥ 0.80) |
+| Test Accuracy | 97.8% |
+| Val Macro F1 | 0.866 |
 | Best class | push_up (F1 = 1.00), rest (0.99) |
-| Weakest class | squat / bicep_curl (F1 = 0.89) |
+| Weakest class | squat (0.84) / bicep_curl (0.86) |
 | Apple Watch test | push_up recognized ✅; bicep_curl still confused with tricep_extension (ADR-013/014) |
 
 ---
@@ -130,6 +130,7 @@ Every decision has a full ADR in `docs/decisions/`. Here is a plain-language sum
 | Exercise class selection | 7 classes (6 from RecoFit + push_up from MM-Fit) | Data-driven coverage (ADR-005); push_up added with MM-Fit | ADR-005, ADR-013 |
 | Training dataset switch | RecoFit → MM-Fit | RecoFit was forearm-worn; Apple Watch is wrist-worn — MM-Fit matches the device | ADR-013 |
 | Rotation augmentation | Rejected (kept off) | Hurt the bicep/tricep case and in-domain F1 | ADR-014 |
+| RF regularization + rest rebalancing | depth≤20, leaf=4, rest mult 1.5 | Reduce overfitting (full-depth trees) and over-prediction of `rest` | ADR-015 |
 | Sliding window size | 2 seconds (100 samples) | Captures one full rep phase; consistent with literature | ADR-006 |
 | Train/test split method | Subject-based | Prevents data leakage between train and test | ADR-007 |
 | Class imbalance fix | Undersampling rest to 2× largest class | rest was 89% of data — model would always predict rest | ADR-008 |
