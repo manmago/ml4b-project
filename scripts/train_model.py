@@ -95,9 +95,7 @@ def main() -> None:
     print(f"  Trained in {time.time() - t0:.1f}s")
 
     # Validation-set sanity check — primary metric is macro F1 (ADR-008).
-    results = evaluate_model(
-        model, X_val, y_val, "Random Forest", sorted(set(y_val))
-    )
+    results = evaluate_model(model, X_val, y_val, "Random Forest", sorted(set(y_val)))
     print(f"  Val Macro F1: {results['macro_f1']:.4f}")
     print(f"  Val Accuracy: {results['accuracy']:.4f}")
 
