@@ -71,10 +71,52 @@ class _FakeModel:
         return np.tile([0.8, 0.2], (len(x), 1))
 
 
+def _format_primary(n: int = N_SAMPLES) -> pd.DataFrame:
+    """Build a PRIMARY-format frame (real WristMotion.csv: accel + gravity + rate)."""
+    rng = np.random.default_rng(11)
+    return pd.DataFrame(
+        {
+            "time": np.arange(n),
+            "seconds_elapsed": np.arange(n) / 100.0,  # ~100 Hz like Apple Watch
+            "rotationRateX": rng.standard_normal(n),
+            "rotationRateY": rng.standard_normal(n),
+            "rotationRateZ": rng.standard_normal(n),
+            "gravityX": rng.standard_normal(n),
+            "gravityY": rng.standard_normal(n),
+            "gravityZ": rng.standard_normal(n),
+            "accelerationX": rng.standard_normal(n),
+            "accelerationY": rng.standard_normal(n),
+            "accelerationZ": rng.standard_normal(n),
+        }
+    )
+
+
 def test_detect_format_a() -> None:
     """Format A maps roll/pitch/yaw to gyro and x/y/z to accel."""
     out = detect_and_normalize_columns(_format_a())
     assert list(out.columns) == INTERNAL_COLUMNS
+
+
+def test_primary_restores_gravity_and_converts_gyro() -> None:
+    """PRIMARY format adds gravity back to accel and converts gyro rad/s -> deg/s."""
+    from ml4b.data.apple_watch_loader import RAD_TO_DEG
+
+    df = _format_primary()
+    out = detect_and_normalize_columns(df)
+    # ax must equal accelerationX + gravityX (gravity reconstruction).
+    expected_ax = df["accelerationX"].to_numpy() + df["gravityX"].to_numpy()
+    assert np.allclose(out["ax"].to_numpy(), expected_ax)
+    # gx must equal rotationRateX scaled to degrees/second.
+    expected_gx = df["rotationRateX"].to_numpy() * RAD_TO_DEG
+    assert np.allclose(out["gx"].to_numpy(), expected_gx)
+
+
+def test_format_b_not_modified_by_unit_fixes() -> None:
+    """Pre-normalized Format B (no gravity, not rotationRate) passes through as-is."""
+    df = _format_b()
+    out = detect_and_normalize_columns(df)
+    assert np.allclose(out["ax"].to_numpy(), df["ax"].to_numpy())
+    assert np.allclose(out["gx"].to_numpy(), df["gx"].to_numpy())
 
 
 def test_detect_format_b() -> None:

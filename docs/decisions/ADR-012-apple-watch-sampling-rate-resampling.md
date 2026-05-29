@@ -42,6 +42,14 @@ identified from three confirmed `WristMotion.csv` samples:
 3. `predict_from_sensor_logger()` now detects the rate after loading and
    decimates to 50 Hz when it differs by ≥ 5 Hz, and records `detected_hz` /
    `n_samples_after_resample` in `DataFrame.attrs`.
+4. **Unit alignment to the training distribution (added after validation):**
+   - **Gravity reconstruction.** When `gravityX/Y/Z` is present alongside
+     `accelerationX/Y/Z`, set `ax = accelerationX + gravityX` (etc.). Sensor
+     Logger's accelerationX/Y/Z is *user* acceleration (gravity removed,
+     ~0 g at rest); RecoFit's accelerometer includes gravity (~1 g at rest).
+   - **Gyroscope rad/s → deg/s.** When the mapping reads `rotationRateX/Y/Z`,
+     multiply by `180/π`. Sensor Logger reports rad/s; RecoFit is deg/s
+     (training `gyro_magnitude_mean ≈ 53` vs ≈ 1 in rad/s).
 
 ---
 
@@ -75,21 +83,24 @@ timestamp (which also defeated rate detection).
 **Negative / Trade-offs:**
 - Decimation discards half the samples (acceptable quality loss).
 
-**Known limitation discovered during validation (follow-up required):**
-- Even after both fixes, the three samples are **still misclassified**. The
-  diagnostic (`scripts/test_apple_watch_prediction.py`) shows the dominant
-  cause is a **units/calibration mismatch**: RecoFit's accelerometer includes
-  gravity (`accel_magnitude_mean ≈ 1.0 g`), while Sensor Logger's
-  `accelerationX/Y/Z` is **userAcceleration with gravity removed**
-  (`accel_magnitude_mean ≈ 0.09 g`, ~13 σ from training). The `*_zero_crossing_rate`
-  features are also 6–9 σ off for the same reason.
-- Experiment: reconstructing total acceleration as
-  `acceleration{X,Y,Z} + gravity{X,Y,Z}` restores `accel_magnitude_mean` to
-  ~1.0 g and removes the spurious `squat` predictions, but the curl windows are
-  then classified mostly as `rest` — indicating a **residual domain shift**
-  (sensor placement/orientation, rep cadence) between RecoFit subjects and this
-  Apple Watch user.
-- **Recommended next steps (separate decision):** (a) restore gravity in the
-  loader to match training units, and (b) collect a small set of labeled Apple
-  Watch recordings to fine-tune/recalibrate the model. These are deferred here
-  because they change the model contract and were out of scope for this fix.
+**Units are now aligned; a residual domain shift remains (follow-up required):**
+The diagnostic in `scripts/test_apple_watch_prediction.py` was used to peel back
+three successive distribution mismatches, each now fixed in the loader:
+1. Sampling rate 100 → 50 Hz (decimation).
+2. Accelerometer gravity restored (`accel_magnitude_mean` 0.09 g → ~1.0 g,
+   matching training's 1.013 g).
+3. Gyroscope rad/s → deg/s (`gyro_magnitude_mean` ~1 → ~50, matching ~53).
+
+After **all three** corrections the two bicep-curl samples are still **not**
+recognized (sample 1 → `rest`, sample 2 → `lateral_raise`). The per-magnitude
+features now match training, so the remaining error is a genuine **domain
+shift**: device, on-wrist orientation / axis conventions, and per-user execution
+differ from the RecoFit subjects, so the per-axis features the model relies on
+do not line up. (`push_up` additionally is not one of the 6 trained classes and
+can never be correct.)
+
+**Recommended next step (separate decision, requires new data):** collect a
+small set of labeled Apple Watch recordings per exercise with Sensor Logger and
+**fine-tune / retrain** the model on them (optionally combined with RecoFit).
+This is the only robust fix for the orientation/execution domain gap; it changes
+the model contract and is therefore out of scope for this loader fix.
