@@ -1,0 +1,13 @@
+# Streamlit configuration for the ML4B app.
+#
+# We organise the app's pages as importable render() functions inside
+# app/pages/ and drive navigation ourselves with a sidebar radio in
+# app/streamlit_app.py. Streamlit would otherwise ALSO auto-discover the files
+# in app/pages/ and show a second, duplicate navigation widget. Disabling the
+# automatic sidebar navigation keeps a single, clean navigation control.
+[client]
+showSidebarNavigation = false
+
+[theme]
+primaryColor = "#FF4B4B"
+base = "light"

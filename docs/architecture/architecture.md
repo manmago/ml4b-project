@@ -70,8 +70,8 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 │    200+ subjects, 50 Hz, wrist-worn acc+gyro                     │
 │    Loaded via: scipy.io.loadmat(path, simplify_cells=True)       │
 │                                                                  │
-│  Apple Watch (Sensor Logger app) ──► CSV export                  │
-│    Personal recordings for generalization test                   │
+│  Apple Watch (Sensor Logger app) ──► WristMotion.csv or ZIP      │
+│    Live app input AND personal generalization test               │
 │    Channels used: Wrist Motion (acc+gyro), optionally Heart Rate │
 └──────────────────────┬───────────────────────────────────────────┘
                        │ data/raw/recofit/   (training)
@@ -93,7 +93,7 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 ```
 
 **Primary training input:** RecoFit MATLAB `.mat` file parsed with `scipy.io.loadmat`. Sampling rate: 50 Hz. Sensors: accelerometer (g) + gyroscope (dps), 3 axes each. Dataset contains 75 exercise classes total; 6 target classes selected based on subject coverage analysis (>30 participants threshold — see ADR-005).  
-**Generalization test input:** Self-recorded Apple Watch data via Sensor Logger app (Wrist Motion channel only).  
+**Live app input:** Sensor Logger (Apple Watch) export — either `WristMotion.csv` or the full ZIP — uploaded on the Streamlit Predict page. The loader auto-detects 4 column formats and normalizes to `[timestamp, ax, ay, az, gx, gy, gz]`. The same files double as the self-recorded generalization-test input.  
 **Outputs:** Trained scikit-learn Pipeline (`.joblib`) + Streamlit web app for exercise prediction.
 
 ---
@@ -104,7 +104,13 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 ml4b-project/
 ├── agents/                     # Claude Code specialist agent instruction files
 ├── app/                        # Streamlit application
-│   └── streamlit_app.py        #   entry point: uv run streamlit run app/streamlit_app.py
+│   ├── streamlit_app.py        #   entry point: uv run streamlit run app/streamlit_app.py
+│   └── pages/                  #   render() modules imported by the entry point
+│       ├── home.py             #     overview, metrics, Sensor Logger instructions
+│       ├── prediction.py       #     CSV/ZIP upload → predictions, charts, download
+│       └── model_performance.py #    metrics, model comparison, confusion matrix
+├── scripts/                    # Stand-alone scripts
+│   └── train_model.py          #   reproducible end-to-end training (load→…→save)
 ├── src/ml4b/                   # Installable Python package
 │   ├── data/                   #   data preparation pipeline (Phase 3)
 │   │   ├── loader.py           #     RecoFit .mat → long-format DataFrame (filters to 6 target classes)
@@ -144,7 +150,9 @@ ml4b-project/
 | `src/ml4b/data/splitting.py` | Partition by `subject_id` into disjoint train/val/test (ADR-007); undersample `rest` class in train to `2×` largest exercise class to fix 89% imbalance (ADR-008) |
 | `src/ml4b/models/train.py` | Train Random Forest, XGBoost, SVM classifiers; all use `class_weight='balanced'`; SVM wrapped in `Pipeline` with `StandardScaler` (ADR-009) |
 | `src/ml4b/models/evaluate.py` | Compute accuracy, macro F1, per-class F1, confusion matrix; save plots to `reports/figures/`; serialise best model with `joblib.dump` |
-| `src/ml4b/data/apple_watch_loader.py` | Load Sensor Logger CSV → column auto-detection + unit conversion → sliding window → `extract_features()` → `model.predict()`; used in Streamlit app |
+| `src/ml4b/data/apple_watch_loader.py` | Load Sensor Logger `WristMotion.csv` or ZIP → auto-detect 4 column formats → sliding window → `extract_features()` → `model.predict()`; `predict_from_sensor_logger()` is the app's entry point |
+| `scripts/train_model.py` | Reproduce the trained model end-to-end (load → window → features → split → train → save `best_model.joblib`); the Jupyter-free path |
+| `app/pages/*.py` | `render()` functions for the Home, Predict Exercise, and Model Performance pages |
 | `src/ml4b/utils/config.py` | Centralised path resolution via env vars (PROJECT_ROOT, DATA_RAW, DATA_PROCESSED, MODELS_DIR, REPORTS_DIR) |
 | `app/streamlit_app.py` | Streamlit UI: file upload → feature extraction → prediction |
 | `notebooks/` | CRISP-DM phase documentation and exploratory analysis |
@@ -193,23 +201,28 @@ Trained classifiers evaluated via src/ml4b/models/evaluate.py — evaluate_model
     ▼ models/saved/best_model.joblib  (joblib.dump — loaded by Streamlit app)
 ```
 
-### Prediction Flow (Streamlit / Apple Watch generalization)
+### Prediction Flow (Streamlit app)
 ```
-User uploads Sensor Logger CSV via browser (or data/raw/apple_watch/ for Phase 5 test)
+User uploads WristMotion.csv OR a Sensor Logger ZIP via the browser
+    │   (app/pages/prediction.py saves the upload to a temp file)
     │
-    ▼ src/ml4b/data/apple_watch_loader.py — load_sensor_logger_csv()
-    │   Column auto-detection, unit conversion (m/s² → g)
-    │
-    ▼ predict_from_sensor_logger()
-    │   Sliding window (100 samples, 50% overlap — same params as training)
-    │   extract_features() — same function as training, guaranteed identical
-Feature matrix (n_windows × 47)
+    ▼ src/ml4b/data/apple_watch_loader.py — predict_from_sensor_logger()
+    │   load_sensor_logger_csv() / load_sensor_logger_zip()
+    │   detect_and_normalize_columns()  — auto-detect 4 formats → [timestamp,ax..gz]
+    │   apply_sliding_window()  — 100 samples, 50% overlap (SAME as training)
+    │   extract_features()      — same function as training, guaranteed identical
+Feature matrix (n_windows × 47), reindexed to feature_names.txt order
     │
     ▼ models/saved/best_model.joblib — model.predict() + model.predict_proba()
-Predicted exercise labels + confidence scores (one row per 2-s window)
+Per-window: predicted_class, confidence, time_start_seconds
     │
-    ▼ app/streamlit_app.py — result displayed to user
+    ▼ app/pages/prediction.py — summary metrics, timeline + pie charts,
+      results table, and CSV download shown to the user
 ```
+
+> Model loading is cached with `st.cache_resource` in `app/streamlit_app.py`, so
+> `best_model.joblib` and `feature_names.txt` are read once per session. Both are
+> committed to git, so the app runs after a fresh clone with no dataset.
 
 ---
 

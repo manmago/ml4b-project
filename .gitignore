@@ -53,7 +53,9 @@ data/external/
 # =============================================================================
 # ML Models — large binary files, use model registry instead
 # =============================================================================
-models/saved/
+# Use models/saved/* (not models/saved/) so specific files can be re-included
+# below — git cannot re-include a file whose parent directory is excluded.
+models/saved/*
 *.joblib
 *.pt
 *.pth
@@ -137,3 +139,12 @@ reports/**
 *.bak
 logs/
 tmp/
+
+# =============================================================================
+# Trained model + feature names — COMMITTED so the Streamlit app works after a
+# fresh clone with no dataset download. These negations come last so they win
+# over the broad models/saved/*, *.joblib and data/processed/* rules above.
+# =============================================================================
+!models/saved/best_model.joblib
+!models/saved/random_forest.joblib
+!data/processed/feature_names.txt
