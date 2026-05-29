@@ -9,12 +9,12 @@
 > "Can machine learning models trained on publicly available wrist-worn sensor data accurately classify gym exercises, and how well do these models generalize to new data collected from an Apple Watch during real workout sessions?"
 
 ### Primary Goal
-Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model must distinguish between **6 exercise classes**: bicep_curl, shoulder_press, squat, tricep_extension, lateral_raise, rest. Classes were selected data-driven based on subject coverage in the RecoFit dataset (minimum 30 participants threshold). See `docs/decisions/ADR-005-exercise-class-selection.md` for the selection rationale.
+Classify gym exercises from Apple Watch sensor streams (accelerometer + gyroscope) using supervised Machine Learning. The model distinguishes **7 exercise classes**: bicep_curl, shoulder_press, squat, tricep_extension, lateral_raise, push_up, rest. The original 6 classes were selected from RecoFit by subject coverage (ADR-005); `push_up` was added when the training dataset switched to MM-Fit (ADR-013). See `docs/decisions/ADR-005-exercise-class-selection.md` and `ADR-013-switch-training-dataset-to-mmfit.md`.
 
 ### Two-Dataset Validation Strategy
 | Phase | Data Source | Purpose |
 |-------|------------|---------|
-| Training & validation | RecoFit (Microsoft Research) — MATLAB .mat, 50 Hz, wrist-worn, 200+ subjects | Build and validate the full ML pipeline |
+| Training & validation | MM-Fit — wrist-worn smartwatch, 100→50 Hz, acc+gyro (ADR-013); originally RecoFit (forearm), superseded | Build and validate the full ML pipeline |
 | Generalization test | Self-recorded Apple Watch data via Sensor Logger app | Measure transfer to a new individual and device |
 
 Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are used as features. Location, Barometer, Magnetometer, and Compass channels from Sensor Logger are discarded.
@@ -66,15 +66,16 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
 ┌──────────────────────────────────────────────────────────────────┐
 │                          External World                           │
 │                                                                  │
-│  RecoFit (Microsoft) ──► MATLAB .mat file (~2.5 GB)             │
-│    200+ subjects, 50 Hz, wrist-worn acc+gyro                     │
-│    Loaded via: scipy.io.loadmat(path, simplify_cells=True)       │
+│  MM-Fit ──► NumPy .npy per workout (~1.7 GB)  [CURRENT — ADR-013]│
+│    wrist-worn smartwatch, 100→50 Hz, acc+gyro, both wrists       │
+│    Loaded via: src/ml4b/data/mmfit_loader.py                     │
+│    (RecoFit forearm .mat = original Phase 1–5 source, superseded)│
 │                                                                  │
 │  Apple Watch (Sensor Logger app) ──► WristMotion.csv or ZIP      │
 │    Live app input AND personal generalization test               │
 │    Channels used: Wrist Motion (acc+gyro), optionally Heart Rate │
 └──────────────────────┬───────────────────────────────────────────┘
-                       │ data/raw/recofit/   (training)
+                       │ data/raw/mm-fit/    (training — ADR-013)
                        │ data/raw/personal/  (generalization test)
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
@@ -92,7 +93,7 @@ Only **Wrist Motion** (accelerometer + gyroscope) and optionally Heart Rate are 
          receives predicted exercise label + confidence
 ```
 
-**Primary training input:** RecoFit MATLAB `.mat` file parsed with `scipy.io.loadmat`. Sampling rate: 50 Hz. Sensors: accelerometer (g) + gyroscope (dps), 3 axes each. Dataset contains 75 exercise classes total; 6 target classes selected based on subject coverage analysis (>30 participants threshold — see ADR-005).  
+**Primary training input:** MM-Fit smartwatch `.npy` files parsed with `src/ml4b/data/mmfit_loader.py` (both wrists). Recorded at 100 Hz, decimated to 50 Hz. Sensors: accelerometer (m/s², gravity incl.) + gyroscope (rad/s), 3 axes each. 7 target classes (6 original + `push_up`). Sensor placement (wrist) matches the Apple Watch — see ADR-013. The original RecoFit `.mat` source (forearm, ADR-005) was superseded.  
 **Live app input:** Sensor Logger (Apple Watch) export — either `WristMotion.csv` or the full ZIP — uploaded on the Streamlit Predict page. The loader auto-detects 4 column formats and normalizes to `[timestamp, ax, ay, az, gx, gy, gz]`. The same files double as the self-recorded generalization-test input.  
 **Outputs:** Trained scikit-learn Pipeline (`.joblib`) + Streamlit web app for exercise prediction.
 
@@ -110,14 +111,17 @@ ml4b-project/
 │       ├── prediction.py       #     CSV/ZIP upload → predictions, charts, download
 │       └── model_performance.py #    metrics, model comparison, confusion matrix
 ├── scripts/                    # Stand-alone scripts
-│   └── train_model.py          #   reproducible end-to-end training (load→…→save)
+│   ├── build_mmfit_dataset.py  #   build processed CSVs from MM-Fit (ADR-013)
+│   └── train_model.py          #   reproducible training from processed CSVs (load→…→save)
 ├── src/ml4b/                   # Installable Python package
 │   ├── data/                   #   data preparation pipeline (Phase 3)
-│   │   ├── loader.py           #     RecoFit .mat → long-format DataFrame (filters to 6 target classes)
+│   │   ├── loader.py           #     RecoFit .mat → long-format DataFrame (original source, superseded)
+│   │   ├── mmfit_loader.py     #     MM-Fit .npy (both wrists) → long-format DataFrame, 7 classes (ADR-013)
 │   │   ├── windowing.py        #     Sliding-window segmentation (2 s, 50% overlap — ADR-006)
 │   │   ├── features.py         #     Per-window statistical + FFT features (47 dims)
-│   │   ├── splitting.py        #     Subject-based train/val/test split (ADR-007)
-│   │   └── apple_watch_loader.py #   Sensor Logger CSV → sliding window → features → predict (Phase 5 / app)
+│   │   ├── augmentation.py     #     Rotation augmentation (off by default — ADR-014)
+│   │   ├── splitting.py        #     Subject-based split + rest undersampling (ADR-007/008)
+│   │   └── apple_watch_loader.py #   Sensor Logger CSV → window → features → predict; MM-Fit unit alignment (ADR-013)
 │   ├── models/                 #   model training & inference (Phase 4)
 │   │   ├── train.py            #     train_random_forest(), train_xgboost(), train_svm() (ADR-009)
 │   │   └── evaluate.py         #     evaluate_model(), compare_models(), save_model()
@@ -144,7 +148,9 @@ ml4b-project/
 
 | Module | Responsibility |
 |--------|---------------|
-| `src/ml4b/data/loader.py` | Read RecoFit `.mat` via scipy.io.loadmat, flatten to a long-format DataFrame, filter to the 6 target classes via `EXERCISE_MAPPING` |
+| `src/ml4b/data/mmfit_loader.py` | **(current source — ADR-013)** Read MM-Fit smartwatch `.npy` (both wrists), pair acc+gyr, label by frame, decimate 100→50 Hz, map to 7 classes; emits the same long-format schema as `loader.py` |
+| `src/ml4b/data/loader.py` | (original source, superseded) Read RecoFit `.mat` via scipy.io.loadmat, flatten to a long-format DataFrame, filter to 6 classes via `EXERCISE_MAPPING` |
+| `src/ml4b/data/augmentation.py` | Rotation augmentation for orientation robustness; implemented + tested but disabled by default (ADR-014) |
 | `src/ml4b/data/windowing.py` | Segment continuous recordings into 100-sample (2 s) windows with 50% overlap, never crossing subject/exercise/recording boundaries (ADR-006) |
 | `src/ml4b/data/features.py` | Extract 47 features per window: 7 statistics × 6 axes, 3 magnitude features, 2 FFT features |
 | `src/ml4b/data/splitting.py` | Partition by `subject_id` into disjoint train/val/test (ADR-007); undersample `rest` class in train to `2×` largest exercise class to fix 89% imbalance (ADR-008) |
@@ -165,12 +171,11 @@ ml4b-project/
 
 ### Training Pipeline (Phase 3 → Phase 4)
 ```
-data/raw/recofit/exercise_data.50.0000_singleonly.mat   (2.5 GB MATLAB file)
+data/raw/mm-fit/w{ID}/  — smartwatch .npy (both wrists) + labels.csv  (~1.7 GB)
     │
-    ▼ src/ml4b/data/loader.py  — load_recofit_raw()
-    │   scipy.io.loadmat(path, simplify_cells=True)
-    │   Iterate (n_subjects × n_exercises) cell matrix
-    │   Apply EXERCISE_MAPPING → keep only the 6 target classes
+    ▼ src/ml4b/data/mmfit_loader.py  — load_mmfit_split()   [scripts/build_mmfit_dataset.py]
+    │   Pair acc+gyr by timestamp, label by pose frame, decimate 100→50 Hz
+    │   Map MMFIT_TO_ML4B → keep the 7 target classes (ADR-013)
 Long DataFrame: subject_id, exercise_name, recording_id, timestamp, ax, ay, az, gx, gy, gz
     │
     ▼ src/ml4b/data/windowing.py  — apply_sliding_window(size=100, overlap=0.5)
@@ -178,14 +183,15 @@ Long DataFrame: subject_id, exercise_name, recording_id, timestamp, ax, ay, az, 
     │   2 s windows at 50 Hz, 50% overlap (ADR-006)
 Window DataFrame: one row per window, raw_* columns hold lists of 100 samples
     │
+    ▼ (optional) src/ml4b/data/augmentation.py  — rotation augmentation [OFF by default, ADR-014]
+    │
     ▼ src/ml4b/data/features.py  — extract_features()
     │   Per axis: mean, std, min, max, range, RMS, zero-crossing rate
     │   Magnitudes: accel_magnitude_{mean,std}, gyro_magnitude_mean
     │   FFT on accel magnitude: dominant_frequency, spectral_energy
 Feature matrix: 47 numeric features + (subject_id, exercise_name, window_id)
     │
-    ▼ src/ml4b/data/splitting.py  — subject_based_split(test=0.2, val=0.1, seed=42)
-    │   No subject appears in more than one split (ADR-007)
+    ▼ MM-Fit official workout-id split (train/val/test) — no leakage (ADR-013)
     │
     ▼ src/ml4b/data/splitting.py  — undersample_majority_class(multiplier=2.0)  [TRAIN ONLY]
     │   rest class capped at 2× largest exercise class to fix 89% imbalance (ADR-008)

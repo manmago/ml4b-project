@@ -50,20 +50,21 @@ This question deliberately separates two concerns:
 
 ### Classification Target
 
-The model must classify sensor data windows into exactly **6 classes**:
+The model classifies sensor data windows into **7 classes** (6 original + `push_up`):
 
-| # | Class | RecoFit Source | Participants |
-|---|-------|----------------|--------------|
-| 1 | bicep_curl | Two-arm Dumbbell Curl (both arms, not alternating) | ~45 |
-| 2 | shoulder_press | Shoulder Press (dumbbell) | ~43 |
-| 3 | squat | Squat (arms in front of body) + Squat | ~43+25 combined |
-| 4 | tricep_extension | Overhead Triceps Extension | ~42 |
-| 5 | lateral_raise | Lateral Raise | ~30 |
-| 6 | rest | Non-Exercise + Device on Table | ~90 |
+| # | Class | MM-Fit activity (current) | RecoFit source (original) |
+|---|-------|---------------------------|---------------------------|
+| 1 | bicep_curl | bicep_curls | Two-arm Dumbbell Curl |
+| 2 | shoulder_press | dumbbell_shoulder_press | Shoulder Press (dumbbell) |
+| 3 | squat | squats | Squat |
+| 4 | tricep_extension | tricep_extensions | Overhead Triceps Extension |
+| 5 | lateral_raise | lateral_shoulder_raises | Lateral Raise |
+| 6 | push_up | pushups | — (added with MM-Fit) |
+| 7 | rest | non_activity | Non-Exercise + Device on Table |
 
 The "Rest" class is critical — without it, a classifier would always predict an exercise even during idle periods, making it unusable in practice.
 
-The final exercise classes were selected data-driven based on the RecoFit dataset exploration in Phase 2. Only exercises with recordings from more than 30 participants (above the 50% subject threshold visible in the class distribution plot) were included. Bench Press (Chest Press rack, ~20 participants) and Deadlift (Dumbbell Deadlift Row, ~20 participants) were excluded due to insufficient data. Tricep Extension was added as a replacement with ~42 participants. This data-driven selection ensures the model is trained on classes with sufficient data for robust learning.
+> **Update (ADR-013):** the original 6 classes were selected data-driven from RecoFit in Phase 2 (only exercises with >30 participants; Bench Press and Deadlift excluded). In Iteration 2 the training dataset was switched to **MM-Fit** (wrist-worn smartwatch) because RecoFit's sensor was forearm-worn while the Apple Watch is wrist-worn. MM-Fit provides all 6 classes **plus `push_up`**, so it was added as the 7th class.
 
 ### Performance Target
 
@@ -101,15 +102,23 @@ The project uses a deliberate two-phase data strategy to rigorously test model g
 
 **Dataset evaluation completed in Phase 2 — Data Understanding.**
 
-Five candidate datasets were systematically evaluated. **RecoFit (Microsoft Research)** has been selected as the primary training dataset. See [`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md) for the full evaluation with selection rationale.
+Five candidate datasets were systematically evaluated. RecoFit was the **initial**
+choice; in Iteration 2 the primary dataset was changed to **MM-Fit** — see
+[`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md)
+and **ADR-013**.
 
 | Dataset | Verdict | Reason |
 |---------|---------|--------|
-| RecoFit (Microsoft) | ✅ Primary | Wrist, 50 Hz, 200+ participants, acc+gyro, CHI 2014 |
-| MM-Fit | ⚠️ Rejected | Only 10 participants |
-| IEEE Gym Gesture | ⚠️ Rejected | Only 5 participants; exercise overlap minimal |
+| **MM-Fit** | ✅ **Primary (current — ADR-013)** | **Wrist-worn smartwatch** (matches Apple Watch placement), acc+gyro, 10 gym exercises; the device match outweighs its smaller participant count |
+| RecoFit (Microsoft) | ⚠️ Superseded | Initially primary (200+ participants, CHI 2014) but sensor was **forearm-worn**, causing a placement domain gap on the wrist-worn Apple Watch |
+| IEEE Gym Gesture | ❌ Rejected | Only 5 participants; exercise overlap minimal |
 | WEAR | ❌ Rejected | No gyroscope; outdoor activities only |
 | Kaggle Fitness Tracker | ❌ Rejected | No peer review; undocumented placement |
+
+> **Why the reversal (ADR-013):** MM-Fit was originally rejected for having few
+> participants. But after the model failed to generalize to real Apple Watch
+> data, the **sensor placement** (wrist vs forearm) proved decisive — a wrist
+> dataset with fewer subjects beats a larger forearm dataset for a wrist device.
 
 **RecoFit contains 75 exercise classes total.** Multiple RecoFit classes are merged into single target classes where appropriate (e.g. all Squat variants → squat). Classes with fewer than 30 participants were excluded from the target class set. See [`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md) for the full evaluation and class selection rationale.
 

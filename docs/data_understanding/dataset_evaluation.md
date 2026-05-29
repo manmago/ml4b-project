@@ -2,6 +2,14 @@
 
 > CRISP-DM Phase 2 — Data Understanding | Completed: 2026-05-15
 
+> ⚠️ **Superseded by ADR-013 (2026-05-29).** This Phase-2 evaluation selected
+> **RecoFit** and rejected MM-Fit (for its small participant count). In
+> Iteration 2 that decision was **reversed**: the model failed to generalize to
+> the wrist-worn Apple Watch because RecoFit's sensor is **forearm-worn**.
+> **MM-Fit (wrist-worn) is now the primary training dataset** — sensor placement
+> proved more important than participant count. See
+> [`ADR-013`](../decisions/ADR-013-switch-training-dataset-to-mmfit.md).
+
 ---
 
 ## 1. Evaluation Criteria

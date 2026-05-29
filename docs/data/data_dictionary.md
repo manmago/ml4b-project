@@ -8,27 +8,31 @@
 
 | Field | Value |
 |-------|-------|
-| Primary training source | RecoFit (Microsoft Research), `data/raw/recofit/exercise_data.50.0000_singleonly.mat` |
-| Generalization test source | Self-recorded Apple Watch data (Sensor Logger app), `data/raw/personal/` |
+| Primary training source | **MM-Fit** (wrist-worn smartwatch, CC-BY-4.0), `data/raw/mm-fit/` — see ADR-013 |
+| Original training source (superseded) | RecoFit (Microsoft Research), forearm-worn — used in Phases 1–5, replaced because the Apple Watch is wrist-worn (ADR-013) |
+| Generalization test source | Self-recorded Apple Watch data (Sensor Logger app) |
 | Sensor modalities | Accelerometer (ax, ay, az), Gyroscope (gx, gy, gz) |
-| Sampling rate | 50 Hz (confirmed empirically in Phase 2 notebook) |
-| Raw file format | MATLAB `.mat` (RecoFit) / CSV (Apple Watch) |
-| Target classes | 6 — `bicep_curl`, `shoulder_press`, `squat`, `tricep_extension`, `lateral_raise`, `rest` (see ADR-005) |
+| Sampling rate | 50 Hz (MM-Fit recorded at 100 Hz, decimated to 50 Hz — ADR-013) |
+| Raw file format | NumPy `.npy` (MM-Fit) / CSV (Apple Watch) |
+| Target classes | 7 — `bicep_curl`, `shoulder_press`, `squat`, `tricep_extension`, `lateral_raise`, `push_up`, `rest` (ADR-005 + ADR-013) |
 | Label type | Multi-class: one exercise label per windowed sample |
+| Units (canonical = MM-Fit) | Accel **m/s² including gravity**; gyro **rad/s** (the Apple Watch loader aligns to these — ADR-013) |
 
 ---
 
 ## Raw Long-Format DataFrame
-Produced by `src/ml4b/data/loader.py::load_recofit_raw()`. One row per time sample.
+Produced by `src/ml4b/data/mmfit_loader.py::load_mmfit_workout()` (current) — and
+historically by `loader.py::load_recofit_raw()`. **Both emit the identical
+schema**, so windowing + features are shared. One row per time sample.
 
 | Column | Type | Unit | Description |
 |--------|------|------|-------------|
-| `subject_id` | int | — | RecoFit subject index (0-indexed, 0–93) |
-| `exercise_name` | str | — | Mapped target class (one of the 6 above) |
-| `recording_id` | int | — | Per-subject/exercise recording index — separates multiple sessions of the same exercise |
+| `subject_id` | str/int | — | MM-Fit workout id (e.g. `"w01"`); RecoFit: subject index |
+| `exercise_name` | str | — | Mapped target class (one of the 7 above) |
+| `recording_id` | str/int | — | Per-wrist contiguous exercise segment — separates sessions so windows never straddle a label boundary |
 | `timestamp` | float | s | Sample time relative to the start of the recording |
-| `ax`, `ay`, `az` | float | g | Accelerometer x / y / z (raw RecoFit units) |
-| `gx`, `gy`, `gz` | float | dps | Gyroscope x / y / z (degrees per second) |
+| `ax`, `ay`, `az` | float | m/s² | Accelerometer x / y / z (MM-Fit units, gravity included) |
+| `gx`, `gy`, `gz` | float | rad/s | Gyroscope x / y / z (MM-Fit units) |
 
 ---
 
@@ -82,27 +86,36 @@ The ordered list of all 47 column names is also written to `data/processed/featu
 
 ## Label Definition
 
-| Label | Source RecoFit classes (merged) |
-|-------|---------------------------------|
-| `bicep_curl` | "Bicep Curl", "Two-arm Dumbbell Curl (both arms, not alternating)" |
-| `shoulder_press` | "Shoulder Press (dumbbell)", "Squat Rack Shoulder Press" |
-| `squat` | "Squat", "Squat (arms in front of body, parallel to ground)", "Dumbbell Squat (hands at side)" |
-| `tricep_extension` | "Overhead Triceps Extension", "Triceps extension (lying down)" |
-| `lateral_raise` | "Lateral Raise" |
-| `rest` | "Non-Exercise", "Device on Table", "Rest" |
+Current mapping is from **MM-Fit** activity strings (single dict `MMFIT_TO_ML4B`
+in `src/ml4b/data/mmfit_loader.py`):
 
-Selection rationale: ADR-005 (data-driven, >30 participants per class). Mapping is the single dict `EXERCISE_MAPPING` in `src/ml4b/data/loader.py`.
+| Label | Source MM-Fit activity |
+|-------|------------------------|
+| `bicep_curl` | `bicep_curls` |
+| `shoulder_press` | `dumbbell_shoulder_press` |
+| `squat` | `squats` |
+| `tricep_extension` | `tricep_extensions` |
+| `lateral_raise` | `lateral_shoulder_raises` |
+| `push_up` | `pushups` |
+| `rest` | `non_activity` (everything outside a labelled set) |
+
+MM-Fit activities with no ML4B equivalent (`lunges`, `situps`, `dumbbell_rows`,
+`jumping_jacks`) are dropped. Original RecoFit mapping (`EXERCISE_MAPPING` in
+`loader.py`) is retained for the historical pipeline. Selection rationale:
+ADR-005 + ADR-013.
 
 ---
 
-## Splits (produced by `subject_based_split()`)
-| Split | Default share of subjects | File |
-|-------|--------------------------|------|
-| train | ~70% | `data/processed/train_features.csv` |
-| val   | ~10% | `data/processed/val_features.csv` |
-| test  | ~20% | `data/processed/test_features.csv` |
+## Splits (MM-Fit official workout-id partition — ADR-013)
+| Split | MM-Fit workout ids | File |
+|-------|--------------------|------|
+| train | w01,02,03,04,06,07,08,16,17,18 | `data/processed/train_features.csv` |
+| val   | w14,15,19 | `data/processed/val_features.csv` |
+| test  | w09,10,11 | `data/processed/test_features.csv` |
 
-No subject appears in more than one split. See ADR-007.
+No workout (session) appears in more than one split — a session/subject-level
+split with no leakage, the same principle as ADR-007. The historical RecoFit
+pipeline used `subject_based_split()` (~70/10/20 by subject).
 
 ---
 
@@ -111,7 +124,7 @@ No subject appears in more than one split. See ADR-007.
 > Used only for the Phase 5 cross-device generalization test.
 
 - **Participants:** 1 (project author, plus optional volunteers)
-- **Exercises:** the same 6 target classes
+- **Exercises:** the same 7 target classes
 - **Repetitions per exercise per participant:** ≥ 30 s of motion per class
 - **Watch placement:** dominant wrist
 - **File naming convention:** `<participant_id>_<exercise>_<session>.csv`
