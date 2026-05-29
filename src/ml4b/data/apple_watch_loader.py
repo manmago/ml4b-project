@@ -11,13 +11,19 @@ share the exact same preprocessing code (``ml4b.data.windowing`` and
 ``ml4b.data.features``), so predictions are consistent.
 
 Supported Sensor Logger export formats (auto-detected):
-  Format A: time, seconds_elapsed, x, y, z, roll, pitch, yaw
-  Format B: timestamp, ax, ay, az, gx, gy, gz
-  Format C: seconds_elapsed, x, y, z, roll, pitch, yaw
-  Format D: time, accelerationX/Y/Z, rotationRateX/Y/Z (DeviceMotion export)
+  Format PRIMARY: seconds_elapsed, accelerationX/Y/Z, rotationRateX/Y/Z
+                  (confirmed from a real Apple Watch WristMotion.csv export)
+  Format A:       time, seconds_elapsed, x, y, z, roll, pitch, yaw
+  Format B:       timestamp, ax, ay, az, gx, gy, gz
+  Format C:       seconds_elapsed, x, y, z, roll, pitch, yaw
+  Format D:       time, accelerationX/Y/Z, rotationRateX/Y/Z (DeviceMotion export)
 
 All formats are normalized to the internal schema:
   [timestamp, ax, ay, az, gx, gy, gz]
+
+Apple Watch records at ~100 Hz, but the model was trained on 50 Hz RecoFit data.
+The prediction pipeline auto-detects the sampling rate and decimates to 50 Hz so
+that a 100-sample window stays ~2 seconds long — see ADR-012.
 """
 
 import io
@@ -42,6 +48,18 @@ INTERNAL_COLUMNS = ["timestamp", "ax", "ay", "az", "gx", "gy", "gz"]
 # Add a new dict here if Sensor Logger changes its export format.
 # Keys are matched case-insensitively against the CSV's columns.
 WRIST_MOTION_COLUMN_MAPPINGS: list[dict[str, str]] = [
+    # Format PRIMARY: Sensor Logger WristMotion.csv (confirmed from real Apple
+    # Watch export). accelerationX/Y/Z = linear (user) acceleration in g,
+    # rotationRateX/Y/Z = gyroscope in rad/s. seconds_elapsed is the timestamp.
+    {
+        "seconds_elapsed": "timestamp",
+        "accelerationX": "ax",
+        "accelerationY": "ay",
+        "accelerationZ": "az",
+        "rotationRateX": "gx",
+        "rotationRateY": "gy",
+        "rotationRateZ": "gz",
+    },
     # Format A: Sensor Logger default WristMotion.csv (attitude as roll/pitch/yaw).
     {
         "time": "timestamp",
@@ -180,6 +198,56 @@ def load_sensor_logger_zip(zip_file: Path) -> pd.DataFrame:
     return df
 
 
+def detect_sampling_rate(df: pd.DataFrame, timestamp_col: str = "timestamp") -> float:
+    """Detect actual sampling rate from median timestamp differences.
+
+    Args:
+        df: DataFrame with timestamp column in seconds.
+        timestamp_col: Name of timestamp column.
+
+    Returns:
+        Estimated sampling rate in Hz, rounded to nearest integer.
+    """
+    # Use median diff to be robust against gaps or irregular samples.
+    diffs = df[timestamp_col].diff().dropna()
+    median_diff = diffs.median()
+    # Guard against degenerate input (duplicate/constant timestamps) that would
+    # otherwise divide by zero; fall back to the training rate.
+    if not median_diff or median_diff <= 0:
+        return float(SAMPLING_RATE_HZ)
+    return round(1.0 / median_diff)
+
+
+def resample_to_target_hz(
+    df: pd.DataFrame,
+    source_hz: float,
+    target_hz: float = 50.0,
+    timestamp_col: str = "timestamp",
+) -> pd.DataFrame:
+    """Resample sensor data to target sampling rate via decimation.
+
+    Model was trained on 50Hz RecoFit data. Apple Watch records at ~100Hz.
+    Decimation (taking every Nth sample) is used instead of interpolation
+    to avoid introducing artificial data points. See ADR-012.
+
+    Args:
+        df: Normalized sensor DataFrame.
+        source_hz: Detected source sampling rate in Hz.
+        target_hz: Target rate in Hz. Default 50 (matches training data).
+        timestamp_col: Name of timestamp column.
+
+    Returns:
+        Decimated DataFrame at approximately target_hz.
+        Returns original df unchanged if rates are within 5Hz of each other.
+    """
+    # No meaningful difference — leave the data untouched.
+    if abs(source_hz - target_hz) < 5:
+        return df
+    # Keep every Nth row so the effective rate drops to ~target_hz.
+    step = max(1, round(source_hz / target_hz))
+    return df.iloc[::step].reset_index(drop=True)
+
+
 def predict_from_sensor_logger(
     csv_file: Path,
     model: Any,
@@ -189,10 +257,11 @@ def predict_from_sensor_logger(
 ) -> pd.DataFrame:
     """Run the full prediction pipeline on a Sensor Logger export.
 
-    Pipeline: load (CSV or ZIP) -> normalize columns -> sliding window ->
-    feature extraction -> model prediction -> confidence scores. This is the
-    main entry point used by the Streamlit app, and it uses the same
-    preprocessing functions as training so predictions stay consistent.
+    Pipeline: load (CSV or ZIP) -> normalize columns -> detect + resample to
+    50 Hz -> sliding window -> feature extraction -> model prediction ->
+    confidence scores. This is the main entry point used by the Streamlit app,
+    and it uses the same preprocessing functions as training so predictions
+    stay consistent.
 
     Args:
         csv_file: Path to ``WristMotion.csv`` or a ZIP from Sensor Logger.
@@ -204,6 +273,8 @@ def predict_from_sensor_logger(
     Returns:
         DataFrame with one row per window and columns
         ``[window_id, predicted_class, confidence, time_start_seconds]``.
+        ``DataFrame.attrs`` carries ``detected_hz`` (the source sampling rate)
+        and ``n_samples_after_resample`` (samples fed to the windower).
 
     Raises:
         ValueError: If the recording is too short to form a single window.
@@ -214,6 +285,15 @@ def predict_from_sensor_logger(
         raw_df = load_sensor_logger_zip(csv_file)
     else:
         raw_df = load_sensor_logger_csv(csv_file)
+
+    # Apple Watch records at ~100 Hz, but the model was trained on 50 Hz data.
+    # Detect the real rate and decimate to 50 Hz so a 100-sample window is ~2 s
+    # and the features match the training distribution — see ADR-012.
+    detected_hz = detect_sampling_rate(raw_df)
+    if abs(detected_hz - SAMPLING_RATE_HZ) >= 5:
+        raw_df = resample_to_target_hz(
+            raw_df, source_hz=detected_hz, target_hz=float(SAMPLING_RATE_HZ)
+        )
 
     # The windowing function groups by these columns; for a single unlabeled
     # recording we inject constant dummy values so one contiguous group forms.
@@ -252,4 +332,9 @@ def predict_from_sensor_logger(
             "time_start_seconds": [i * step_seconds for i in range(len(predictions))],
         }
     )
+
+    # Attach pipeline metadata so callers (the app, tests) can surface the
+    # detected rate and how many samples were used after resampling.
+    results.attrs["detected_hz"] = detected_hz
+    results.attrs["n_samples_after_resample"] = len(raw_df)
     return results
