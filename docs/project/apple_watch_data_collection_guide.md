@@ -96,17 +96,22 @@ quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
 - **Sampling rate:** Apple Watch records at **~100 Hz**; the pipeline auto-detects
   this and decimates to **50 Hz** to match training — see ADR-012.
 
-> ℹ️ **Unit alignment (implemented, ADR-012):** the loader now matches the
-> training units automatically — it reconstructs `acceleration + gravity`
-> (RecoFit includes gravity; Sensor Logger's `accelerationX/Y/Z` has it removed)
-> and converts the gyroscope from rad/s to deg/s.
+> ℹ️ **Unit alignment (implemented, ADR-013):** the model is trained on **MM-Fit**
+> (wrist-worn smartwatch). The loader matches MM-Fit's units automatically — it
+> reconstructs total acceleration and converts g → m/s²
+> (`ax = (accelerationX + gravityX) × 9.80665`, ~9.81 m/s² at rest) and leaves
+> the gyroscope in rad/s (which already matches MM-Fit). The earlier RecoFit
+> deg/s conversion (ADR-012) is reverted.
 >
-> ⚠️ **Known limitation (ADR-012):** even with units aligned, real Apple Watch
-> bicep-curl samples are still misclassified (e.g. as `rest`/`lateral_raise`).
-> The remaining gap is a **domain shift** (device, on-wrist orientation, and how
-> each person executes the movement vs the RecoFit subjects). The robust fix is
-> to collect labeled Apple Watch recordings and fine-tune/retrain the model —
-> use the Recording Protocol above to gather them.
+> ⚠️ **Known limitation (ADR-013/014):** with MM-Fit, **push-ups are recognized
+> correctly** on real Apple Watch recordings. However, **bicep curls are still
+> confused with tricep extensions**. Two reasons: (1) a residual orientation gap
+> between the Apple Watch and MM-Fit's TicWatch, and (2) bicep curl and tricep
+> extension are near-identical at the wrist (both are elbow rotations) — even the
+> in-domain test confuses them most. Rotation augmentation was tried and rejected
+> (ADR-014). The robust fix for this specific pair is a few labeled Apple Watch
+> recordings of *your own* bicep/tricep sessions to fine-tune the model — use the
+> Recording Protocol above.
 
 ---
 
@@ -127,9 +132,11 @@ If detection fails, the loader raises a `ValueError` listing the columns it
 found, so you can identify the mismatch and add a new mapping to
 `WRIST_MOTION_COLUMN_MAPPINGS`.
 
-**Unit note:** Apple's Core Motion (Wrist Motion) reports user acceleration
-already in **g** and rotation rate in **rad/s**, matching the RecoFit training
-units — so the loader does **not** apply any unit conversion.
+**Unit note (ADR-013):** Apple's Core Motion (Wrist Motion) reports *user*
+acceleration in **g** (gravity removed) plus a separate gravity vector, and
+rotation rate in **rad/s**. The training data (MM-Fit) is in **m/s² including
+gravity** and **rad/s**, so the loader reconstructs total acceleration and
+converts g → m/s² (`× 9.80665`); the gyroscope is left in rad/s.
 
 ---
 

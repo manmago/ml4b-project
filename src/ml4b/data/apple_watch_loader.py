@@ -21,20 +21,24 @@ Supported Sensor Logger export formats (auto-detected):
 All formats are normalized to the internal schema:
   [timestamp, ax, ay, az, gx, gy, gz]
 
-Apple Watch records at ~100 Hz, but the model was trained on 50 Hz RecoFit data.
+Apple Watch records at ~100 Hz, but the model was trained on 50 Hz data.
 The prediction pipeline auto-detects the sampling rate and decimates to 50 Hz so
 that a 100-sample window stays ~2 seconds long — see ADR-012.
 
-Sensor Logger's accelerationX/Y/Z is *user* acceleration with gravity removed
-(~0 g at rest), whereas RecoFit's accelerometer includes gravity (~1 g at rest).
-When gravityX/Y/Z is present, this loader reconstructs total acceleration
-(ax = userAccel + gravity) so the signal matches the training units — ADR-012.
-Sensor Logger's rotationRate is in rad/s while RecoFit's gyroscope is in deg/s,
-so rotationRate columns are converted to deg/s as well — ADR-012.
+Unit alignment to the MM-Fit training data (ADR-013): the model is now trained
+on MM-Fit, whose smartwatch reports the accelerometer in **m/s² including
+gravity** and the gyroscope in **rad/s**. Sensor Logger's WristMotion
+accelerationX/Y/Z is *user* acceleration in g with gravity removed (~0 g at
+rest), accompanied by a gravityX/Y/Z vector (also in g). This loader therefore
+reconstructs total acceleration and converts g -> m/s²::
+
+    ax = (accelerationX + gravityX) * 9.80665   # ~9.81 m/s² at rest
+
+The gyroscope (rotationRate) is already in rad/s, matching MM-Fit, so it is
+passed through unchanged (no rad/s -> deg/s conversion).
 """
 
 import io
-import math
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -48,9 +52,10 @@ from ml4b.data.windowing import apply_sliding_window
 # at 50 Hz, matching the RecoFit training data — see ADR-006.
 SAMPLING_RATE_HZ = 50
 
-# RecoFit's gyroscope is in degrees/second; Sensor Logger's rotationRate is in
-# radians/second. Multiply by this to convert rad/s -> deg/s — see ADR-012.
-RAD_TO_DEG = 180.0 / math.pi
+# Standard gravity in m/s². MM-Fit's accelerometer is in m/s² including gravity,
+# while Sensor Logger reports acceleration in g — multiply (userAccel + gravity)
+# by this to convert g -> m/s² and match the training units — see ADR-013.
+G_MS2 = 9.80665
 
 # Internal schema every loader output must conform to. These names match
 # ml4b.data.features._AXES so feature extraction works without changes.
@@ -146,12 +151,12 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             renamed = df.rename(columns=col_map)
             result = renamed[INTERNAL_COLUMNS].copy()
 
-            # Restore gravity when the mapping read Sensor Logger's
-            # accelerationX/Y/Z (linear / user acceleration with gravity
-            # REMOVED) and a gravityX/Y/Z vector is available. RecoFit's
-            # accelerometer includes gravity (~1 g at rest), so we reconstruct
-            # the total acceleration ax = userAccel + gravity to match the
-            # training distribution — see ADR-012.
+            # Align acceleration to the MM-Fit training units (m/s² including
+            # gravity). When the mapping read Sensor Logger's accelerationX/Y/Z
+            # (user acceleration in g, gravity REMOVED) and a gravityX/Y/Z
+            # vector (also in g) is available, reconstruct total acceleration
+            # and convert g -> m/s²: ax = (userAccel + gravity) * 9.80665.
+            # This yields ~9.81 m/s² at rest, matching MM-Fit — see ADR-013.
             mapped_from_acceleration = any(
                 key.lower().startswith("acceleration") for key in mapping
             )
@@ -160,20 +165,19 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             if mapped_from_acceleration and has_gravity:
                 # .to_numpy() sidesteps index-alignment surprises; both frames
                 # share the same row order here anyway.
-                result["ax"] = result["ax"].to_numpy() + df[grav["gravityx"]].to_numpy()
-                result["ay"] = result["ay"].to_numpy() + df[grav["gravityy"]].to_numpy()
-                result["az"] = result["az"].to_numpy() + df[grav["gravityz"]].to_numpy()
+                result["ax"] = (
+                    result["ax"].to_numpy() + df[grav["gravityx"]].to_numpy()
+                ) * G_MS2
+                result["ay"] = (
+                    result["ay"].to_numpy() + df[grav["gravityy"]].to_numpy()
+                ) * G_MS2
+                result["az"] = (
+                    result["az"].to_numpy() + df[grav["gravityz"]].to_numpy()
+                ) * G_MS2
 
-            # Convert the gyroscope from rad/s to deg/s when the mapping read
-            # Sensor Logger's rotationRateX/Y/Z, so it matches RecoFit's deg/s
-            # gyroscope (training gyro_magnitude_mean ~53 vs ~1 in rad/s) — ADR-012.
-            mapped_from_rotation_rate = any(
-                key.lower().startswith("rotationrate") for key in mapping
-            )
-            if mapped_from_rotation_rate:
-                result["gx"] = result["gx"].to_numpy() * RAD_TO_DEG
-                result["gy"] = result["gy"].to_numpy() * RAD_TO_DEG
-                result["gz"] = result["gz"].to_numpy() * RAD_TO_DEG
+            # The gyroscope (rotationRateX/Y/Z) is already in rad/s, which
+            # matches MM-Fit's rad/s gyroscope, so no unit conversion is applied
+            # — see ADR-013.
 
             return result
 
