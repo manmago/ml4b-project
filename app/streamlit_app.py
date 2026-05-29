@@ -88,7 +88,7 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-st.sidebar.caption("Model: Random Forest · Test Macro F1: 0.80")
+st.sidebar.caption("Model: Random Forest · MM-Fit · Test Macro F1: 0.961")
 
 # Route to the selected page's render function.
 if page == "🏠 Home":

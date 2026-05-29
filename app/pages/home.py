@@ -7,13 +7,14 @@ uploading Apple Watch data via the Sensor Logger app.
 
 import streamlit as st
 
-# The six exercise classes the model recognizes, with friendly display names.
+# The seven exercise classes the model recognizes, with friendly display names.
 EXERCISES = [
     ("💪", "Bicep Curl"),
     ("🏋️", "Shoulder Press"),
     ("🦵", "Squat"),
     ("💪", "Tricep Extension"),
     ("🙆", "Lateral Raise"),
+    ("🤸", "Push Up"),
     ("😴", "Rest / No Exercise"),
 ]
 
@@ -26,17 +27,18 @@ def render() -> None:
     st.markdown(
         "This app recognizes **gym exercises from wrist-worn sensor data** "
         "(Apple Watch accelerometer + gyroscope) using a Random Forest model "
-        "trained on the Microsoft **RecoFit** dataset. Record a workout with the "
-        "Sensor Logger app, upload the file, and the app predicts which exercise "
-        "you performed in each 2-second window — with a confidence score."
+        "trained on the **MM-Fit** smartwatch dataset (wrist-worn, matching the "
+        "Apple Watch — see ADR-013). Record a workout with the Sensor Logger app, "
+        "upload the file, and the app predicts which exercise you performed in "
+        "each 2-second window — with a confidence score."
     )
 
     # Headline metrics from the held-out test set (see Model Performance page).
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Best Model", "Random Forest")
-    col2.metric("Test Macro F1", "0.8006", help="Target was ≥ 0.80 — met ✅")
-    col3.metric("Test Accuracy", "96.3%")
-    col4.metric("Exercises", "6 classes")
+    col2.metric("Test Macro F1", "0.961", help="Target was ≥ 0.80 — met ✅")
+    col3.metric("Test Accuracy", "98.5%")
+    col4.metric("Exercises", "7 classes")
 
     st.divider()
 

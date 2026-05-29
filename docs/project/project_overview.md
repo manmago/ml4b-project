@@ -63,9 +63,11 @@ For OS-specific setup: see `docs/setup/Setup_WSL_Windows.md`,
 The pipeline has 5 steps — each step has a corresponding notebook and source module:
 
 **Step 1 — Load raw data**
-- Input:  `data/raw/recofit/exercise_data.50.0000_singleonly.mat` (2.5 GB)
-- Code:   `src/ml4b/data/loader.py`
-- Output: pandas DataFrame with 7.96M sensor samples
+- Input:  `data/raw/mm-fit/` smartwatch `.npy` files, both wrists (~1.7 GB) — ADR-013
+- Code:   `src/ml4b/data/mmfit_loader.py` (+ `scripts/build_mmfit_dataset.py`)
+- Output: long-format DataFrame (same schema as the original RecoFit loader)
+- Note:   RecoFit (`loader.py`) was the original Phase 1–5 source, superseded
+          because its sensor was forearm-worn while the Apple Watch is wrist-worn
 
 **Step 2 — Sliding Window Segmentation**
 - Input:  Raw DataFrame
@@ -105,12 +107,13 @@ The pipeline has 5 steps — each step has a corresponding notebook and source m
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest |
-| Test Macro F1 | 0.8006 ✅ (target: ≥ 0.80) |
-| Test Accuracy | 96.3% |
-| Generalization gap | 1.3% (very stable) |
-| Best class | rest (F1 = 0.98) |
-| Weakest class | lateral_raise (F1 = 0.55) |
-| Apple Watch test | ⏳ Pending — data not yet collected |
+| Training dataset | MM-Fit (wrist-worn smartwatch — ADR-013) |
+| Test Macro F1 | 0.961 ✅ (target: ≥ 0.80) |
+| Test Accuracy | 98.5% |
+| Val Macro F1 | 0.880 |
+| Best class | push_up (F1 = 1.00), rest (0.99) |
+| Weakest class | squat / bicep_curl (F1 = 0.89) |
+| Apple Watch test | push_up recognized ✅; bicep_curl still confused with tricep_extension (ADR-013/014) |
 
 ---
 
@@ -124,7 +127,9 @@ Every decision has a full ADR in `docs/decisions/`. Here is a plain-language sum
 | ML framework | scikit-learn | Sufficient for tabular features, easy to use | ADR-002 |
 | Multi-agent AI setup | data_scientist + documenter + reviewer agents | Better quality, less token waste | ADR-003 |
 | Code documentation standard | Google docstrings + inline comments | New team must understand code without asking | ADR-004 |
-| Exercise class selection | 6 classes (not original 7) | Data-driven: Bench Press + Deadlift had <30 participants | ADR-005 |
+| Exercise class selection | 7 classes (6 from RecoFit + push_up from MM-Fit) | Data-driven coverage (ADR-005); push_up added with MM-Fit | ADR-005, ADR-013 |
+| Training dataset switch | RecoFit → MM-Fit | RecoFit was forearm-worn; Apple Watch is wrist-worn — MM-Fit matches the device | ADR-013 |
+| Rotation augmentation | Rejected (kept off) | Hurt the bicep/tricep case and in-domain F1 | ADR-014 |
 | Sliding window size | 2 seconds (100 samples) | Captures one full rep phase; consistent with literature | ADR-006 |
 | Train/test split method | Subject-based | Prevents data leakage between train and test | ADR-007 |
 | Class imbalance fix | Undersampling rest to 2× largest class | rest was 89% of data — model would always predict rest | ADR-008 |
@@ -190,9 +195,16 @@ Full collection + export protocol:
 
 ## 9. Dataset
 
-**RecoFit (Microsoft Research)**
+**MM-Fit (current training source — ADR-013)**
 
-- 200+ participants, wrist-worn sensor, 50Hz
+- Wrist-worn smartwatch (Mobvoi TicWatch Pro), acc+gyro at 100 Hz, both wrists
+- 20 workouts, 10 gym exercises (7 mapped to our classes + `push_up`)
+- Download: https://s3.eu-west-2.amazonaws.com/vradu.uk/mm-fit.zip (~1.7 GB)
+- Project page: https://mmfit.github.io/ · Citation: Strömbäck, Huang & Radu (2020), UbiComp/ISWC · CC-BY-4.0
+- NOT included in git — unzip to `data/raw/mm-fit/`
+
+**RecoFit (Microsoft Research) — original source, superseded (ADR-013)**
+
+- 200+ participants, **forearm**-worn sensor, 50 Hz
 - Download: https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors
-- Citation: Morris et al. (2014), CHI Conference
-- NOT included in git (2.5 GB) — see `data/raw/recofit/README.md`
+- Citation: Morris et al. (2014), CHI · Replaced because the Apple Watch is wrist-worn

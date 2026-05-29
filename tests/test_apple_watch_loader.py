@@ -97,18 +97,17 @@ def test_detect_format_a() -> None:
     assert list(out.columns) == INTERNAL_COLUMNS
 
 
-def test_primary_restores_gravity_and_converts_gyro() -> None:
-    """PRIMARY format adds gravity back to accel and converts gyro rad/s -> deg/s."""
-    from ml4b.data.apple_watch_loader import RAD_TO_DEG
+def test_primary_restores_gravity_and_keeps_gyro_rad_s() -> None:
+    """PRIMARY format restores gravity + converts g->m/s²; gyro stays rad/s (MM-Fit units)."""
+    from ml4b.data.apple_watch_loader import G_MS2
 
     df = _format_primary()
     out = detect_and_normalize_columns(df)
-    # ax must equal accelerationX + gravityX (gravity reconstruction).
-    expected_ax = df["accelerationX"].to_numpy() + df["gravityX"].to_numpy()
+    # ax must equal (accelerationX + gravityX) converted from g to m/s².
+    expected_ax = (df["accelerationX"].to_numpy() + df["gravityX"].to_numpy()) * G_MS2
     assert np.allclose(out["ax"].to_numpy(), expected_ax)
-    # gx must equal rotationRateX scaled to degrees/second.
-    expected_gx = df["rotationRateX"].to_numpy() * RAD_TO_DEG
-    assert np.allclose(out["gx"].to_numpy(), expected_gx)
+    # gx must equal rotationRateX unchanged (rad/s matches MM-Fit's rad/s).
+    assert np.allclose(out["gx"].to_numpy(), df["rotationRateX"].to_numpy())
 
 
 def test_format_b_not_modified_by_unit_fixes() -> None:
