@@ -96,11 +96,17 @@ quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
 - **Sampling rate:** Apple Watch records at **~100 Hz**; the pipeline auto-detects
   this and decimates to **50 Hz** to match training — see ADR-012.
 
-> ⚠️ **Known calibration caveat (ADR-012):** RecoFit's accelerometer includes
-> gravity (rest ≈ 1 g), whereas Sensor Logger's `accelerationX/Y/Z` has gravity
-> removed (rest ≈ 0). This distribution gap currently degrades real-watch
-> predictions; reconstructing `acceleration + gravity` and/or fine-tuning on
-> Apple Watch recordings are recommended follow-ups.
+> ℹ️ **Unit alignment (implemented, ADR-012):** the loader now matches the
+> training units automatically — it reconstructs `acceleration + gravity`
+> (RecoFit includes gravity; Sensor Logger's `accelerationX/Y/Z` has it removed)
+> and converts the gyroscope from rad/s to deg/s.
+>
+> ⚠️ **Known limitation (ADR-012):** even with units aligned, real Apple Watch
+> bicep-curl samples are still misclassified (e.g. as `rest`/`lateral_raise`).
+> The remaining gap is a **domain shift** (device, on-wrist orientation, and how
+> each person executes the movement vs the RecoFit subjects). The robust fix is
+> to collect labeled Apple Watch recordings and fine-tune/retrain the model —
+> use the Recording Protocol above to gather them.
 
 ---
 
