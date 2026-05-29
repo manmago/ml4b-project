@@ -24,6 +24,7 @@ Phase 6 completed: 2026-05-29
 | 4 | Modeling | done | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Random Forest selected as best model (macro F1 = 0.8136 on val). XGBoost = 0.8057, SVM = 0.7478. ADR-009, ADR-010 accepted. best_model.joblib saved. |
 | 5 | Evaluation | done | Anshul Agrawal | `notebooks/05_evaluation.ipynb` | Test Macro F1 = 0.8006 ✅ target met. Generalization gap 1.3%. No iterative improvement needed. See notebooks/05_evaluation.ipynb for full results. |
 | 6 | Deployment | done | Anshul Agrawal | `notebooks/06_deployment.ipynb` | Full Streamlit app (3 pages) live; model + feature names committed to git; `scripts/train_model.py` added; Sensor Logger CSV/ZIP upload pipeline working. App runs with 3 commands, no dataset needed. |
+| ↻ | **Iteration 2 (CRISP-DM loop): dataset switch** | done | Anshul Agrawal | `scripts/build_mmfit_dataset.py` | Deployment revealed RecoFit (forearm-worn) does not generalize to the wrist-worn Apple Watch. Re-ran Data Understanding → Modeling → Evaluation on **MM-Fit** (wrist-worn smartwatch). 7 classes (added `push_up`). **Val macro F1 = 0.880, Test macro F1 = 0.961.** ADR-013 (dataset switch), ADR-014 (rotation augmentation rejected). |
 
 ---
 
@@ -92,13 +93,46 @@ Phase 6 completed: 2026-05-29
 
 ---
 
+## Iteration 2 — Dataset Switch to MM-Fit (2026-05-29)
+
+**Trigger (CRISP-DM is a loop):** During Deployment, real Apple Watch recordings
+were misclassified. After fixing the Sensor Logger column mapping, the 100→50 Hz
+rate and the units (ADR-012), bicep curls were *still* wrong. Diagnosis with
+`scripts/test_apple_watch_prediction.py` showed the cause was not a bug but a
+**sensor-placement domain gap**: RecoFit's sensor was a **forearm** armband,
+while the Apple Watch is on the **wrist**.
+
+**Action — re-ran the relevant CRISP-DM phases on a wrist-worn dataset:**
+- **Data Understanding/Preparation:** adopted **MM-Fit** (wrist-worn smartwatch,
+  CC-BY-4.0). New `src/ml4b/data/mmfit_loader.py` emits the same long-format
+  schema, so windowing + features are reused unchanged. New
+  `scripts/build_mmfit_dataset.py` writes the standard processed CSVs. Both
+  wrists used; 100→50 Hz decimation kept; 7 classes (added `push_up`); MM-Fit's
+  official workout-id split. See ADR-013.
+- **Modeling/Evaluation:** Random Forest retained (ADR-010). **Val macro F1 =
+  0.880 / acc 0.948; Test macro F1 = 0.961 / acc 0.985** on held-out workouts —
+  all 7 classes ≥ 0.80 F1.
+- **Unit re-alignment:** `apple_watch_loader.py` now matches MM-Fit units
+  (accel m/s² incl. gravity, gyro rad/s); diagnostic z-scores fell from >10 to <2.
+- **Rotation augmentation** tried to close the residual orientation gap but
+  **rejected** by evidence (hurt the bicep/tricep case, lowered in-domain F1) —
+  ADR-014. Module kept, off by default.
+
+**Real Apple Watch result:** `push_up` now recognized correctly (was impossible
+before); `bicep_curl` still confused with `tricep_extension` — a residual
+device-orientation gap plus the biomechanical similarity of the two movements at
+the wrist. Robust fix would require a few of the user's own labelled recordings.
+
+---
+
 ## Final Project Summary (2026-05-29)
 
-All six CRISP-DM phases are complete. The deliverable is a working Streamlit app
+All six CRISP-DM phases are complete, plus a second iteration that switched the
+training dataset to MM-Fit (ADR-013). The deliverable is a working Streamlit app
 that runs with three commands (`git clone`, `uv sync`, `uv run streamlit run
 app/streamlit_app.py`) and needs no dataset download. The best model (Random
-Forest, Test Macro F1 = 0.8006) is committed alongside the feature list and a
-reproducible training script. Sensor Logger (Apple Watch) exports are accepted
-as either `WristMotion.csv` or a full ZIP. The project is handover-ready: every
-decision is documented in `docs/decisions/` (ADR-001–010), and OS-specific setup
-guides cover WSL, macOS, and Windows.
+Forest, trained on MM-Fit, **Test Macro F1 = 0.961**) is committed alongside the
+feature list and reproducible build + training scripts. Sensor Logger (Apple
+Watch) exports are accepted as either `WristMotion.csv` or a full ZIP. The
+project is handover-ready: every decision is documented in `docs/decisions/`
+(ADR-001–014), and OS-specific setup guides cover WSL, macOS, and Windows.

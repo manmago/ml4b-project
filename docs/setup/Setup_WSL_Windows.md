@@ -13,7 +13,7 @@ Choose your goal — most people only need the **Quick Start** path.
 |------|-------------|
 | **Run the Streamlit app** | `git clone` + `uv sync` — **NO dataset needed** |
 | **Explore the notebooks** | `git clone` + `uv sync` — **NO dataset needed** |
-| **Retrain the model from scratch** | RecoFit dataset required (~2.5 GB) |
+| **Retrain the model from scratch** | MM-Fit dataset required (~1.7 GB) — ADR-013 |
 
 The trained model (`models/saved/best_model.joblib`) and the feature list
 (`data/processed/feature_names.txt`) are committed to git, so the app works
@@ -72,37 +72,32 @@ You should see three pages: **🏠 Home**, **🔮 Predict Exercise**, and
 
 ## 4. Dataset Download (only if retraining)
 
-Only needed if you want to reproduce the model from raw data.
+Only needed if you want to reproduce the model from raw data. The model is
+trained on **MM-Fit** (wrist-worn smartwatch — see ADR-013).
 
-Download RecoFit from:
-**https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors**
-
-Files needed:
-
-```
-exercise_data.50.0000_singleonly.mat   (~2.5 GB)
-exercise_data.50.0000_multionly.mat
+```bash
+# Download + unzip the MM-Fit sensor data (~1.7 GB) into data/raw/
+curl -L https://s3.eu-west-2.amazonaws.com/vradu.uk/mm-fit.zip -o data/raw/mm-fit.zip
+cd data/raw && unzip mm-fit.zip && cd ../..   # creates data/raw/mm-fit/w00 … w20
 ```
 
-Place them in:
-
-```
-data/raw/recofit/
-```
+(The original RecoFit `.mat` dataset, used in Phases 1–5, was superseded by
+MM-Fit in ADR-013.)
 
 ---
 
 ## 5. Retrain the Model (only if needed)
 
 ```bash
-uv run python scripts/train_model.py
+uv run python scripts/build_mmfit_dataset.py   # MM-Fit → processed feature CSVs
+uv run python scripts/train_model.py           # train + save best_model.joblib
 ```
 
-This runs the full pipeline (load → window → features → split → train) and
-overwrites `models/saved/best_model.joblib` and `feature_names.txt`. With the
-dataset present it takes a few minutes; if processed features already exist it
-skips straight to training. Uses `random_state=42` everywhere for
-reproducibility.
+`build_mmfit_dataset.py` runs load → window → features → undersample and writes
+`data/processed/*.csv`; `train_model.py` then trains the Random Forest and
+overwrites `models/saved/best_model.joblib` and `feature_names.txt`. If the
+processed CSVs already exist, training skips straight to fitting. Uses
+`random_state=42` everywhere for reproducibility.
 
 ---
 

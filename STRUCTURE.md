@@ -16,7 +16,7 @@ ml4b-project/
 ├── models/                 ← Trained model files (best_model.joblib IS committed)
 ├── notebooks/              ← Jupyter notebooks (one per CRISP-DM phase)
 ├── reports/                ← Generated figures and result summaries (NOT in git)
-├── scripts/                ← Stand-alone scripts (train_model.py)
+├── scripts/                ← Stand-alone scripts (build_mmfit_dataset.py, train_model.py)
 ├── src/ml4b/               ← Reusable Python package
 ├── tests/                  ← Unit tests
 │
@@ -80,7 +80,8 @@ All data files. **This folder is in `.gitignore` — nothing inside it is ever c
 ```
 data/
 ├── raw/
-│   └── recofit/            ← RecoFit .mat files (~2.5 GB, NOT in git — see README.md inside)
+│   ├── recofit/            ← RecoFit .mat files (~2.5 GB, NOT in git) — original Phase 1–5 source, superseded by MM-Fit (ADR-013)
+│   └── mm-fit/             ← MM-Fit dataset (~1.7 GB, NOT in git) — CURRENT training source; w00–w20 workout folders
 └── processed/              ← Output of notebooks/03_data_preparation.ipynb
     ├── .gitkeep            ← Keeps folder tracked even when empty
     ├── README.md           ← Describes the expected CSV files and how to reproduce them
@@ -199,11 +200,13 @@ src/ml4b/
 ├── __init__.py
 ├── data/
 │   ├── __init__.py
-│   ├── loader.py           ← Read RecoFit .mat → long-format DataFrame, filter to 6 target classes
+│   ├── loader.py           ← Read RecoFit .mat → long-format DataFrame (original Phase 1–5 source; superseded by MM-Fit — ADR-013)
+│   ├── mmfit_loader.py     ← Read MM-Fit smartwatch .npy (both wrists) → long-format DataFrame, map to 7 classes (CURRENT training source — ADR-013)
 │   ├── windowing.py        ← Sliding-window segmentation (2 s windows, 50% overlap — ADR-006)
 │   ├── features.py         ← Statistical + FFT feature extraction per window (47 features)
-│   ├── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix 89% imbalance (ADR-008)
-│   └── apple_watch_loader.py ← Sensor Logger CSV loader + predict_from_sensor_logger() for Streamlit app
+│   ├── augmentation.py     ← Rotation augmentation for orientation robustness (implemented, off by default — ADR-014)
+│   ├── splitting.py        ← Subject-based train/val/test split (ADR-007); undersample_majority_class() caps rest at 2× largest exercise class to fix imbalance (ADR-008)
+│   └── apple_watch_loader.py ← Sensor Logger CSV loader + predict_from_sensor_logger(); aligns units to MM-Fit (ADR-013)
 ├── models/
 │   ├── __init__.py         ← Models subpackage marker
 │   ├── train.py            ← train_random_forest(), train_xgboost(), train_svm() — see ADR-009
@@ -233,12 +236,15 @@ Stand-alone, runnable scripts that are not part of the importable package.
 
 ```
 scripts/
-├── train_model.py          ← Reproduce the trained model end-to-end without Jupyter:
-│                             load → window → features → split → train → save .joblib
+├── build_mmfit_dataset.py  ← Build processed feature CSVs from MM-Fit (ADR-013):
+│                             load both wrists → window → features → undersample rest.
+│                             --augment N enables rotation augmentation (ADR-014).
+│                             Run: uv run python scripts/build_mmfit_dataset.py
+├── train_model.py          ← Train the model from the processed CSVs and save .joblib:
 │                             Run: uv run python scripts/train_model.py
 └── test_apple_watch_prediction.py ← Validate the Apple Watch pipeline on real
                                WristMotion.csv samples; prints per-file predictions
-                               and an out-of-distribution diagnostic (ADR-012)
+                               and an out-of-distribution diagnostic (ADR-012/013)
 ```
 
 - **What goes here:** one-shot operational scripts (training, data prep helpers).
@@ -269,7 +275,9 @@ Unit tests. Mirror the structure of `src/ml4b/`.
 tests/
 ├── __init__.py                  ← Package marker; add test_<module>.py files alongside it
 ├── test_features.py             ← Feature extraction: 47 features, finite, deterministic
-└── test_apple_watch_loader.py   ← Column auto-detection, ZIP, predict pipeline, error guards
+├── test_apple_watch_loader.py   ← Column auto-detection, ZIP, predict pipeline, MM-Fit unit alignment, error guards
+├── test_mmfit_loader.py         ← MM-Fit loader: schema, class mapping, decimation, both/single wrist
+└── test_augmentation.py         ← Rotation augmentation: magnitude-preserving, size, determinism
 ```
 
 **Naming convention:** `test_<module_name>.py` — must start with `test_` for pytest to discover it.
@@ -318,6 +326,7 @@ uv run pytest
 uv run ruff format .
 uv run ruff check .
 
-# Retrain the model from scratch (requires the RecoFit dataset)
+# Retrain the model from scratch (requires the MM-Fit dataset — ADR-013)
+uv run python scripts/build_mmfit_dataset.py
 uv run python scripts/train_model.py
 ```
