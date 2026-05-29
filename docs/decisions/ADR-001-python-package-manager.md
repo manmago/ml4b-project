@@ -30,6 +30,25 @@ We use **uv** (by Astral) as the sole package and environment manager.
 
 ---
 
+## Alternatives Considered
+
+| Option | Why not chosen |
+|--------|----------------|
+| **conda / mamba** | Heavyweight, slower, licensing overhead for the default channels, and a separate `environment.yml` to maintain. |
+| **pip + venv** | No built-in lockfile for transitive pins; reproducibility requires extra tooling (`pip-tools`) and manual venv activation. |
+| **poetry** | Solid lockfile support but noticeably slower resolves/installs than uv, and an extra tool layer on top of `pyproject.toml`. |
+
+## Rationale
+
+uv reads the standard `pyproject.toml`, produces a fully-pinned `uv.lock`, and
+resolves/installs 10–100× faster than pip/poetry — which matters most for
+onboarding and CI. `uv run` executes tools inside the managed venv without
+manual activation, so the same commands work identically on WSL, macOS, and
+Windows. This directly satisfies the cross-platform reproducibility requirement
+with the least friction.
+
+---
+
 ## Consequences
 
 **Positive:**

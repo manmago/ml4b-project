@@ -1,282 +1,175 @@
-# Setup Guide — Windows (nativ, ohne WSL)
-> ML4B Gym Exercise Recognition Project | Python 3.11 | uv | VS Code
+# Setup Guide — Windows (native, without WSL)
+
+> ML4B Gym Exercise Recognition | Python 3.11 · uv · VS Code
+> This guide takes a brand-new Windows PC to a running Streamlit app using
+> **PowerShell**. (Prefer Linux tooling? See `Setup_WSL_Windows.md`.)
 
 ---
 
-## 0. Voraussetzungen prüfen
+## 0. Quick Start vs Full Setup
 
-Öffne **PowerShell** (`Win+X` → "Windows PowerShell" oder "Terminal"):
+Choose your goal — most people only need the **Quick Start** path.
 
-```powershell
-# Git vorhanden?
-git --version
+| Goal | Requirements |
+|------|-------------|
+| **Run the Streamlit app** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Explore the notebooks** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Retrain the model from scratch** | RecoFit dataset required (~2.5 GB) |
 
-# uv vorhanden?
-uv --version
-
-# Python vorhanden (wird von uv verwaltet)?
-python --version
-```
-
----
-
-## 1. Git installieren
-
-Falls `git --version` fehlschlägt:
-
-→ Download: https://git-scm.com/downloads/win  
-→ Während Installation: **"Git Bash"** und **"Git from the command line"** auswählen
+The trained model (`models/saved/best_model.joblib`) and the feature list
+(`data/processed/feature_names.txt`) are committed to git, so the app works
+immediately after cloning — you do **not** need to download the dataset.
 
 ---
 
-## 2. uv installieren (Package Manager)
+## 1. Prerequisites
 
-In **PowerShell (als Administrator)**:
+Open **PowerShell** and install the three tools below.
 
-```powershell
-winget install astral-sh.uv
-```
+| Tool | Download / Install |
+|------|--------------------|
+| **VS Code** | https://code.visualstudio.com/download (Windows User Installer) |
+| **Git** | https://git-scm.com/download/win (accept defaults) |
+| **uv** | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
 
-Alternativ:
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-**Terminal neu starten**, dann prüfen:
+Verify (reopen PowerShell first so PATH updates take effect):
 
 ```powershell
-uv --version
+git --version      # >= 2.x
+uv --version       # any recent version
 ```
 
 ---
 
-## 3. Python 3.11 mit uv installieren
+## 2. Clone and Setup
 
 ```powershell
-# Python 3.11 installieren
-uv python install 3.11
-
-# Prüfen
-uv python list --only-installed
-```
-
----
-
-## 4. Git konfigurieren & SSH-Key für GitHub
-
-### 4a. Name und E-Mail setzen (in PowerShell oder Git Bash)
-
-```powershell
-git config --global user.name "Dein Name"
-git config --global user.email "deine@email.com"
-```
-
-### 4b. SSH-Key erstellen
-
-In **Git Bash** (nicht PowerShell, da ssh-keygen dort manchmal fehlt):
-
-```bash
-# Vorhandene Keys prüfen
-ls -la ~/.ssh/
-
-# Neuen Key erstellen falls keiner vorhanden
-ssh-keygen -t ed25519 -C "deine@email.com"
-# Enter für Standard-Pfad, optional Passphrase
-
-# SSH-Agent starten
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-```
-
-### 4c. Public Key zu GitHub hinzufügen
-
-In Git Bash:
-
-```bash
-# Key anzeigen und manuell kopieren
-cat ~/.ssh/id_ed25519.pub
-```
-
-→ GitHub: **Settings → SSH and GPG keys → New SSH key**  
-→ Einfügen und speichern
-
-### 4d. Verbindung testen
-
-```bash
-ssh -T git@github.com
-```
-
----
-
-## 5. Repository clonen
-
-In **PowerShell** oder **Git Bash**:
-
-```powershell
-# Projektordner erstellen und navigieren
-mkdir C:\Users\<DeinName>\projects
-cd C:\Users\<DeinName>\projects
-
-# Repo clonen
-git clone git@github.com:<DEIN_ORG_ODER_USER>/ml4b-project.git
-
+git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-```
-
-> **Tipp:** Nutze keine Pfade mit Leerzeichen oder Sonderzeichen.
-
----
-
-## 6. Projekt mit uv initialisieren
-
-```powershell
-# Im Projektordner
-# Falls pyproject.toml noch nicht existiert:
-uv init --python 3.11
-
-# Python-Version fixieren
-echo "3.11" > .python-version
-
-# Pakete hinzufügen
-uv add pandas numpy scikit-learn streamlit ipykernel matplotlib seaborn plotly
-
-# Dev-Dependencies
-uv add --dev jupyter pytest black ruff mypy
-
-# Umgebung synchronisieren
 uv sync
 ```
 
-### 6b. Umgebungsvariablen konfigurieren (.env)
-
-```powershell
-# .env.example als Vorlage kopieren
-copy .env.example .env
-```
-
-Die `.env` ist **optional** — du brauchst sie nur, wenn deine RecoFit-Daten **nicht** unter `data\raw\` im Projektordner liegen (z.B. auf einer externen Festplatte oder einem anderen Laufwerk):
-
-```powershell
-# .env öffnen und Pfade anpassen (nur wenn nötig)
-notepad .env
-```
-
-```
-# Beispiel: Daten auf D:-Laufwerk
-ML4B_DATA_RAW=D:\datasets\recofit
-ML4B_DATA_PROCESSED=D:\datasets\processed
-ML4B_MODELS_DIR=D:\datasets\models
-```
-
-| Variable | Standard | Bedeutung |
-|----------|----------|-----------|
-| `ML4B_DATA_RAW` | `data/raw` | Ordner mit der RecoFit `.mat`-Datei |
-| `ML4B_DATA_PROCESSED` | `data/processed` | Ausgabe für Feature-CSVs |
-| `ML4B_MODELS_DIR` | `models/saved` | Ausgabe für trainierte Modelle |
-
-> **Tipp:** Wenn deine RecoFit-Datei unter `ml4b-project\data\raw\recofit\` liegt, musst du **nichts ändern** — die Standardpfade greifen automatisch.
+`uv sync` creates a `.venv\` and installs every pinned dependency from
+`uv.lock` — reproducible and identical across all machines.
 
 ---
 
-## 7. VS Code einrichten
-
-### 7a. VS Code installieren
-
-Download: https://code.visualstudio.com/  
-→ Während Installation: **"Add to PATH"** aktivieren
-
-### 7b. Extensions installieren
-
-- `ms-python.python`
-- `ms-toolsai.jupyter`
-- `charliermarsh.ruff`
-- `eamodio.gitlens`
-- `christian-kohler.path-intellisense`
-
-### 7c. VS Code öffnen
-
-```powershell
-cd C:\Users\<DeinName>\projects\ml4b-project
-code .
-```
-
-### 7d. Python Interpreter setzen
-
-1. `Ctrl+Shift+P` → "Python: Select Interpreter"
-2. Wähle: `.venv\Scripts\python.exe`
-
-### 7e. VS Code Workspace Settings
-
-Erstelle `.vscode/settings.json`:
-
-```json
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-  "python.terminal.activateEnvironment": true,
-  "editor.formatOnSave": true,
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true
-  },
-  "jupyter.notebookFileRoot": "${workspaceFolder}",
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/.pytest_cache": true
-  }
-}
-```
-
-> **Hinweis:** Windows nutzt `\` statt `/` in Pfaden — das `${workspaceFolder}` wird aber von VS Code korrekt aufgelöst.
-
----
-
-## 8. Streamlit App testen
+## 3. Run the Streamlit App
 
 ```powershell
 uv run streamlit run app/streamlit_app.py
 ```
 
+→ Open **http://localhost:8501** in your browser (Streamlit usually opens it
+for you).
+
+You should see three pages: **🏠 Home**, **🔮 Predict Exercise**, and
+**📊 Model Performance**.
+
 ---
 
-## 9. Git Workflow
+## 4. Dataset Download (only if retraining)
 
-```powershell
-git pull origin main
-git checkout -b feature/dein-feature-name
-git add .
-git commit -m "feat: beschreibung"
-git push origin feature/dein-feature-name
+Only needed if you want to reproduce the model from raw data.
+
+Download RecoFit from:
+**https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors**
+
+Files needed:
+
+```
+exercise_data.50.0000_singleonly.mat   (~2.5 GB)
+exercise_data.50.0000_multionly.mat
+```
+
+Place them in:
+
+```
+data\raw\recofit\
 ```
 
 ---
 
-## 10. Häufige Probleme (Windows nativ)
-
-| Problem | Lösung |
-|---------|--------|
-| `uv: command not found` | Terminal neu starten nach Installation |
-| `ssh-keygen` nicht gefunden | Git Bash statt PowerShell verwenden |
-| Zeilenenden-Probleme (CRLF vs LF) | `git config --global core.autocrlf input` setzen |
-| `.venv` nicht erkannt | `Ctrl+Shift+P` → Python: Select Interpreter → `.venv\Scripts\python.exe` |
-| Port 8501 blockiert | Windows Firewall-Ausnahme für Python hinzufügen |
-
-### Wichtig: Zeilenenden (Line Endings)
-
-Damit keine CRLF/LF-Konflikte mit Mac/Linux-Teammitgliedern entstehen:
+## 5. Retrain the Model (only if needed)
 
 ```powershell
-git config --global core.autocrlf input
+uv run python scripts/train_model.py
+```
+
+This runs the full pipeline (load → window → features → split → train) and
+overwrites `models\saved\best_model.joblib` and `feature_names.txt`. With the
+dataset present it takes a few minutes; if processed features already exist it
+skips straight to training. Uses `random_state=42` everywhere for
+reproducibility.
+
+---
+
+## 6. VS Code Setup
+
+1. Open the project:
+   ```powershell
+   code .
+   ```
+2. Install the recommended extensions:
+   ```powershell
+   code --install-extension ms-python.python
+   code --install-extension ms-toolsai.jupyter
+   code --install-extension charliermarsh.ruff
+   ```
+3. Select the Python interpreter: `Ctrl+Shift+P` → **Python: Select
+   Interpreter** → choose `.\.venv\Scripts\python.exe`.
+
+---
+
+## 7. Git Setup
+
+```powershell
+# Create an SSH key (press Enter to accept defaults)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | Set-Clipboard   # copy public key
+
+# Add the key at: GitHub → Settings → SSH and GPG keys → New SSH key
+ssh -T git@github.com            # verify authentication
+
+# Identify yourself for commits
+git config --global user.name  "Your Name"
+git config --global user.email "your_email@example.com"
+```
+
+**Branch workflow** (see CLAUDE.md): `main → develop → feature/xxx`.
+Never commit directly to `main`.
+
+```powershell
+git checkout develop
+git checkout -b feature/your-feature-name
 ```
 
 ---
 
-## Schnellreferenz
+## 8. Sensor Logger Setup (Apple Watch data collection)
 
-```powershell
-uv add <paket>
-uv sync
-uv run streamlit run app/streamlit_app.py
-uv run pytest
-uv run jupyter lab
-```
+1. Install **Sensor Logger** (free) from the iOS App Store — also install it on
+   your **Apple Watch**.
+2. In Sensor Logger, enable the **Wrist Motion** sensor
+   (accelerometer + gyroscope, 50 Hz).
+3. Start a recording, perform your gym exercises, then stop.
+4. Export: tap the recording → **Share / Export** → **Save to Files**
+   (CSV or ZIP), then move the file to your PC (e.g. via iCloud Drive or email).
+5. Upload it on the app's **🔮 Predict Exercise** page.
+
+**What to upload:** either the single **`WristMotion.csv`**, or the **full ZIP**
+of the export (the app finds `WristMotion.csv` inside automatically).
+See `docs/project/apple_watch_data_collection_guide.md` for the full protocol.
+
+---
+
+## 9. Troubleshooting (Windows-specific)
+
+| Problem | Fix |
+|---------|-----|
+| `uv` not recognized | Reopen PowerShell so the updated PATH is loaded. |
+| Script execution is blocked | Run PowerShell as Admin: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. |
+| `ssh-keygen` not found | Enable the optional "OpenSSH Client" Windows feature, or use Git Bash. |
+| `ModuleNotFoundError: ml4b` | Run commands with `uv run ...` so the project venv is used. |
+| Long-path errors during `uv sync` | Enable long paths: `git config --system core.longpaths true`. |
+| App says model not found | Run `uv run python scripts/train_model.py`, or re-clone to get the committed model. |

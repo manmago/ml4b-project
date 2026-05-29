@@ -1,283 +1,179 @@
 # Setup Guide — macOS
-> ML4B Gym Exercise Recognition Project | Python 3.11 | uv | VS Code
+
+> ML4B Gym Exercise Recognition | Python 3.11 · uv · VS Code
+> This guide takes a brand-new Mac to a running Streamlit app.
 
 ---
 
-## 0. Voraussetzungen prüfen
+## 0. Quick Start vs Full Setup
 
-Öffne das **Terminal** (`Cmd+Space` → "Terminal") und prüfe:
+Choose your goal — most people only need the **Quick Start** path.
 
-```bash
-# Git vorhanden? (auf macOS meist vorinstalliert via Xcode CLI Tools)
-git --version
+| Goal | Requirements |
+|------|-------------|
+| **Run the Streamlit app** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Explore the notebooks** | `git clone` + `uv sync` — **NO dataset needed** |
+| **Retrain the model from scratch** | RecoFit dataset required (~2.5 GB) |
 
-# uv vorhanden?
-uv --version            # falls nicht → Schritt 1
-
-# Xcode Command Line Tools (falls git fehlt)
-xcode-select --install
-```
-
----
-
-## 1. uv installieren (Package Manager)
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Shell neu laden
-source ~/.zshrc   # Zsh (macOS Standard seit Catalina)
-# oder: source ~/.bash_profile (falls Bash)
-
-# Prüfen
-uv --version
-```
+The trained model (`models/saved/best_model.joblib`) and the feature list
+(`data/processed/feature_names.txt`) are committed to git, so the app works
+immediately after cloning — you do **not** need to download the dataset.
 
 ---
 
-## 2. Python 3.11 mit uv installieren
+## 1. Prerequisites
+
+Open the **Terminal** app (or iTerm) and install the three tools below.
+
+| Tool | Download / Install |
+|------|--------------------|
+| **VS Code** | https://code.visualstudio.com/download (Apple Silicon or Intel build) |
+| **Git** | Comes with Xcode CLT: `xcode-select --install` |
+| **uv** | `curl -LsSf https://astral.sh/uv/install.sh \| sh` then `source ~/.zshrc` |
+
+Verify:
 
 ```bash
-# Verfügbare Versionen anzeigen
-uv python list
-
-# Python 3.11 installieren
-uv python install 3.11
-
-# Prüfen
-uv python list --only-installed
+git --version      # >= 2.x
+uv --version       # any recent version
 ```
 
-> **Hinweis:** Kein Homebrew-Python nötig — uv verwaltet Python vollständig isoliert.
+> Prefer Homebrew? `brew install uv` and `brew install git` also work.
 
 ---
 
-## 3. Git konfigurieren & SSH-Key für GitHub
-
-### 3a. Name und E-Mail setzen
+## 2. Clone and Setup
 
 ```bash
-git config --global user.name "Dein Name"
-git config --global user.email "deine@email.com"
-
-# Prüfen
-git config --global user.name
-git config --global user.email
-```
-
-### 3b. SSH-Key prüfen oder neu erstellen
-
-```bash
-# Vorhandene Keys prüfen
-ls -la ~/.ssh/
-# Suche nach: id_ed25519.pub oder id_rsa.pub
-```
-
-**Falls kein Key vorhanden:**
-
-```bash
-# Neuen Ed25519-Key erstellen (empfohlen)
-ssh-keygen -t ed25519 -C "deine@email.com"
-# Standard-Pfad mit Enter bestätigen: ~/.ssh/id_ed25519
-# Optional: Passphrase setzen (empfohlen)
-
-# SSH-Agent starten und Key hinzufügen
-eval "$(ssh-agent -s)"
-ssh-add --apple-use-keychain ~/.ssh/id_ed25519
-```
-
-### 3c. SSH-Config für macOS Keychain (dauerhaft)
-
-Erstelle/ergänze `~/.ssh/config`:
-
-```bash
-cat >> ~/.ssh/config << 'EOF'
-Host github.com
-  AddKeysToAgent yes
-  UseKeychain yes
-  IdentityFile ~/.ssh/id_ed25519
-EOF
-```
-
-### 3d. Public Key zu GitHub hinzufügen
-
-```bash
-# Public Key in Zwischenablage kopieren
-pbcopy < ~/.ssh/id_ed25519.pub
-```
-
-→ Gehe zu GitHub: **Settings → SSH and GPG keys → New SSH key**  
-→ Titel: z.B. `MacBook Pro`  
-→ Mit `Cmd+V` einfügen und speichern
-
-### 3e. Verbindung testen
-
-```bash
-ssh -T git@github.com
-# Erwartete Ausgabe: "Hi <username>! You've successfully authenticated..."
-```
-
----
-
-## 4. Repository clonen
-
-```bash
-# Navigiere zu deinem Projektordner
-cd ~/projects   # oder wo auch immer du Projekte ablegst
-mkdir -p ~/projects && cd ~/projects
-
-# Repo clonen (SSH)
-git clone git@github.com:<DEIN_ORG_ODER_USER>/ml4b-project.git
-
-# In den Ordner wechseln
+git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-```
-
----
-
-## 5. Projekt mit uv initialisieren
-
-```bash
-# Im Projektordner (ml4b-project/)
-# Falls pyproject.toml noch nicht existiert:
-uv init --python 3.11
-
-# Python-Version im Projekt fixieren
-echo "3.11" > .python-version
-
-# Benötigte Pakete hinzufügen
-uv add pandas numpy scikit-learn streamlit ipykernel matplotlib seaborn plotly
-
-# Dev-Dependencies
-uv add --dev jupyter pytest black ruff mypy
-
-# Umgebung synchronisieren
 uv sync
 ```
 
-### 5b. Umgebungsvariablen konfigurieren (.env)
-
-```bash
-# .env.example als Vorlage kopieren
-cp .env.example .env
-```
-
-Die `.env` ist **optional** — du brauchst sie nur, wenn deine RecoFit-Daten **nicht** unter `data/raw/` im Projektordner liegen (z.B. auf einer externen Festplatte):
-
-```bash
-# .env öffnen und Pfade anpassen (nur wenn nötig)
-nano .env   # oder: open -e .env
-```
-
-```
-# Beispiel: Daten auf externer Festplatte
-ML4B_DATA_RAW=/Volumes/ExterneFestplatte/datasets/recofit
-ML4B_DATA_PROCESSED=/Volumes/ExterneFestplatte/datasets/processed
-ML4B_MODELS_DIR=/Volumes/ExterneFestplatte/datasets/models
-```
-
-| Variable | Standard | Bedeutung |
-|----------|----------|-----------|
-| `ML4B_DATA_RAW` | `data/raw` | Ordner mit der RecoFit `.mat`-Datei |
-| `ML4B_DATA_PROCESSED` | `data/processed` | Ausgabe für Feature-CSVs |
-| `ML4B_MODELS_DIR` | `models/saved` | Ausgabe für trainierte Modelle |
-
-> **Tipp:** Wenn deine RecoFit-Datei unter `ml4b-project/data/raw/recofit/` liegt, musst du **nichts ändern** — die Standardpfade greifen automatisch.
+`uv sync` creates a `.venv/` and installs every pinned dependency from
+`uv.lock` — reproducible and identical across all machines.
 
 ---
 
-## 6. VS Code einrichten
-
-### 6a. VS Code installieren
-
-Download: https://code.visualstudio.com/  
-Oder via Homebrew: `brew install --cask visual-studio-code`
-
-### 6b. VS Code Extensions installieren
-
-- `ms-python.python` — Python Support
-- `ms-toolsai.jupyter` — Jupyter Notebooks
-- `charliermarsh.ruff` — Linter/Formatter
-- `eamodio.gitlens` — Git Superpowers
-- `christian-kohler.path-intellisense` — Pfad-Autovervollständigung
-
-### 6c. Shell-Befehl `code` aktivieren
-
-1. VS Code öffnen
-2. `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
-
-```bash
-# Dann aus Terminal
-cd ~/projects/ml4b-project
-code .
-```
-
-### 6d. Python Interpreter setzen
-
-1. `Cmd+Shift+P` → "Python: Select Interpreter"
-2. Wähle: `./.venv/bin/python`
-
-### 6e. VS Code Workspace Settings
-
-Erstelle `.vscode/settings.json`:
-
-```json
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.terminal.activateEnvironment": true,
-  "editor.formatOnSave": true,
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true
-  },
-  "jupyter.notebookFileRoot": "${workspaceFolder}",
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/.pytest_cache": true
-  }
-}
-```
-
----
-
-## 7. Streamlit App testen
+## 3. Run the Streamlit App
 
 ```bash
 uv run streamlit run app/streamlit_app.py
 ```
 
+→ Open **http://localhost:8501** in your browser (Streamlit usually opens it
+for you).
+
+You should see three pages: **🏠 Home**, **🔮 Predict Exercise**, and
+**📊 Model Performance**.
+
 ---
 
-## 8. Git Workflow (Tägliche Arbeit)
+## 4. Dataset Download (only if retraining)
 
-```bash
-git pull origin main
-git checkout -b feature/dein-feature-name
-git add .
-git commit -m "feat: kurze beschreibung"
-git push origin feature/dein-feature-name
-# → Pull Request auf GitHub erstellen
+Only needed if you want to reproduce the model from raw data.
+
+Download RecoFit from:
+**https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors**
+
+Files needed:
+
+```
+exercise_data.50.0000_singleonly.mat   (~2.5 GB)
+exercise_data.50.0000_multionly.mat
+```
+
+Place them in:
+
+```
+data/raw/recofit/
 ```
 
 ---
 
-## 9. Häufige Probleme (macOS)
+## 5. Retrain the Model (only if needed)
 
-| Problem | Lösung |
-|---------|--------|
-| `uv: command not found` | `source ~/.zshrc` ausführen |
-| SSH-Passphrase jedes Mal nötig | `ssh-add --apple-use-keychain ~/.ssh/id_ed25519` |
-| `permission denied (publickey)` | SSH-Key nicht auf GitHub → Schritt 3c wiederholen |
-| VS Code öffnet falsches Python | `Cmd+Shift+P` → Python: Select Interpreter → `.venv` wählen |
+```bash
+uv run python scripts/train_model.py
+```
+
+This runs the full pipeline (load → window → features → split → train) and
+overwrites `models/saved/best_model.joblib` and `feature_names.txt`. With the
+dataset present it takes a few minutes; if processed features already exist it
+skips straight to training. Uses `random_state=42` everywhere for
+reproducibility.
 
 ---
 
-## Schnellreferenz
+## 6. VS Code Setup
+
+1. Open the project:
+   ```bash
+   code .
+   ```
+   (If `code` is not found: in VS Code press `Cmd+Shift+P` →
+   **Shell Command: Install 'code' command in PATH**.)
+2. Install the recommended extensions:
+   ```
+   code --install-extension ms-python.python
+   code --install-extension ms-toolsai.jupyter
+   code --install-extension charliermarsh.ruff
+   ```
+3. Select the Python interpreter: `Cmd+Shift+P` → **Python: Select
+   Interpreter** → choose `./.venv/bin/python`.
+
+---
+
+## 7. Git Setup
 
 ```bash
-uv add <paket>          # Paket hinzufügen
-uv sync                 # Umgebung synchronisieren (nach git pull!)
-uv run streamlit run app/streamlit_app.py
-uv run pytest
-uv run jupyter lab
+# Create an SSH key (press Enter to accept defaults)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+pbcopy < ~/.ssh/id_ed25519.pub   # copies the public key to the clipboard
+
+# Add the key at: GitHub → Settings → SSH and GPG keys → New SSH key
+ssh -T git@github.com            # verify authentication
+
+# Identify yourself for commits
+git config --global user.name  "Your Name"
+git config --global user.email "your_email@example.com"
 ```
+
+**Branch workflow** (see CLAUDE.md): `main → develop → feature/xxx`.
+Never commit directly to `main`.
+
+```bash
+git checkout develop
+git checkout -b feature/your-feature-name
+```
+
+---
+
+## 8. Sensor Logger Setup (Apple Watch data collection)
+
+1. Install **Sensor Logger** (free) from the iOS App Store — also install it on
+   your **Apple Watch**.
+2. In Sensor Logger, enable the **Wrist Motion** sensor
+   (accelerometer + gyroscope, 50 Hz).
+3. Start a recording, perform your gym exercises, then stop.
+4. Export: tap the recording → **Share / Export** → **Save to Files**
+   (CSV or ZIP). On a Mac you can also AirDrop the export straight from the
+   Watch/iPhone.
+5. Upload it on the app's **🔮 Predict Exercise** page.
+
+**What to upload:** either the single **`WristMotion.csv`**, or the **full ZIP**
+of the export (the app finds `WristMotion.csv` inside automatically).
+See `docs/project/apple_watch_data_collection_guide.md` for the full protocol.
+
+---
+
+## 9. Troubleshooting (macOS-specific)
+
+| Problem | Fix |
+|---------|-----|
+| `uv: command not found` | Run `source ~/.zshrc` or reopen Terminal after installing uv. |
+| `xcrun: error: invalid active developer path` | Run `xcode-select --install`. |
+| `code: command not found` | In VS Code: `Cmd+Shift+P` → install the `code` shell command. |
+| `ModuleNotFoundError: ml4b` | Run commands with `uv run ...` so the project venv is used. |
+| Apple Silicon build issues | uv installs native arm64 wheels automatically — just re-run `uv sync`. |
+| App says model not found | Run `uv run python scripts/train_model.py`, or re-clone to get the committed model. |
