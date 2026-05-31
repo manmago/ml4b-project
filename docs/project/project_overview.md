@@ -1,28 +1,31 @@
 # Project Overview — ML4B Gym Exercise Recognition
 
-> **Read this first.** This document explains what this project does, how it works,
-> what decisions were made and why, and where to find everything in the repository.
-> A new team member should be able to understand the full project from this document alone.
+> **Read this first.** This document explains what this project does, how it
+> works, what decisions were made and why, and where to find everything in the
+> repository. A new team member should understand the full project from this
+> document alone.
 
 ---
 
 ## 1. What Does This Project Do?
 
-This project automatically recognizes gym exercises from wrist-worn sensor data
-(Apple Watch accelerometer and gyroscope) using machine learning.
+This project recognizes **three gym exercises** from wrist-worn **Apple Watch**
+sensor data (accelerometer + gyroscope) using machine learning.
 
-**In plain language:**
-You go to the gym, record your workout with the Sensor Logger app on your Apple Watch,
-upload the CSV file to our Streamlit web app, and the app tells you which exercise
-you performed in each time window — with a confidence score.
+**In plain language:** you go to the gym, record your workout with the **Sensor
+Logger** app on your Apple Watch, upload the `WristMotion.csv` to our Streamlit
+web app, and the app tells you which exercise you performed in each 2-second
+window — with a confidence score.
 
-**The 6 exercises the model can recognize:**
-1. Bicep Curl
-2. Shoulder Press
-3. Squat
-4. Tricep Extension
-5. Lateral Raise
-6. Rest / No Exercise
+**The 3 exercises the model recognizes:**
+1. **Bicep Curl** — elbow flexion
+2. **Tricep Extension** — overhead elbow extension
+3. **Row** — horizontal pull
+
+Plus two outputs produced *outside* the model:
+- **Rest** — low-motion pauses, detected by an energy gate (ADR-017), not a
+  trained class.
+- **Uncertain** — an active window the model is not confident about (ADR-020).
 
 ---
 
@@ -30,75 +33,58 @@ you performed in each time window — with a confidence score.
 
 - **Course:** ML4B (Machine Learning for Business), SoSe 2026
 - **University:** FAU Nürnberg, Lehrstuhl für Wirtschaftsinformatik
-- **Methodology:** CRISP-DM (Cross-Industry Standard Process for Data Mining)
-- **Team:** Anshul Agrawal + 2 teammates
-- **Final deliverable:** Streamlit web application presented at Schaeffler, Nürnberg
+- **Methodology:** CRISP-DM
+- **Final deliverable:** Streamlit web application + presentation
 
 ---
 
-## 3. How to Run the Project (Quickstart — 3 Commands)
+## 3. How to Run (one command)
 
 ```bash
+# Install uv once (macOS/Linux/WSL): curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-uv sync
-uv run streamlit run app/streamlit_app.py
+make run        # or ./run_app.sh · run_app.bat · uv run streamlit run app/streamlit_app.py
 ```
 
-→ Open **http://localhost:8501**
-
-**No dataset download needed** — the trained model
-(`models/saved/best_model.joblib`) and feature list
-(`data/processed/feature_names.txt`) are committed to git. The dataset is only
-required if you want to **retrain** the model (`uv run python
-scripts/train_model.py`).
-
-For OS-specific setup: see `docs/setup/Setup_WSL_Windows.md`,
-`docs/setup/Setup_macOS.md`, `docs/setup/Setup_Windows.md`.
+→ Open **http://localhost:8501**. No Python install, no `uv sync`, no dataset
+needed — `uv run` provisions everything and the trained model is committed
+(ADR-022, ADR-011). OS guides: `docs/setup/Setup_*.md`.
 
 ---
 
 ## 4. How the ML Pipeline Works
 
-The pipeline has 5 steps — each step has a corresponding notebook and source module:
+The **same code** runs in training and in the app (the core architectural rule).
+Both the Kaggle training data and Sensor Logger uploads are Apple CoreMotion
+streams, so the canonicalization is identical on both sides.
 
-**Step 1 — Load raw data**
-- Input:  `data/raw/mm-fit/` smartwatch `.npy` files, both wrists (~1.7 GB) — ADR-013
-- Code:   `src/ml4b/data/mmfit_loader.py` (+ `scripts/build_mmfit_dataset.py`)
-- Output: long-format DataFrame (same schema as the original RecoFit loader)
-- Note:   RecoFit (`loader.py`) was the original Phase 1–5 source, superseded
-          because its sensor was forearm-worn while the Apple Watch is wrist-worn
+**Step 1 — Load**
+- Training: `src/ml4b/data/kaggle_loader.py` reads the 3-class Kaggle files.
+- App: `src/ml4b/data/apple_watch_loader.py` reads `WristMotion.csv` / ZIP.
+- Both canonicalize to total acceleration in g + gyro in rad/s
+  (`src/ml4b/data/canonical.py`).
 
-**Step 2 — Sliding Window Segmentation**
-- Input:  Raw DataFrame
-- Code:   `src/ml4b/data/windowing.py`
-- Params: window_size=100 (2 seconds at 50Hz), overlap=50%
-- Output: 155,598 windows
-- Why:    Each 2-second window becomes one training sample
+**Step 2 — Resample** to 100 Hz (Apple Watch native rate; `canonical.resample_uniform`).
 
-**Step 3 — Feature Extraction**
-- Input:  Windows
-- Code:   `src/ml4b/data/features.py`
-- Output: 47 features per window (mean, std, min, max, RMS, FFT per axis)
-- Why:    ML models need fixed-size vectors, not raw time series
+**Step 3 — Sliding window** — `src/ml4b/data/windowing.py`, 200 samples = 2 s,
+50% overlap (ADR-006). Carries `recording_id` so windows can be grouped by set.
 
-**Step 4 — Train/Val/Test Split**
-- Input:  Feature matrix (155,598 × 47)
-- Code:   `src/ml4b/data/splitting.py`
-- Method: Subject-based split (no subject appears in both train and test)
-- Output: train (21,490), val (13,888), test (30,096)
-- Why:    Subject-based prevents data leakage — see ADR-007
+**Step 4 — Activity gate** — `src/ml4b/data/activity_gate.py` labels low-energy
+windows as `rest` so they never reach the model (ADR-017).
 
-**Step 5 — Model Training**
-- Input:  `train_features.csv`
-- Code:   `src/ml4b/models/train.py`
-- Models: Random Forest ✅ (best), XGBoost, SVM
-- Output: `models/saved/best_model.joblib`
+**Step 5 — Invariant features** — `src/ml4b/data/features_invariant.py`, 39
+orientation-/offset-robust features: magnitude stats + spectral, per-window
+z-normalized shape features, axis-pair correlations (ADR-018).
 
-**Step 6 — Prediction (App)**
-- Input:  New CSV from Sensor Logger (Apple Watch)
-- Code:   `src/ml4b/data/apple_watch_loader.py`
-- Output: Predicted exercise per 2-second window + confidence
+**Step 6 — Model** — Random Forest (`src/ml4b/models/train.py`),
+`class_weight='balanced'`, `random_state=42`.
+
+**Step 7 — Confidence threshold** — predictions below 0.50 top probability are
+reported as `uncertain` (ADR-020).
+
+Training augments windows 6× (rotation + time-warp + mirror + jitter) to
+synthesise the subject diversity a single-subject dataset lacks (ADR-019).
 
 ---
 
@@ -107,105 +93,111 @@ The pipeline has 5 steps — each step has a corresponding notebook and source m
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest |
-| Training dataset | MM-Fit (wrist-worn smartwatch — ADR-013) |
-| Test Macro F1 | 0.944 ✅ (target: ≥ 0.80) |
-| Test Accuracy | 97.8% |
-| Val Macro F1 | 0.866 |
-| Best class | push_up (F1 = 1.00), rest (0.99) |
-| Weakest class | squat (0.84) / bicep_curl (0.86) |
-| Apple Watch test | push_up recognized ✅; bicep_curl still confused with tricep_extension (ADR-013/014) |
+| Training anchor | Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (ADR-016) |
+| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; ADR-021) |
+| Macro F1 | **0.776** |
+| Accuracy | 78.2% |
+| Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
+| Training sets | 75 (24 bicep · 21 row · 30 triceps) |
+
+These numbers are produced by `scripts/train_model.py` and stored in
+`models/saved/model_metrics.json` (shown live on the Model Performance page).
 
 ---
 
-## 6. Key Decisions Made (and Why)
+## 6. Limitations (read this honestly)
 
-Every decision has a full ADR in `docs/decisions/`. Here is a plain-language summary:
+This is a methodologically sound project with a **data-limited ceiling**:
 
-| Decision | What we chose | Why | ADR |
-|----------|--------------|-----|-----|
-| Package manager | uv | Faster than pip/conda, reproducible across all OS | ADR-001 |
-| ML framework | scikit-learn | Sufficient for tabular features, easy to use | ADR-002 |
-| Multi-agent AI setup | data_scientist + documenter + reviewer agents | Better quality, less token waste | ADR-003 |
-| Code documentation standard | Google docstrings + inline comments | New team must understand code without asking | ADR-004 |
-| Exercise class selection | 7 classes (6 from RecoFit + push_up from MM-Fit) | Data-driven coverage (ADR-005); push_up added with MM-Fit | ADR-005, ADR-013 |
-| Training dataset switch | RecoFit → MM-Fit | RecoFit was forearm-worn; Apple Watch is wrist-worn — MM-Fit matches the device | ADR-013 |
-| Rotation augmentation | Rejected (kept off) | Hurt the bicep/tricep case and in-domain F1 | ADR-014 |
-| RF regularization + rest rebalancing | depth≤20, leaf=4, rest mult 1.5 | Reduce overfitting (full-depth trees) and over-prediction of `rest` | ADR-015 |
-| Sliding window size | 2 seconds (100 samples) | Captures one full rep phase; consistent with literature | ADR-006 |
-| Train/test split method | Subject-based | Prevents data leakage between train and test | ADR-007 |
-| Class imbalance fix | Undersampling rest to 2× largest class | rest was 89% of data — model would always predict rest | ADR-008 |
-| Final model | Random Forest | Best macro F1 (0.8136 val), fast, interpretable | ADR-010 |
+- **Single-subject training anchor.** The Kaggle dataset is one person on one
+  Apple Watch. True leave-one-**subject**-out evaluation is impossible, so the
+  reported macro F1 measures generalisation to an unseen **set**, not a new
+  **person** (ADR-021).
+- **Real-world performance will be below the reported numbers** for a different
+  user, because the model has never seen anyone else's movement style.
+- **Augmentation substitutes for missing subject diversity** (ADR-019) — a
+  documented, standard mitigation when target-domain multi-subject data cannot
+  be collected, but not a replacement for real data.
+- **No target-domain multi-subject data was available**, and none could be
+  collected within the project.
+
+What *is* solid: the training domain matches deployment (Apple Watch → Apple
+Watch, ADR-016), evaluation is leakage-free (ADR-021), features are
+device-invariant (ADR-018), rest is gated rather than learned (ADR-017), and the
+model abstains when unsure (ADR-020).
 
 ---
 
-## 7. Where to Find Everything
+## 7. Key Decisions Made (and Why)
+
+Every decision has a full ADR in `docs/decisions/`. Plain-language summary:
+
+| Decision | What we chose | ADR |
+|----------|--------------|-----|
+| Package manager | uv | ADR-001 |
+| ML framework | scikit-learn | ADR-002 |
+| Multi-agent AI setup | data_scientist + documenter + reviewer | ADR-003 |
+| Code/doc standard | Google docstrings + inline comments | ADR-004 |
+| Sliding window | 2 s window (200 @ 100 Hz), 50% overlap | ADR-006 |
+| Commit model to git | yes — app runs with no dataset | ADR-011 |
+| Dataset journey | RecoFit → MM-Fit → **Kaggle Apple-Watch** | ADR-013, ADR-016 |
+| **Final 3 classes** | bicep_curl, tricep_extension, row (distinct axes, best coverage) | **ADR-016** |
+| **Activity gate** | energy-threshold rest (not a class) | **ADR-017** |
+| **Invariant features** | magnitude + z-norm shape + correlations (39) | **ADR-018** |
+| **Augmentation** | rotation+time-warp+mirror+jitter as subject-diversity substitute | **ADR-019** |
+| **Confidence threshold** | < 0.50 → uncertain | **ADR-020** |
+| **Evaluation** | leave-one-set-out (single subject limitation) | **ADR-021** |
+| **One-command launch** | `uv run` / Makefile / run_app scripts | **ADR-022** |
+
+Earlier ADRs (005, 007, 008, 009, 010, 012, 013, 014, 015) document the original
+RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
+
+---
+
+## 8. Where to Find Everything
 
 | What you need | Where to look |
 |--------------|---------------|
 | Project goals and research question | `docs/business_understanding/business_understanding.md` |
 | Dataset evaluation and selection | `docs/data_understanding/dataset_evaluation.md` |
-| All technical decisions with rationale | `docs/decisions/ADR-001` through `ADR-010` |
+| All technical decisions | `docs/decisions/ADR-001` … `ADR-022` |
 | CRISP-DM progress log | `docs/project/crisp_dm_log.md` |
-| System architecture | `docs/architecture/architecture.md` |
+| System architecture (arc42) | `docs/architecture/architecture.md` |
+| Sensor columns + features | `docs/data/data_dictionary.md` |
 | How to collect Apple Watch data | `docs/project/apple_watch_data_collection_guide.md` |
+| Honest sanity-check results | `docs/project/apple_watch_validation_results.md` |
 | Folder and file descriptions | `STRUCTURE.md` |
-| OS-specific setup guides | `docs/setup/Setup_WSL_Windows.md`, `docs/setup/Setup_macOS.md`, `docs/setup/Setup_Windows.md` |
-| Data exploration | `notebooks/02_data_understanding.ipynb` |
-| Data preparation pipeline | `notebooks/03_data_preparation.ipynb` |
-| Model training and comparison | `notebooks/04_modeling.ipynb` |
-| Final evaluation results | `notebooks/05_evaluation.ipynb` |
+| OS-specific setup | `docs/setup/Setup_*.md` |
 | Reusable ML code | `src/ml4b/` |
-| Trained model | `models/saved/best_model.joblib` |
+| Trained model + metrics | `models/saved/best_model.joblib`, `model_metrics.json` |
 | Streamlit app | `app/streamlit_app.py` |
-
----
-
-## 8. Project Status
-
-| Task | Status | Notes |
-|------|--------|-------|
-| Streamlit App | ✅ Done | 3 pages: Home, Predict Exercise, Model Performance. Accepts `WristMotion.csv` and ZIP uploads. Verified via Streamlit `AppTest`. |
-| WristMotion.csv column mapping | ✅ Done | Loader auto-detects 4 Sensor Logger formats and ZIP exports — see Section 8b. |
-| Trained model in git | ✅ Done | `best_model.joblib` + `feature_names.txt` committed — app runs without the dataset. |
-| Apple Watch generalization test | ⏳ Pending | Optional: record a real gym session with Sensor Logger and evaluate. |
-
----
-
-## 8b. Sensor Logger Data Format
-
-The app accepts exports from the **Sensor Logger** iOS app (free). Upload either:
-
-- the single **`WristMotion.csv`** file, **or**
-- the **full ZIP** of the export (the app finds `WristMotion.csv` inside).
-
-`src/ml4b/data/apple_watch_loader.py` auto-detects the column format and
-normalizes everything to `[timestamp, ax, ay, az, gx, gy, gz]`. Supported
-source formats:
-
-| Format | Columns |
-|--------|---------|
-| A — default WristMotion.csv | `time, seconds_elapsed, x, y, z, roll, pitch, yaw` |
-| B — pre-normalized | `timestamp, ax, ay, az, gx, gy, gz` |
-| C — seconds_elapsed variant | `seconds_elapsed, x, y, z, roll, pitch, yaw` |
-| D — DeviceMotion export | `time, accelerationX/Y/Z, rotationRateX/Y/Z` |
-
-Full collection + export protocol:
-`docs/project/apple_watch_data_collection_guide.md`.
 
 ---
 
 ## 9. Dataset
 
-**MM-Fit (current training source — ADR-013)**
+**Kaggle "Gym Workout IMU Dataset" (current training anchor — ADR-016)**
+- Apple Watch SE, **left wrist**, **100 Hz**, accelerometer + gyroscope.
+- 164 single-set CSV files; 75 of them map to our 3 classes (24 bicep / 21 row /
+  30 triceps). Single subject.
+- Download: https://www.kaggle.com/datasets/shakthisairam123/gym-workout-imu-dataset
+  → unzip into `data/raw/kaggle_gym_imu/`. NOT in git.
 
-- Wrist-worn smartwatch (Mobvoi TicWatch Pro), acc+gyro at 100 Hz, both wrists
-- 20 workouts, 10 gym exercises (7 mapped to our classes + `push_up`)
-- Download: https://s3.eu-west-2.amazonaws.com/vradu.uk/mm-fit.zip (~1.7 GB)
-- Project page: https://mmfit.github.io/ · Citation: Strömbäck, Huang & Radu (2020), UbiComp/ISWC · CC-BY-4.0
-- NOT included in git — unzip to `data/raw/mm-fit/`
+**Abandoned sources (kept only for history):**
+- **MM-Fit** — non-Apple smartwatch; good test scores but failed to transfer to
+  real Apple-Watch uploads (device-domain mismatch). Superseded by Kaggle (ADR-016).
+- **RecoFit** (Microsoft Research) — forearm-worn sensor, 50 Hz; superseded
+  because the Apple Watch is wrist-worn (ADR-013).
 
-**RecoFit (Microsoft Research) — original source, superseded (ADR-013)**
+---
 
-- 200+ participants, **forearm**-worn sensor, 50 Hz
-- Download: https://github.com/microsoft/Exercise-Recognition-from-Wearable-Sensors
-- Citation: Morris et al. (2014), CHI · Replaced because the Apple Watch is wrist-worn
+## 10. Project Status
+
+| Task | Status |
+|------|--------|
+| 3-class Apple-Watch model trained + committed | ✅ Done |
+| Leave-one-set-out evaluation (honest metrics) | ✅ Done (macro F1 0.776) |
+| Streamlit app (Home / Predict / Model Performance) | ✅ Done |
+| One-command launch on WSL / macOS / Windows | ✅ Done |
+| Honest sanity check on real Apple Watch samples | ✅ Done — see `apple_watch_validation_results.md` |
+| Cross-subject generalisation | ⚠️ Not achievable (single-subject anchor; documented) |

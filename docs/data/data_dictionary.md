@@ -1,6 +1,8 @@
 # Data Dictionary — ML4B Gym Exercise Recognition
 
-> Documents every column produced by the data preparation pipeline (`src/ml4b/data/`). Use this as the single source of truth when writing or reviewing modelling code in Phase 4+.
+> Documents every column produced by the **current** data pipeline
+> (`src/ml4b/data/`). Single source of truth for the 3-class Apple-Watch model
+> (ADR-016). The legacy MM-Fit/RecoFit per-axis pipeline is noted at the end.
 
 ---
 
@@ -8,124 +10,118 @@
 
 | Field | Value |
 |-------|-------|
-| Primary training source | **MM-Fit** (wrist-worn smartwatch, CC-BY-4.0), `data/raw/mm-fit/` — see ADR-013 |
-| Original training source (superseded) | RecoFit (Microsoft Research), forearm-worn — used in Phases 1–5, replaced because the Apple Watch is wrist-worn (ADR-013) |
-| Generalization test source | Self-recorded Apple Watch data (Sensor Logger app) |
+| Training source | **Kaggle Gym Workout IMU dataset** — Apple Watch SE, left wrist, `data/raw/kaggle_gym_imu/` (ADR-016) |
+| Abandoned sources | MM-Fit (non-Apple smartwatch) and RecoFit (forearm) — device-domain mismatch (ADR-013/016) |
+| Inference source | Apple Watch via **Sensor Logger** (`WristMotion.csv` / ZIP) |
 | Sensor modalities | Accelerometer (ax, ay, az), Gyroscope (gx, gy, gz) |
-| Sampling rate | 50 Hz (MM-Fit recorded at 100 Hz, decimated to 50 Hz — ADR-013) |
-| Raw file format | NumPy `.npy` (MM-Fit) / CSV (Apple Watch) |
-| Target classes | 7 — `bicep_curl`, `shoulder_press`, `squat`, `tricep_extension`, `lateral_raise`, `push_up`, `rest` (ADR-005 + ADR-013) |
-| Label type | Multi-class: one exercise label per windowed sample |
-| Units (canonical = MM-Fit) | Accel **m/s² including gravity**; gyro **rad/s** (the Apple Watch loader aligns to these — ADR-013) |
+| Sampling rate | **100 Hz** (native; the app resamples any rate to 100 Hz) |
+| Raw file format | CSV (both Kaggle and Sensor Logger — Apple CoreMotion) |
+| Target classes | **3** — `bicep_curl`, `tricep_extension`, `row` (ADR-016) |
+| Non-model outputs | `rest` (energy gate, ADR-017), `uncertain` (confidence threshold, ADR-020) |
+| Units (canonical) | Accel **total acceleration in g** (userAccel + gravity); gyro **rad/s** |
+
+Canonicalization is defined once in `src/ml4b/data/canonical.py` and shared by
+the training loader (`kaggle_loader.py`) and the inference loader
+(`apple_watch_loader.py`).
 
 ---
 
 ## Raw Long-Format DataFrame
-Produced by `src/ml4b/data/mmfit_loader.py::load_mmfit_workout()` (current) — and
-historically by `loader.py::load_recofit_raw()`. **Both emit the identical
-schema**, so windowing + features are shared. One row per time sample.
+Produced by `src/ml4b/data/kaggle_loader.py::load_kaggle_3class()` (training) and
+`apple_watch_loader.py` (inference). One row per time sample.
 
 | Column | Type | Unit | Description |
 |--------|------|------|-------------|
-| `subject_id` | str/int | — | MM-Fit workout id (e.g. `"w01"`); RecoFit: subject index |
-| `exercise_name` | str | — | Mapped target class (one of the 7 above) |
-| `recording_id` | str/int | — | Per-wrist contiguous exercise segment — separates sessions so windows never straddle a label boundary |
-| `timestamp` | float | s | Sample time relative to the start of the recording |
-| `ax`, `ay`, `az` | float | m/s² | Accelerometer x / y / z (MM-Fit units, gravity included) |
-| `gx`, `gy`, `gz` | float | rad/s | Gyroscope x / y / z (MM-Fit units) |
+| `subject_id` | int | — | Always 0 (single-subject Kaggle anchor) |
+| `exercise_name` | str | — | Target class: `bicep_curl`, `tricep_extension`, or `row` |
+| `recording_id` | str | — | Per-set id (Kaggle filename stem) — windows never cross a set; used for leave-one-set-out CV (ADR-021) |
+| `timestamp` | float | s | Sample time relative to recording start |
+| `ax`, `ay`, `az` | float | g | Total acceleration (userAccel + gravity) x / y / z |
+| `gx`, `gy`, `gz` | float | rad/s | Gyroscope (rotation rate) x / y / z |
 
 ---
 
 ## Windowed DataFrame
-Produced by `src/ml4b/data/windowing.py::apply_sliding_window()`. One row per 100-sample (2 s) window — see ADR-006.
+Produced by `src/ml4b/data/windowing.py::apply_sliding_window()`. One row per
+**200-sample (2 s @ 100 Hz)** window, 50% overlap (ADR-006).
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `subject_id` | int | Carried from raw DataFrame |
 | `exercise_name` | str | Carried from raw DataFrame (label) |
+| `recording_id` | str | Carried through — the leave-one-set-out group key |
 | `window_id` | int | Globally unique id across all windows |
-| `raw_ax`, `raw_ay`, `raw_az` | list[float] (length 100) | Accelerometer samples in this window |
-| `raw_gx`, `raw_gy`, `raw_gz` | list[float] (length 100) | Gyroscope samples in this window |
+| `raw_ax`, `raw_ay`, `raw_az` | list[float] (length 200) | Accelerometer samples (g) |
+| `raw_gx`, `raw_gy`, `raw_gz` | list[float] (length 200) | Gyroscope samples (rad/s) |
 
 ---
 
-## Engineered Features (47 numeric columns)
-Produced by `src/ml4b/data/features.py::extract_features()`. One row per window; identifier columns `subject_id`, `exercise_name`, `window_id` are carried through.
+## Engineered Features (39 device-invariant columns)
+Produced by `src/ml4b/data/features_invariant.py::extract_invariant_features()`
+(ADR-018). One row per window; identifier columns are carried through. The
+ordered list is written to `data/processed/feature_names.txt` (committed).
 
-### Per-axis statistical features (7 stats × 6 axes = 42 columns)
-For each `axis ∈ {ax, ay, az, gx, gy, gz}`:
-
-| Column | Description | Why it's informative |
-|--------|-------------|----------------------|
-| `<axis>_mean` | Window mean | Static gravity direction (accel) / steady rotation rate (gyro) |
-| `<axis>_std` | Window standard deviation | Variability — separates motion from rest |
-| `<axis>_min` | Minimum value in window | Extreme position reached on this axis |
-| `<axis>_max` | Maximum value in window | Extreme position reached on this axis |
-| `<axis>_range` | `max − min` | Peak-to-peak amplitude of the movement |
-| `<axis>_rms` | Root-mean-square | Energy-style summary; does not cancel positive and negative excursions |
-| `<axis>_zero_crossing_rate` | Fraction of sign changes between adjacent samples | Proxy for movement frequency without a full FFT |
-
-### Magnitude features (3 columns)
-| Column | Formula | Interpretation |
-|--------|---------|----------------|
-| `accel_magnitude_mean` | mean of `√(ax² + ay² + az²)` | Overall linear motion intensity, orientation-invariant |
-| `accel_magnitude_std`  | std  of `√(ax² + ay² + az²)` | Variability of linear motion across the window |
-| `gyro_magnitude_mean`  | mean of `√(gx² + gy² + gz²)` | Overall rotational intensity, orientation-invariant |
-
-### Frequency-domain features (2 columns)
-Computed via `np.fft.rfft` on the mean-centred accelerometer magnitude (sampled at 50 Hz).
+### Magnitude features (rotation-invariant) — 20 columns
+For each magnitude signal `m ∈ {accel_mag = √(ax²+ay²+az²), gyro_mag = √(gx²+gy²+gz²)}`:
 
 | Column | Description |
 |--------|-------------|
-| `dominant_frequency` | Frequency (Hz) of the strongest spectral component — typically the repetition rate of the exercise |
-| `spectral_energy` | Sum of squared FFT magnitudes — total oscillatory energy of the window |
+| `<m>_mean`, `<m>_std`, `<m>_min`, `<m>_max`, `<m>_range`, `<m>_rms`, `<m>_mad` | Amplitude statistics of the magnitude signal |
+| `<m>_zcr` | Zero-crossing rate of the mean-centred magnitude (cadence proxy) |
+| `<m>_dom_freq` | Dominant FFT frequency (Hz) — repetition cadence |
+| `<m>_spec_energy` | Total spectral energy of the magnitude |
 
-The ordered list of all 47 column names is also written to `data/processed/feature_names.txt` by the Phase 3 notebook and should be the source consumed by Phase 4 modelling code.
+### Per-window z-normalized shape features — 12 columns
+Each axis is standardized within the window (offset/scale removed), then:
 
----
+| Column | Description |
+|--------|-------------|
+| `<axis>_zcr` | Zero-crossing rate of the z-normalized axis (`axis ∈ {ax,ay,az,gx,gy,gz}`) |
+| `<axis>_dom_freq` | Dominant FFT frequency of the z-normalized axis |
 
-## Label Definition
+### Axis-pair correlations — 6 columns
+Scale/offset-invariant coordination structure:
+`corr_ax_ay`, `corr_ax_az`, `corr_ay_az`, `corr_gx_gy`, `corr_gx_gz`, `corr_gy_gz`.
 
-Current mapping is from **MM-Fit** activity strings (single dict `MMFIT_TO_ML4B`
-in `src/ml4b/data/mmfit_loader.py`):
+### Cross-sensor ratio — 1 column
+| Column | Description |
+|--------|-------------|
+| `gyro_accel_ratio` | mean `gyro_mag` / mean `accel_mag` — how rotational vs translational the movement is |
 
-| Label | Source MM-Fit activity |
-|-------|------------------------|
-| `bicep_curl` | `bicep_curls` |
-| `shoulder_press` | `dumbbell_shoulder_press` |
-| `squat` | `squats` |
-| `tricep_extension` | `tricep_extensions` |
-| `lateral_raise` | `lateral_shoulder_raises` |
-| `push_up` | `pushups` |
-| `rest` | `non_activity` (everything outside a labelled set) |
-
-MM-Fit activities with no ML4B equivalent (`lunges`, `situps`, `dumbbell_rows`,
-`jumping_jacks`) are dropped. Original RecoFit mapping (`EXERCISE_MAPPING` in
-`loader.py`) is retained for the historical pipeline. Selection rationale:
-ADR-005 + ADR-013.
-
----
-
-## Splits (MM-Fit official workout-id partition — ADR-013)
-| Split | MM-Fit workout ids | File |
-|-------|--------------------|------|
-| train | w01,02,03,04,06,07,08,16,17,18 | `data/processed/train_features.csv` |
-| val   | w14,15,19 | `data/processed/val_features.csv` |
-| test  | w09,10,11 | `data/processed/test_features.csv` |
-
-No workout (session) appears in more than one split — a session/subject-level
-split with no leakage, the same principle as ADR-007. The historical RecoFit
-pipeline used `subject_based_split()` (~70/10/20 by subject).
+**Why invariant?** Magnitudes are unchanged by device rotation; per-window
+z-normalization removes per-device offset/gain; correlations are offset/scale
+invariant. This is what lets a single-subject model transfer across watches and
+users (ADR-018), complemented by augmentation (ADR-019).
 
 ---
 
-## Data Collection Protocol (Apple Watch — generalization test)
+## Label Definition (ADR-016)
+Mapping from Kaggle exercise abbreviations (`ABBREV_TO_CLASS` in
+`kaggle_loader.py`):
 
-> Used only for the Phase 5 cross-device generalization test.
+| Label | Kaggle abbreviations |
+|-------|----------------------|
+| `bicep_curl` | AIDBC, IDBC, PREC |
+| `tricep_extension` | CGOCTE, MTE, SAOCTE, SAODTE |
+| `row` | CGCR, NGCR, MGTBR |
 
-- **Participants:** 1 (project author, plus optional volunteers)
-- **Exercises:** the same 7 target classes
-- **Repetitions per exercise per participant:** ≥ 30 s of motion per class
-- **Watch placement:** dominant wrist
-- **File naming convention:** `<participant_id>_<exercise>_<session>.csv`
-- **Quality checks:** confirm 50 Hz sampling and no NaN values before feature extraction
+All other Kaggle exercises are ignored. `rest` and `uncertain` are produced at
+inference, not trained.
+
+---
+
+## Evaluation Split (ADR-021)
+**Leave-one-set-out** cross-validation grouped by `recording_id` (one Kaggle file
+= one set). Each set is held out once; its augmented copies are excluded from
+training. True leave-one-*subject*-out is impossible (single subject). The
+shipped model is trained on all sets + augmentation; the honest metric is the
+cross-validation aggregate (macro F1 0.776), stored in
+`models/saved/model_metrics.json`.
+
+---
+
+## Legacy pipeline (abandoned, kept for history)
+`src/ml4b/data/features.py` produced **47 per-axis features** for the MM-Fit/
+RecoFit pipeline (accel m/s² including gravity, gyro rad/s, 100-sample windows at
+50 Hz). It is superseded by the invariant features above (ADR-018) and is no
+longer used by the app or the final model.
