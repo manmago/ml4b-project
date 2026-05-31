@@ -166,6 +166,14 @@ download. The final model (Random Forest on the Kaggle Apple-Watch anchor,
 3 classes, **leave-one-set-out Macro F1 = 0.776**) is committed alongside its
 metrics, the feature list, and a reproducible training script. Sensor Logger
 exports are accepted as either `WristMotion.csv` or a full ZIP. The project is
-handover-ready: every decision is documented in `docs/decisions/` (ADR-001–022),
+handover-ready: every decision is documented in `docs/decisions/` (ADR-001–023),
 the single-subject limitation is documented honestly, and OS-specific setup
 guides cover WSL, macOS, and Windows.
+
+**Notebook alignment (2026-06-01, ADR-023):** the CRISP-DM notebooks
+(`02_data_understanding` … `06_streamlit_demo`) were migrated from the old
+6-class RecoFit pipeline to the current 3-class Apple-Watch pipeline. They now
+import from `src/ml4b/`, run top-to-bottom against `data/raw/kaggle_gym_imu/`,
+and `04_modeling` reproduces the committed leave-one-set-out macro F1 of 0.776.
+There is no `01_business_understanding.ipynb` or `06_deployment.ipynb` in the
+repo; those phases are documented under `docs/` instead.
