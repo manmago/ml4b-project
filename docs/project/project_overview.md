@@ -160,7 +160,7 @@ RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
 |--------------|---------------|
 | Project goals and research question | `docs/business_understanding/business_understanding.md` |
 | Dataset evaluation and selection | `docs/data_understanding/dataset_evaluation.md` |
-| All technical decisions | `docs/decisions/ADR-001` … `ADR-022` |
+| All technical decisions | `docs/decisions/ADR-001` … `ADR-023` |
 | CRISP-DM progress log | `docs/project/crisp_dm_log.md` |
 | System architecture (arc42) | `docs/architecture/architecture.md` |
 | Sensor columns + features | `docs/data/data_dictionary.md` |

@@ -97,7 +97,7 @@ docs/
 ├── business_understanding/business_understanding.md ← CRISP-DM Phase 1
 ├── data/data_dictionary.md               ← Sensor columns + the 39 invariant features
 ├── data_understanding/dataset_evaluation.md ← CRISP-DM Phase 2: dataset choice (Kaggle)
-├── decisions/                            ← ADR-001 … ADR-022 (every major decision)
+├── decisions/                            ← ADR-001 … ADR-023 (every major decision)
 ├── project/
 │   ├── crisp_dm_log.md                   ← CRISP-DM phase progress tracker
 │   ├── project_overview.md               ← Plain-language overview — read this first
@@ -133,10 +133,21 @@ Committed on purpose so the app runs after a fresh clone with no dataset
 ---
 
 ### `notebooks/`
-One notebook per CRISP-DM phase (`01_business_understanding.ipynb` …
-`06_deployment.ipynb`, plus `06_streamlit_demo.ipynb`). Exploration and
-storytelling only — reusable logic belongs in `src/ml4b/`. Clear outputs before
-committing; never hardcode paths (use `ml4b.utils.config`).
+CRISP-DM phase notebooks, all aligned to the current 3-class Apple-Watch pipeline
+(ADR-023) and runnable top-to-bottom against `data/raw/kaggle_gym_imu/`:
+
+```
+notebooks/
+├── 02_data_understanding.ipynb  ← Kaggle dataset exploration (21 abbrevs, 3 classes, 100 Hz)
+├── 03_data_preparation.ipynb    ← load → window 200@100Hz → gate → invariant features → augment
+├── 04_modeling.ipynb            ← Random Forest + leave-one-set-out CV (macro F1 0.776)
+├── 05_evaluation.ipynb          ← honest metrics + limitations + sanity check on test_samples
+└── 06_streamlit_demo.ipynb      ← end-to-end predict_from_sensor_logger demo (mirrors the app)
+```
+
+Exploration and storytelling only — reusable logic is imported from `src/ml4b/`,
+never duplicated. Outputs are stripped before committing; never hardcode paths
+(use `ml4b.utils.config`).
 
 ---
 
