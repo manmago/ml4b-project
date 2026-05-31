@@ -1,23 +1,29 @@
-"""Sensor-orientation data augmentation for cross-device robustness.
+"""Sensor data augmentation — a synthetic substitute for subject diversity.
 
-The model is trained on MM-Fit (Mobvoi TicWatch on the wrist) but deployed on an
-Apple Watch. Even with units aligned, the *resting orientation* of the watch on
-the wrist — and therefore how gravity is distributed across the x/y/z axes —
-differs between devices and between users. This shows up as a domain shift in the
-per-axis features (e.g. ``az_mean``, ``ay_mean``) and is the main reason similar
-arm exercises (bicep curl vs tricep extension) get confused on real recordings.
+The final model is trained on a **single-subject** Apple-Watch dataset (the
+Kaggle Gym Workout IMU dataset; ADR-016) yet must generalise to *other* people
+uploading from *their* Apple Watch. We cannot collect more subjects, so instead
+we synthesise the variability that more subjects would have provided (ADR-019).
+Four physically-motivated augmentations are composed per copy:
 
-**Rotation augmentation** (a.k.a. domain randomization) addresses this without
-collecting any device-specific data: each training window's 3-axis accelerometer
-and gyroscope vectors are rotated by random 3-D rotations. Because the device's
-accelerometer and gyroscope share one physical frame, the *same* rotation is
-applied to both. The classifier then sees every exercise in many orientations and
-learns decision boundaries that do not depend on the exact watch mounting — see
-ADR-014.
+* **Random 3-D rotation** — simulates different watch orientations / mounting and
+  handedness of arm posture. Accelerometer and gyroscope share one physical
+  frame, so the *same* rotation is applied to both. Norm-preserving.
+* **Time-warp** — resamples the window at a random tempo factor to simulate
+  faster/slower repetition speeds between people.
+* **Axis mirror** — reflects the frame to approximate wearing the watch on the
+  *other* wrist (the Kaggle data is left-wrist only).
+* **Jitter** — adds small Gaussian noise to model sensor and body-size variation.
 
-Only the TRAIN split is augmented; validation and test stay untouched so metrics
-remain honest.
+Each original window spawns several augmented copies (default 5, i.e. 6× total),
+multiplying the effective number of "subjects". Only TRAIN windows are
+augmented; held-out sets stay pristine so leave-one-set-out metrics stay honest.
+
+``augment_windows`` is the orchestrator used by training. The older
+``augment_windows_with_rotation`` is retained for the rotation-only unit tests.
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -109,6 +115,135 @@ def augment_windows_with_rotation(
                     "raw_gz": gz2.tolist(),
                 }
             )
+
+    augmented_df = pd.DataFrame(augmented_rows, columns=window_df.columns)
+    combined = pd.concat([window_df, augmented_df], ignore_index=True)
+    # Renumber window_id so every (original + augmented) window is unique.
+    combined["window_id"] = range(len(combined))
+    return combined
+
+
+def _time_warp(signal: np.ndarray, factor: float) -> np.ndarray:
+    """Resample a window to a different tempo while keeping its sample count.
+
+    A ``factor`` > 1 plays the motion faster (compresses time), < 1 slower. The
+    output keeps the same length so downstream feature extraction is unchanged.
+
+    Args:
+        signal: 1-D window signal.
+        factor: Tempo multiplier; positions are read at ``i * factor``.
+
+    Returns:
+        The time-warped signal, same length as the input.
+    """
+    n = signal.size
+    src_idx = np.arange(n)
+    # Read the signal at warped positions, clipped to stay in range.
+    warped_pos = np.clip(np.arange(n) * factor, 0, n - 1)
+    return np.interp(warped_pos, src_idx, signal)
+
+
+def _mirror_axes(
+    arrays: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """Reflect the sensor frame to approximate the opposite wrist.
+
+    A reflection across the plane normal to x flips the x acceleration
+    component; angular velocity is a pseudovector, so under the same reflection
+    its y and z components flip while x is preserved. This is an approximation of
+    switching wrists (the Kaggle data is left-wrist only).
+
+    Args:
+        arrays: Dict with keys ``ax, ay, az, gx, gy, gz`` of 1-D signals.
+
+    Returns:
+        A new dict with the mirrored signals.
+    """
+    return {
+        "ax": -arrays["ax"],
+        "ay": arrays["ay"],
+        "az": arrays["az"],
+        "gx": arrays["gx"],
+        "gy": -arrays["gy"],
+        "gz": -arrays["gz"],
+    }
+
+
+def augment_windows(
+    window_df: pd.DataFrame,
+    n_augment: int = 5,
+    random_state: int = 42,
+    jitter_scale: float = 0.05,
+    warp_range: tuple[float, float] = (0.8, 1.2),
+    mirror_prob: float = 0.5,
+) -> pd.DataFrame:
+    """Augment windows with composed rotation, time-warp, mirror and jitter.
+
+    For each input window, ``n_augment`` extra copies are appended (the original
+    is always kept). Every copy applies, in order: a random 3-D rotation (shared
+    by accel + gyro), a random time-warp, a random axis mirror (with probability
+    ``mirror_prob``), and per-axis Gaussian jitter. All identifier columns
+    present in ``window_df`` (including ``recording_id``) are carried through so
+    augmented copies remain grouped with their source set.
+
+    Args:
+        window_df: Windowed DataFrame from
+            :func:`ml4b.data.windowing.apply_sliding_window`.
+        n_augment: Number of augmented copies per window. ``0`` returns the input
+            unchanged. Default 5 (→ 6× total).
+        random_state: Seed for reproducible augmentation.
+        jitter_scale: Gaussian noise std as a fraction of each axis's own std.
+        warp_range: Inclusive range the tempo factor is drawn from.
+        mirror_prob: Probability a copy is mirrored to the opposite wrist.
+
+    Returns:
+        DataFrame with the originals followed by the augmented copies, with
+        ``window_id`` renumbered to stay unique.
+    """
+    # No-op path keeps callers simple when augmentation is toggled off.
+    if n_augment <= 0 or window_df.empty:
+        return window_df.reset_index(drop=True)
+
+    rng = np.random.default_rng(random_state)
+    # Identifier columns to copy verbatim onto each augmented row.
+    id_cols = [c for c in window_df.columns if not c.startswith("raw_")]
+
+    augmented_rows: list[dict] = []
+    for _, row in window_df.iterrows():
+        # Base arrays for this window.
+        base = {
+            ax: np.asarray(row[f"raw_{ax}"], dtype=float)
+            for ax in ("ax", "ay", "az", "gx", "gy", "gz")
+        }
+        for _copy in range(n_augment):
+            # 1) Random rotation, applied identically to accel and gyro frames.
+            rot = Rotation.random(random_state=rng.integers(0, 2**31 - 1)).as_matrix()
+            ax2, ay2, az2 = _rotate_triplet(base["ax"], base["ay"], base["az"], rot)
+            gx2, gy2, gz2 = _rotate_triplet(base["gx"], base["gy"], base["gz"], rot)
+            arrs = {"ax": ax2, "ay": ay2, "az": az2, "gx": gx2, "gy": gy2, "gz": gz2}
+
+            # 2) Time-warp every channel by the same random tempo factor.
+            factor = float(rng.uniform(*warp_range))
+            arrs = {k: _time_warp(v, factor) for k, v in arrs.items()}
+
+            # 3) Mirror to the opposite wrist with the configured probability.
+            if rng.random() < mirror_prob:
+                arrs = _mirror_axes(arrs)
+
+            # 4) Per-axis Gaussian jitter scaled to each axis's variability.
+            for k, v in arrs.items():
+                sigma = jitter_scale * (np.std(v) + 1e-8)
+                arrs[k] = v + rng.normal(0.0, sigma, size=v.shape)
+
+            new_row = {col: row[col] for col in id_cols}
+            new_row["window_id"] = -1  # renumbered after concatenation
+            new_row["raw_ax"] = arrs["ax"].tolist()
+            new_row["raw_ay"] = arrs["ay"].tolist()
+            new_row["raw_az"] = arrs["az"].tolist()
+            new_row["raw_gx"] = arrs["gx"].tolist()
+            new_row["raw_gy"] = arrs["gy"].tolist()
+            new_row["raw_gz"] = arrs["gz"].tolist()
+            augmented_rows.append(new_row)
 
     augmented_df = pd.DataFrame(augmented_rows, columns=window_df.columns)
     combined = pd.concat([window_df, augmented_df], ignore_index=True)

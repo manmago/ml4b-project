@@ -147,4 +147,5 @@ tmp/
 # =============================================================================
 !models/saved/best_model.joblib
 !models/saved/random_forest.joblib
+!models/saved/model_metrics.json
 !data/processed/feature_names.txt

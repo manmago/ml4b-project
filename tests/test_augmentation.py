@@ -8,7 +8,7 @@ respects the n_rotations=0 no-op, and is deterministic for a fixed seed.
 import numpy as np
 import pandas as pd
 
-from ml4b.data.augmentation import augment_windows_with_rotation
+from ml4b.data.augmentation import augment_windows, augment_windows_with_rotation
 
 WIN = 100
 
@@ -67,4 +67,45 @@ def test_deterministic_for_seed() -> None:
     df = _windows(3)
     a = augment_windows_with_rotation(df, n_rotations=2, random_state=42)
     b = augment_windows_with_rotation(df, n_rotations=2, random_state=42)
+    assert np.allclose(a.iloc[-1]["raw_ax"], b.iloc[-1]["raw_ax"])
+
+
+def _windows_with_recording_id(n: int = 3) -> pd.DataFrame:
+    """Windows that also carry a recording_id, like the Kaggle pipeline."""
+    df = _windows(n)
+    df.insert(2, "recording_id", [f"set_{i}" for i in range(n)])
+    return df
+
+
+def test_augment_windows_size_and_noop() -> None:
+    """augment_windows adds n_augment copies per window; 0 is a no-op."""
+    df = _windows_with_recording_id(3)
+    assert len(augment_windows(df, n_augment=0)) == 3
+    out = augment_windows(df, n_augment=5, random_state=42)
+    assert len(out) == 3 * (1 + 5)
+    assert out["window_id"].nunique() == len(out)
+
+
+def test_augment_windows_preserves_recording_id() -> None:
+    """recording_id (the leave-one-set-out group key) is carried onto copies."""
+    df = _windows_with_recording_id(3)
+    out = augment_windows(df, n_augment=4, random_state=42)
+    # No augmented row may have a missing/NaN recording_id.
+    assert out["recording_id"].notna().all()
+    # Each original set id still appears among the augmented copies.
+    assert set(out["recording_id"]) == {"set_0", "set_1", "set_2"}
+
+
+def test_augment_windows_keeps_window_length() -> None:
+    """Time-warp keeps each augmented window the same length as the original."""
+    df = _windows_with_recording_id(1)
+    out = augment_windows(df, n_augment=3, random_state=7)
+    assert all(len(row) == WIN for row in out["raw_ax"])
+
+
+def test_augment_windows_deterministic() -> None:
+    """A fixed seed yields identical augmented output."""
+    df = _windows_with_recording_id(2)
+    a = augment_windows(df, n_augment=3, random_state=42)
+    b = augment_windows(df, n_augment=3, random_state=42)
     assert np.allclose(a.iloc[-1]["raw_ax"], b.iloc[-1]["raw_ax"])
