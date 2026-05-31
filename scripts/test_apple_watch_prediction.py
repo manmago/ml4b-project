@@ -1,154 +1,105 @@
-"""Test script to validate apple_watch_loader.py fixes.
+"""Run the 3-class model on the real Apple Watch sanity-check samples.
 
-Tests the prediction pipeline on real Apple Watch WristMotion.csv samples in
-data/raw/apple_watch/test_samples/. The filename indicates the true label, so
-the script checks whether the most common prediction matches.
+Predicts on every ``WristMotion.csv`` in ``data/raw/apple_watch/test_samples/``
+and prints, per file, the detected sampling rate, the per-window label
+distribution, the dominant *exercise* (excluding the gated ``rest`` and the
+``uncertain`` abstention), and the mean confidence of classified windows.
 
-If a sample is misclassified, the script automatically prints a diagnostic:
-the first normalized rows and a feature-distribution comparison against the
-training data, flagging the features that are most out of distribution.
+The filename hints at the true label. Files whose true label is **not** one of
+the three trained classes (e.g. ``push_up``, which is absent from the Kaggle
+dataset — ADR-016) are reported as *out of scope*: the script shows what the
+model outputs without calling it right or wrong.
+
+This is a read-only sanity check — it does NOT tune anything. Results are
+recorded in ``docs/project/apple_watch_validation_results.md``.
 
 Run with: uv run python scripts/test_apple_watch_prediction.py
 """
 
-import joblib
-import pandas as pd
+from __future__ import annotations
 
-from ml4b.data.apple_watch_loader import (
-    detect_sampling_rate,
-    load_sensor_logger_csv,
-    predict_from_sensor_logger,
-)
+import joblib
+
+from ml4b.data.apple_watch_loader import predict_from_sensor_logger
+from ml4b.data.kaggle_loader import TARGET_CLASSES
 from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, find_project_root
 
 PROJECT_ROOT = find_project_root()
 TEST_SAMPLES_DIR = PROJECT_ROOT / "data" / "raw" / "apple_watch" / "test_samples"
 
-# The six classes the model can output (anything else cannot be predicted).
-KNOWN_CLASSES = {
-    "bicep_curl",
-    "lateral_raise",
-    "rest",
-    "shoulder_press",
-    "squat",
-    "tricep_extension",
-}
-
-# Load model and feature names once.
-model = joblib.load(MODELS_DIR / "best_model.joblib")
-feature_names = (DATA_PROCESSED / "feature_names.txt").read_text().strip().split("\n")
+# The three classes the model can output; rest/uncertain are produced outside it.
+KNOWN_CLASSES = set(TARGET_CLASSES)
 
 
-def _diagnose(csv_file) -> None:
-    """Print raw normalized rows and a feature-distribution comparison.
-
-    Helps decide whether a misprediction is a loader bug or a fundamental
-    sensor-calibration difference between the RecoFit device and Apple Watch.
+def _true_label_from_name(filename: str) -> str:
+    """Infer the intended exercise from a sample filename.
 
     Args:
-        csv_file: Path to the WristMotion.csv sample to diagnose.
+        filename: e.g. ``"bicep_curl_sample_1.csv"`` or ``"push_up_sample.csv"``.
+
+    Returns:
+        The leading exercise token, e.g. ``"bicep_curl"`` or ``"push_up"``.
     """
-    print("  --- DIAGNOSTIC ---")
-    raw_df = load_sensor_logger_csv(csv_file)
-
-    # 1) Sanity-check the normalized signal columns.
-    print("  First 3 normalized rows [ax, ay, az, gx, gy, gz]:")
-    print(raw_df[["ax", "ay", "az", "gx", "gy", "gz"]].head(3).to_string(index=False))
-    sig = raw_df[["ax", "ay", "az", "gx", "gy", "gz"]]
-    print(
-        f"  NaNs: {int(sig.isna().sum().sum())}, all-zero cols: "
-        f"{[c for c in sig.columns if (sig[c] == 0).all()]}"
-    )
-
-    # 2) Compare this sample's feature distribution to the training data.
-    train_df = pd.read_csv(DATA_PROCESSED / "train_features.csv")
-    sample_results = predict_from_sensor_logger(csv_file, model, feature_names)
-    _ = sample_results  # predictions already printed by caller
-
-    # Recompute the sample's feature matrix the same way the pipeline does.
-    from ml4b.data.features import extract_features
-    from ml4b.data.windowing import apply_sliding_window
-
-    rdf = load_sensor_logger_csv(csv_file)
-    hz = detect_sampling_rate(rdf)
-    if abs(hz - 50) >= 5:
-        from ml4b.data.apple_watch_loader import resample_to_target_hz
-
-        rdf = resample_to_target_hz(rdf, source_hz=hz, target_hz=50.0)
-    rdf["subject_id"] = 0
-    rdf["exercise_name"] = "unknown"
-    rdf["recording_id"] = 0
-    feats = extract_features(apply_sliding_window(rdf, window_size=100, overlap=0.5))
-
-    # z-distance of the sample's mean feature value from the training mean.
-    rows = []
-    for f in feature_names:
-        tr_mean, tr_std = train_df[f].mean(), train_df[f].std()
-        aw_mean = feats[f].mean() if f in feats else 0.0
-        z = abs(aw_mean - tr_mean) / tr_std if tr_std > 0 else 0.0
-        rows.append((f, tr_mean, tr_std, aw_mean, z))
-    rows.sort(key=lambda r: r[4], reverse=True)
-
-    print("  Top 8 most out-of-distribution features (train vs Apple Watch):")
-    print(
-        f"  {'feature':<24}{'train_mean':>12}{'train_std':>11}{'aw_mean':>11}{'z':>7}"
-    )
-    for f, tm, ts, am, z in rows[:8]:
-        flag = "  <-- far" if z > 3 else ""
-        print(f"  {f:<24}{tm:>12.3f}{ts:>11.3f}{am:>11.3f}{z:>7.1f}{flag}")
+    stem = filename.replace(".csv", "")
+    # Strip a trailing "_sample"/"_session" suffix, leaving the exercise name.
+    for marker in ("_sample", "_session"):
+        if marker in stem:
+            stem = stem.split(marker)[0]
+    return stem
 
 
 def main() -> None:
-    """Run the prediction test over every sample and report correctness."""
-    print("=" * 60)
-    print("Apple Watch Prediction Test")
-    print("=" * 60)
+    """Predict on every sanity-check sample and print an honest summary."""
+    model = joblib.load(MODELS_DIR / "best_model.joblib")
+    feature_names = (
+        (DATA_PROCESSED / "feature_names.txt").read_text().strip().split("\n")
+    )
 
-    any_wrong = False
-    for csv_file in sorted(TEST_SAMPLES_DIR.glob("*.csv")):
-        print(f"\nFile: {csv_file.name}")
-        print(f"True label (from filename): {csv_file.stem}")
+    samples = sorted(TEST_SAMPLES_DIR.glob("*.csv"))
+    if not samples:
+        print(f"No sample CSVs found in {TEST_SAMPLES_DIR}.")
+        return
 
-        raw_df = load_sensor_logger_csv(csv_file)
-        hz = detect_sampling_rate(raw_df)
-        print(f"Detected sampling rate: {hz} Hz")
-        print(f"Duration: {raw_df['timestamp'].max():.1f} seconds")
-        print(f"Samples: {len(raw_df)}")
+    print("=" * 70)
+    print("Apple Watch sanity check — 3-class model (read-only, no tuning)")
+    print("=" * 70)
 
-        results = predict_from_sensor_logger(
-            csv_file=csv_file, model=model, feature_names=feature_names
+    for csv_file in samples:
+        true_label = _true_label_from_name(csv_file.name)
+        in_scope = true_label in KNOWN_CLASSES
+
+        results = predict_from_sensor_logger(csv_file, model, feature_names)
+        counts = results["predicted_class"].value_counts().to_dict()
+        # Dominant exercise excludes the non-model outputs (rest, uncertain).
+        exercises = results[~results["predicted_class"].isin({"rest", "uncertain"})]
+        top = (
+            exercises["predicted_class"].mode().iloc[0]
+            if not exercises.empty
+            else "none"
         )
-        print(
-            f"Resampled to 50 Hz: {results.attrs.get('n_samples_after_resample')} "
-            f"samples -> {len(results)} windows"
+        avg_conf = (
+            float(results["confidence"].mean())
+            if results["confidence"].notna().any()
+            else float("nan")
         )
-        print("Prediction distribution:")
-        dist = results["predicted_class"].value_counts()
-        for cls, count in dist.items():
-            pct = count / len(results) * 100
-            marker = " <- CORRECT" if cls in csv_file.stem.lower() else ""
-            print(f"  {cls:<20} {count:3d} windows ({pct:.1f}%){marker}")
 
-        most_common = results["predicted_class"].mode()[0]
-        true_is_known = any(c in csv_file.stem.lower() for c in KNOWN_CLASSES)
-        correct = most_common in csv_file.stem.lower()
-        if not true_is_known:
-            print(
-                f"Most common prediction: {most_common} "
-                f"(true class '{csv_file.stem}' is NOT one of the 6 trained "
-                "classes — cannot be correct by design)"
-            )
+        print(f"\n{csv_file.name}")
+        scope_note = "" if in_scope else "  (OUT OF SCOPE)"
+        print(f"  true label        : {true_label}{scope_note}")
+        print(f"  detected rate     : {results.attrs.get('detected_hz')} Hz")
+        print(f"  windows           : {len(results)}")
+        print(f"  distribution      : {counts}")
+        print(f"  dominant exercise : {top}")
+        print(f"  avg confidence    : {avg_conf:.3f}")
+        if in_scope:
+            verdict = "CORRECT" if top == true_label else "MISCLASSIFIED"
+            print(f"  verdict           : {verdict}")
         else:
-            print(
-                f"Most common prediction: {most_common} {'PASS' if correct else 'FAIL'}"
-            )
-            if not correct:
-                any_wrong = True
-                _diagnose(csv_file)
+            print("  verdict           : n/a — class not in the model's 3-class scope")
 
-    print("\n" + "=" * 60)
-    print("Test complete" + ("" if not any_wrong else " — see diagnostics above"))
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("Done. Full write-up: docs/project/apple_watch_validation_results.md")
+    print("=" * 70)
 
 
 if __name__ == "__main__":

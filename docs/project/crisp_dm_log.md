@@ -2,7 +2,8 @@
 
 Project: ML4B SoSe 2026 — Gym Exercise Recognition  
 Team: Anshul Agrawal  
-Last updated: 2026-05-29
+Last updated: 2026-06-01
+Iteration 3 (final) completed: 2026-05-31 — Kaggle Apple-Watch anchor, 3 classes (ADR-016)
 Phase 1 completed: 2026-05-15
 Phase 2 completed: 2026-05-22
 Phase 3 completed: 2026-05-28
@@ -24,7 +25,8 @@ Phase 6 completed: 2026-05-29
 | 4 | Modeling | done | Anshul Agrawal | `notebooks/04_modeling.ipynb` | Random Forest selected as best model (macro F1 = 0.8136 on val). XGBoost = 0.8057, SVM = 0.7478. ADR-009, ADR-010 accepted. best_model.joblib saved. |
 | 5 | Evaluation | done | Anshul Agrawal | `notebooks/05_evaluation.ipynb` | Test Macro F1 = 0.8006 ✅ target met. Generalization gap 1.3%. No iterative improvement needed. See notebooks/05_evaluation.ipynb for full results. |
 | 6 | Deployment | done | Anshul Agrawal | `notebooks/06_deployment.ipynb` | Full Streamlit app (3 pages) live; model + feature names committed to git; `scripts/train_model.py` added; Sensor Logger CSV/ZIP upload pipeline working. App runs with 3 commands, no dataset needed. |
-| ↻ | **Iteration 2 (CRISP-DM loop): dataset switch + tuning** | done | Anshul Agrawal | `scripts/build_mmfit_dataset.py` | Deployment revealed RecoFit (forearm-worn) does not generalize to the wrist-worn Apple Watch. Re-ran Data Understanding → Modeling → Evaluation on **MM-Fit** (wrist-worn smartwatch). 7 classes (added `push_up`). Then regularized RF + rebalanced `rest` to cut over-fit trees and `rest` over-prediction. **Val macro F1 = 0.866, Test macro F1 = 0.944.** ADR-013 (dataset), ADR-014 (augmentation rejected), ADR-015 (regularization + rest rebalancing). |
+| ↻ | **Iteration 2 (CRISP-DM loop): dataset switch + tuning** | superseded | Anshul Agrawal | `scripts/build_mmfit_dataset.py` | Deployment revealed RecoFit (forearm-worn) does not generalize to the wrist-worn Apple Watch. Re-ran Data Understanding → Modeling → Evaluation on **MM-Fit** (wrist-worn smartwatch). 7 classes (added `push_up`). **Test macro F1 = 0.944** but still failed on real Apple-Watch uploads (non-Apple device). ADR-013/014/015. |
+| ↻↻ | **Iteration 3 (final): Kaggle Apple-Watch, 3 classes** | done | Anshul Agrawal | `scripts/train_model.py` | Adopted the **Kaggle Gym Workout IMU dataset** (recorded *on* an Apple Watch, 100 Hz) — removes the device-domain shift. 3 distinct classes (bicep_curl, tricep_extension, row). Energy gate for rest (ADR-017), invariant features (ADR-018), augmentation (ADR-019), confidence→uncertain (ADR-020). **Leave-one-set-out macro F1 = 0.776** (ADR-021). One-command launch (ADR-022). See ADR-016. |
 
 ---
 
@@ -126,14 +128,44 @@ the wrist. Robust fix would require a few of the user's own labelled recordings.
 
 ---
 
-## Final Project Summary (2026-05-29)
+## Iteration 3 — Final: Kaggle Apple-Watch anchor, 3 classes (2026-05-31)
 
-All six CRISP-DM phases are complete, plus a second iteration that switched the
-training dataset to MM-Fit (ADR-013). The deliverable is a working Streamlit app
-that runs with three commands (`git clone`, `uv sync`, `uv run streamlit run
-app/streamlit_app.py`) and needs no dataset download. The best model (Random
-Forest, trained on MM-Fit, **Test Macro F1 = 0.944**) is committed alongside the
-feature list and reproducible build + training scripts. Sensor Logger (Apple
-Watch) exports are accepted as either `WristMotion.csv` or a full ZIP. The
-project is handover-ready: every decision is documented in `docs/decisions/`
-(ADR-001–015), and OS-specific setup guides cover WSL, macOS, and Windows.
+**Trigger (CRISP-DM is a loop):** MM-Fit (Iteration 2) still failed on real
+Apple-Watch uploads. Root cause confirmed as **device-domain shift** — training
+on *any* non-Apple sensor does not transfer to an Apple Watch.
+
+**Action — re-ran Data Understanding → Deployment on an Apple-Watch dataset:**
+- **Data Understanding:** adopted the **Kaggle Gym Workout IMU dataset** —
+  recorded *on an Apple Watch SE* (100 Hz, left wrist). `scripts/inspect_kaggle_dataset.py`
+  audited it: 164 single-set files, 21 exercises, single subject, no push-ups.
+  Chose **3 biomechanically distinct classes**: bicep_curl, tricep_extension,
+  row (ADR-016).
+- **Data Preparation:** new shared modules — `kaggle_loader.py`, `canonical.py`
+  (units + 100 Hz resample), `features_invariant.py` (39 device-invariant
+  features, ADR-018), `activity_gate.py` (energy-threshold rest, ADR-017),
+  extended `augmentation.py` (rotation+time-warp+mirror+jitter, ADR-019).
+  `windowing.py` now carries `recording_id` for set-grouped evaluation.
+- **Modeling:** Random Forest (seed 42, balanced), trained on all sets +
+  6× augmentation; confidence threshold → `uncertain` (ADR-020).
+- **Evaluation:** **leave-one-set-out** CV (no LOSO possible — single subject;
+  ADR-021). **Macro F1 = 0.776, accuracy 0.782** (bicep 0.76 / row 0.76 /
+  triceps 0.81). Metrics committed to `models/saved/model_metrics.json`.
+- **Deployment:** app + all three pages updated to the 3-class reality and the
+  honest metrics; one-command launch on all 3 OS (ADR-022). Sanity check on real
+  Apple-Watch samples recorded in `apple_watch_validation_results.md`.
+
+---
+
+## Final Project Summary (2026-06-01)
+
+All six CRISP-DM phases are complete across **three iterations** (RecoFit →
+MM-Fit → **Kaggle Apple-Watch**, ADR-016). The deliverable is a working
+Streamlit app that runs with **one command**
+(`uv run streamlit run app/streamlit_app.py`, or `make run`) and needs no dataset
+download. The final model (Random Forest on the Kaggle Apple-Watch anchor,
+3 classes, **leave-one-set-out Macro F1 = 0.776**) is committed alongside its
+metrics, the feature list, and a reproducible training script. Sensor Logger
+exports are accepted as either `WristMotion.csv` or a full ZIP. The project is
+handover-ready: every decision is documented in `docs/decisions/` (ADR-001–022),
+the single-subject limitation is documented honestly, and OS-specific setup
+guides cover WSL, macOS, and Windows.

@@ -1,73 +1,65 @@
-"""Apple Watch / Sensor Logger data loader for ML4B gym exercise recognition.
+"""Apple Watch / Sensor Logger inference pipeline for the 3-class model.
 
-Handles CSV files exported from the Sensor Logger iOS app (free, App Store).
-Sensor Logger exports a folder (or ZIP) containing multiple CSV files. This
-module reads ``WristMotion.csv`` (accelerometer + gyroscope from the wrist),
-normalizes its column names, and runs the *identical* preprocessing pipeline
-used in training (sliding window -> feature extraction -> model prediction).
+Handles CSV (or ZIP) files exported from the Sensor Logger iOS app and runs the
+*identical* preprocessing used in training, satisfying the CLAUDE.md rule that
+training and inference share one pipeline. The shared building blocks are:
 
-This guarantees the architectural rule in CLAUDE.md: training and inference
-share the exact same preprocessing code (``ml4b.data.windowing`` and
-``ml4b.data.features``), so predictions are consistent.
+  * :mod:`ml4b.data.canonical`          — units, sampling rate, window size
+  * :mod:`ml4b.data.windowing`          — sliding window
+  * :mod:`ml4b.data.activity_gate`      — energy-threshold rest detection
+  * :mod:`ml4b.data.features_invariant` — device-invariant features
 
-Supported Sensor Logger export formats (auto-detected):
-  Format PRIMARY: seconds_elapsed, accelerationX/Y/Z, rotationRateX/Y/Z
-                  (confirmed from a real Apple Watch WristMotion.csv export)
-  Format A:       time, seconds_elapsed, x, y, z, roll, pitch, yaw
-  Format B:       timestamp, ax, ay, az, gx, gy, gz
-  Format C:       seconds_elapsed, x, y, z, roll, pitch, yaw
-  Format D:       time, accelerationX/Y/Z, rotationRateX/Y/Z (DeviceMotion export)
+Both the Kaggle training data and Sensor Logger uploads are Apple CoreMotion
+``DeviceMotion`` streams, so the canonicalization is the same on both sides:
+total acceleration (userAcceleration + gravity) in **g** and rotation rate in
+**rad/s** — no cross-device unit conversion (the device-domain match that
+motivated ADR-016).
 
-All formats are normalized to the internal schema:
-  [timestamp, ax, ay, az, gx, gy, gz]
+Pipeline (see ADR-016..ADR-021):
+    load (CSV/ZIP) -> normalize columns -> resample to 100 Hz
+        -> sliding window (200, 50% overlap)
+        -> activity gate (rest is NOT a model class)
+        -> invariant features -> predict (3 classes)
+        -> confidence threshold -> "uncertain"
 
-Apple Watch records at ~100 Hz, but the model was trained on 50 Hz data.
-The prediction pipeline auto-detects the sampling rate and decimates to 50 Hz so
-that a 100-sample window stays ~2 seconds long — see ADR-012.
-
-Unit alignment to the MM-Fit training data (ADR-013): the model is now trained
-on MM-Fit, whose smartwatch reports the accelerometer in **m/s² including
-gravity** and the gyroscope in **rad/s**. Sensor Logger's WristMotion
-accelerationX/Y/Z is *user* acceleration in g with gravity removed (~0 g at
-rest), accompanied by a gravityX/Y/Z vector (also in g). This loader therefore
-reconstructs total acceleration and converts g -> m/s²::
-
-    ax = (accelerationX + gravityX) * 9.80665   # ~9.81 m/s² at rest
-
-The gyroscope (rotationRate) is already in rad/s, matching MM-Fit, so it is
-passed through unchanged (no rad/s -> deg/s conversion).
+The model never predicts ``rest`` or ``uncertain``; those are produced by the
+gate and the confidence threshold respectively, so the three trained classes
+only compete on genuine, confident movement.
 """
+
+from __future__ import annotations
 
 import io
 import zipfile
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
-from ml4b.data.features import extract_features
+from ml4b.data.activity_gate import REST_LABEL, gate_window_df
+from ml4b.data.canonical import (
+    CONFIDENCE_THRESHOLD,
+    OVERLAP,
+    TARGET_HZ,
+    WINDOW_SIZE,
+    resample_uniform,
+)
+from ml4b.data.features_invariant import extract_invariant_features
 from ml4b.data.windowing import apply_sliding_window
 
-# Sampling rate of the wrist sensor, in Hz. Sensor Logger Wrist Motion records
-# at 50 Hz, matching the RecoFit training data — see ADR-006.
-SAMPLING_RATE_HZ = 50
+# Label used when the model's top probability is below CONFIDENCE_THRESHOLD.
+UNCERTAIN_LABEL = "uncertain"
 
-# Standard gravity in m/s². MM-Fit's accelerometer is in m/s² including gravity,
-# while Sensor Logger reports acceleration in g — multiply (userAccel + gravity)
-# by this to convert g -> m/s² and match the training units — see ADR-013.
-G_MS2 = 9.80665
-
-# Internal schema every loader output must conform to. These names match
-# ml4b.data.features._AXES so feature extraction works without changes.
+# Internal schema every loader output must conform to.
 INTERNAL_COLUMNS = ["timestamp", "ax", "ay", "az", "gx", "gy", "gz"]
 
-# Known Sensor Logger column-name mappings -> internal format.
-# Add a new dict here if Sensor Logger changes its export format.
-# Keys are matched case-insensitively against the CSV's columns.
+# Known Sensor Logger column-name mappings -> internal format. Keys are matched
+# case-insensitively. The PRIMARY format is the confirmed real Apple Watch
+# WristMotion export (CoreMotion DeviceMotion).
 WRIST_MOTION_COLUMN_MAPPINGS: list[dict[str, str]] = [
-    # Format PRIMARY: Sensor Logger WristMotion.csv (confirmed from real Apple
-    # Watch export). accelerationX/Y/Z = linear (user) acceleration in g,
-    # rotationRateX/Y/Z = gyroscope in rad/s. seconds_elapsed is the timestamp.
+    # Format PRIMARY: accelerationX/Y/Z = user acceleration in g,
+    # rotationRateX/Y/Z = gyroscope in rad/s, seconds_elapsed = timestamp.
     {
         "seconds_elapsed": "timestamp",
         "accelerationX": "ax",
@@ -77,7 +69,7 @@ WRIST_MOTION_COLUMN_MAPPINGS: list[dict[str, str]] = [
         "rotationRateY": "gy",
         "rotationRateZ": "gz",
     },
-    # Format A: Sensor Logger default WristMotion.csv (attitude as roll/pitch/yaw).
+    # Format A: default WristMotion.csv (attitude as roll/pitch/yaw).
     {
         "time": "timestamp",
         "x": "ax",
@@ -123,65 +115,50 @@ WRIST_MOTION_COLUMN_MAPPINGS: list[dict[str, str]] = [
 def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Auto-detect the Sensor Logger column format and normalize it.
 
-    Tries each known column mapping in order and uses the first whose source
-    keys are all present in the input (case-insensitive match).
+    Tries each known mapping in order and uses the first whose source keys are
+    all present (case-insensitive). When the source is CoreMotion user
+    acceleration AND a gravity vector is present, total acceleration in g is
+    reconstructed (userAccel + gravity) to match the training canonicalization.
 
     Args:
         df: Raw DataFrame loaded from a Sensor Logger CSV.
 
     Returns:
-        DataFrame with exactly the internal columns
-        ``[timestamp, ax, ay, az, gx, gy, gz]``.
+        DataFrame with exactly ``[timestamp, ax, ay, az, gx, gy, gz]`` where
+        acceleration is total acceleration in g and gyro is rad/s.
 
     Raises:
         ValueError: If no known column format matches the input columns.
     """
-    # Lower-cased view of the input columns for case-insensitive matching.
     cols_lower = [c.lower() for c in df.columns]
 
     for mapping in WRIST_MOTION_COLUMN_MAPPINGS:
         # A mapping applies only if every one of its source keys is present.
         if all(key.lower() in cols_lower for key in mapping):
-            # Build the actual (original-case) column rename map.
             col_map: dict[str, str] = {}
             for src, dst in mapping.items():
-                # Find the original column whose lower-case form equals src.
                 actual = df.columns[cols_lower.index(src.lower())]
                 col_map[actual] = dst
             renamed = df.rename(columns=col_map)
             result = renamed[INTERNAL_COLUMNS].copy()
 
-            # Align acceleration to the MM-Fit training units (m/s² including
-            # gravity). When the mapping read Sensor Logger's accelerationX/Y/Z
-            # (user acceleration in g, gravity REMOVED) and a gravityX/Y/Z
-            # vector (also in g) is available, reconstruct total acceleration
-            # and convert g -> m/s²: ax = (userAccel + gravity) * 9.80665.
-            # This yields ~9.81 m/s² at rest, matching MM-Fit — see ADR-013.
+            # Reconstruct TOTAL acceleration in g (userAccel + gravity) when the
+            # mapping read CoreMotion user acceleration and a gravity vector is
+            # available — this matches the Kaggle training canonicalization
+            # exactly (total accel in g, no m/s² conversion). See ADR-016.
             mapped_from_acceleration = any(
                 key.lower().startswith("acceleration") for key in mapping
             )
             grav = {c.lower(): c for c in df.columns}
             has_gravity = all(f"gravity{axis}" in grav for axis in ("x", "y", "z"))
             if mapped_from_acceleration and has_gravity:
-                # .to_numpy() sidesteps index-alignment surprises; both frames
-                # share the same row order here anyway.
-                result["ax"] = (
-                    result["ax"].to_numpy() + df[grav["gravityx"]].to_numpy()
-                ) * G_MS2
-                result["ay"] = (
-                    result["ay"].to_numpy() + df[grav["gravityy"]].to_numpy()
-                ) * G_MS2
-                result["az"] = (
-                    result["az"].to_numpy() + df[grav["gravityz"]].to_numpy()
-                ) * G_MS2
+                result["ax"] = result["ax"].to_numpy() + df[grav["gravityx"]].to_numpy()
+                result["ay"] = result["ay"].to_numpy() + df[grav["gravityy"]].to_numpy()
+                result["az"] = result["az"].to_numpy() + df[grav["gravityz"]].to_numpy()
 
-            # The gyroscope (rotationRateX/Y/Z) is already in rad/s, which
-            # matches MM-Fit's rad/s gyroscope, so no unit conversion is applied
-            # — see ADR-013.
-
+            # Gyroscope (rotationRate) is already rad/s — matches training.
             return result
 
-    # No mapping matched — raise a clear, actionable error listing the columns.
     raise ValueError(
         "Could not detect Sensor Logger column format.\n"
         f"Columns found: {list(df.columns)}\n"
@@ -198,35 +175,28 @@ def load_sensor_logger_csv(csv_file: Path) -> pd.DataFrame:
         csv_file: Path to ``WristMotion.csv`` exported from Sensor Logger.
 
     Returns:
-        DataFrame with columns ``[timestamp, ax, ay, az, gx, gy, gz]``,
-        sorted by timestamp with rows containing NaNs dropped.
+        DataFrame ``[timestamp, ax, ay, az, gx, gy, gz]``, sorted by timestamp
+        with NaN rows dropped.
     """
     df = pd.read_csv(csv_file)
     df = detect_and_normalize_columns(df)
-    # Drop incomplete rows and order by time so windows are contiguous.
-    df = df.dropna().sort_values("timestamp").reset_index(drop=True)
-    return df
+    return df.dropna().sort_values("timestamp").reset_index(drop=True)
 
 
 def load_sensor_logger_zip(zip_file: Path) -> pd.DataFrame:
     """Load and normalize ``WristMotion.csv`` from a Sensor Logger ZIP export.
 
-    Sensor Logger can share the whole recording as a ZIP of CSV files. This
-    extracts the wrist-motion file (case-insensitive, possibly nested in a
-    subfolder) and normalizes it like :func:`load_sensor_logger_csv`.
-
     Args:
-        zip_file: Path to the ZIP file containing Sensor Logger CSV exports.
+        zip_file: Path to the ZIP containing Sensor Logger CSV exports.
 
     Returns:
-        DataFrame with columns ``[timestamp, ax, ay, az, gx, gy, gz]``,
-        sorted by timestamp with rows containing NaNs dropped.
+        DataFrame ``[timestamp, ax, ay, az, gx, gy, gz]``, sorted by timestamp
+        with NaN rows dropped.
 
     Raises:
         FileNotFoundError: If no ``WristMotion.csv`` is found in the ZIP.
     """
     with zipfile.ZipFile(zip_file, "r") as zf:
-        # Match WristMotion.csv anywhere in the archive, ignoring case/folders.
         wrist_files = [
             name
             for name in zf.namelist()
@@ -236,152 +206,121 @@ def load_sensor_logger_zip(zip_file: Path) -> pd.DataFrame:
             raise FileNotFoundError(
                 f"WristMotion.csv not found in ZIP. Files found: {zf.namelist()}"
             )
-        # Read the first match through a text wrapper so pandas can parse it.
         with zf.open(wrist_files[0]) as handle:
             df = pd.read_csv(io.TextIOWrapper(handle, encoding="utf-8"))
 
     df = detect_and_normalize_columns(df)
-    df = df.dropna().sort_values("timestamp").reset_index(drop=True)
-    return df
+    return df.dropna().sort_values("timestamp").reset_index(drop=True)
 
 
 def detect_sampling_rate(df: pd.DataFrame, timestamp_col: str = "timestamp") -> float:
-    """Detect actual sampling rate from median timestamp differences.
+    """Detect the sampling rate from median timestamp differences.
 
     Args:
-        df: DataFrame with timestamp column in seconds.
-        timestamp_col: Name of timestamp column.
+        df: DataFrame with a seconds-valued timestamp column.
+        timestamp_col: Name of the timestamp column.
 
     Returns:
-        Estimated sampling rate in Hz, rounded to nearest integer.
+        Estimated sampling rate in Hz; falls back to the target rate if the
+        timestamps are degenerate.
     """
-    # Use median diff to be robust against gaps or irregular samples.
     diffs = df[timestamp_col].diff().dropna()
     median_diff = diffs.median()
-    # Guard against degenerate input (duplicate/constant timestamps) that would
-    # otherwise divide by zero; fall back to the training rate.
     if not median_diff or median_diff <= 0:
-        return float(SAMPLING_RATE_HZ)
+        return float(TARGET_HZ)
     return round(1.0 / median_diff)
-
-
-def resample_to_target_hz(
-    df: pd.DataFrame,
-    source_hz: float,
-    target_hz: float = 50.0,
-    timestamp_col: str = "timestamp",
-) -> pd.DataFrame:
-    """Resample sensor data to target sampling rate via decimation.
-
-    Model was trained on 50Hz RecoFit data. Apple Watch records at ~100Hz.
-    Decimation (taking every Nth sample) is used instead of interpolation
-    to avoid introducing artificial data points. See ADR-012.
-
-    Args:
-        df: Normalized sensor DataFrame.
-        source_hz: Detected source sampling rate in Hz.
-        target_hz: Target rate in Hz. Default 50 (matches training data).
-        timestamp_col: Name of timestamp column.
-
-    Returns:
-        Decimated DataFrame at approximately target_hz.
-        Returns original df unchanged if rates are within 5Hz of each other.
-    """
-    # No meaningful difference — leave the data untouched.
-    if abs(source_hz - target_hz) < 5:
-        return df
-    # Keep every Nth row so the effective rate drops to ~target_hz.
-    step = max(1, round(source_hz / target_hz))
-    return df.iloc[::step].reset_index(drop=True)
 
 
 def predict_from_sensor_logger(
     csv_file: Path,
     model: Any,
     feature_names: list[str],
-    window_size: int = 100,
-    overlap: float = 0.5,
+    window_size: int = WINDOW_SIZE,
+    overlap: float = OVERLAP,
 ) -> pd.DataFrame:
-    """Run the full prediction pipeline on a Sensor Logger export.
+    """Run the full 3-class prediction pipeline on a Sensor Logger export.
 
-    Pipeline: load (CSV or ZIP) -> normalize columns -> detect + resample to
-    50 Hz -> sliding window -> feature extraction -> model prediction ->
-    confidence scores. This is the main entry point used by the Streamlit app,
-    and it uses the same preprocessing functions as training so predictions
-    stay consistent.
+    Pipeline: load (CSV/ZIP) -> normalize -> resample to 100 Hz -> sliding
+    window -> activity gate (rest) -> invariant features -> model predict ->
+    confidence threshold (uncertain). Uses the same preprocessing modules as
+    training so predictions are consistent.
 
     Args:
-        csv_file: Path to ``WristMotion.csv`` or a ZIP from Sensor Logger.
-        model: Trained sklearn-compatible classifier (best_model.joblib).
-        feature_names: Ordered feature names from feature_names.txt (47 features).
-        window_size: Samples per window. Default 100 = 2 s at 50 Hz.
-        overlap: Overlap fraction between windows. Default 0.5 = 50%.
+        csv_file: Path to ``WristMotion.csv`` or a Sensor Logger ZIP.
+        model: Trained classifier (``best_model.joblib``).
+        feature_names: Ordered feature names from ``feature_names.txt``.
+        window_size: Samples per window. Default 200 = 2 s at 100 Hz.
+        overlap: Overlap fraction. Default 0.5.
 
     Returns:
         DataFrame with one row per window and columns
-        ``[window_id, predicted_class, confidence, time_start_seconds]``.
-        ``DataFrame.attrs`` carries ``detected_hz`` (the source sampling rate)
-        and ``n_samples_after_resample`` (samples fed to the windower).
+        ``[window_id, predicted_class, confidence, time_start_seconds]``. The
+        ``predicted_class`` is one of the three exercises, ``rest`` (gated), or
+        ``uncertain`` (low confidence). ``DataFrame.attrs`` carries
+        ``detected_hz`` and ``n_samples_after_resample``.
 
     Raises:
         ValueError: If the recording is too short to form a single window.
     """
-    # Load + normalize depending on the file type the user uploaded.
     suffix = Path(csv_file).suffix.lower()
-    if suffix == ".zip":
-        raw_df = load_sensor_logger_zip(csv_file)
-    else:
-        raw_df = load_sensor_logger_csv(csv_file)
+    raw_df = (
+        load_sensor_logger_zip(csv_file)
+        if suffix == ".zip"
+        else load_sensor_logger_csv(csv_file)
+    )
 
-    # Apple Watch records at ~100 Hz, but the model was trained on 50 Hz data.
-    # Detect the real rate and decimate to 50 Hz so a 100-sample window is ~2 s
-    # and the features match the training distribution — see ADR-012.
+    # Detect the real rate (for reporting) and resample onto a uniform 100 Hz
+    # grid so a 200-sample window is exactly 2 s regardless of source rate.
     detected_hz = detect_sampling_rate(raw_df)
-    if abs(detected_hz - SAMPLING_RATE_HZ) >= 5:
-        raw_df = resample_to_target_hz(
-            raw_df, source_hz=detected_hz, target_hz=float(SAMPLING_RATE_HZ)
-        )
+    raw_df = resample_uniform(raw_df, target_hz=TARGET_HZ)
 
-    # The windowing function groups by these columns; for a single unlabeled
-    # recording we inject constant dummy values so one contiguous group forms.
+    # The windower groups by these columns; inject constants so one contiguous
+    # group forms for a single unlabeled recording.
     raw_df["subject_id"] = 0
     raw_df["exercise_name"] = "unknown"
     raw_df["recording_id"] = 0
 
-    # Apply the SAME sliding window as training (2 s windows, 50% overlap).
-    window_df = apply_sliding_window(raw_df, window_size=window_size, overlap=overlap)
+    window_df = apply_sliding_window(
+        raw_df, window_size=window_size, overlap=overlap, sampling_rate=TARGET_HZ
+    ).reset_index(drop=True)
     if window_df.empty:
         raise ValueError(
             f"Recording too short: need at least {window_size} samples "
-            f"(~{window_size / SAMPLING_RATE_HZ:.0f} s at {SAMPLING_RATE_HZ} Hz) "
-            "to form one window."
+            f"(~{window_size / TARGET_HZ:.0f} s at {TARGET_HZ} Hz) to form one window."
         )
 
-    # Extract the SAME 47 features as training.
-    feature_df = extract_features(window_df)
+    # Energy-threshold activity gate: rest windows never reach the model.
+    active_mask = gate_window_df(window_df).to_numpy()
 
-    # Align feature columns to the exact training order. Any feature missing
-    # for a short/odd signal is filled with 0.0 so the matrix shape is valid.
-    X = feature_df.reindex(columns=feature_names, fill_value=0.0).values
+    # Invariant features for every window (cheap; keeps indexing aligned).
+    feature_df = extract_invariant_features(window_df)
+    X = feature_df.reindex(columns=feature_names, fill_value=0.0).to_numpy()
 
-    # Predict the class and take the max class probability as confidence.
-    predictions = model.predict(X)
-    probabilities = model.predict_proba(X)
-    confidence = probabilities.max(axis=1)
+    n_windows = len(window_df)
+    # Defaults: every window is rest until proven active; confidence NaN.
+    predicted = np.array([REST_LABEL] * n_windows, dtype=object)
+    confidence = np.full(n_windows, np.nan)
 
-    # Convert each window index to an approximate start time in seconds.
-    step_seconds = window_size * (1 - overlap) / SAMPLING_RATE_HZ
+    if active_mask.any():
+        active_idx = np.where(active_mask)[0]
+        probs = model.predict_proba(X[active_idx])
+        top_conf = probs.max(axis=1)
+        top_pred = model.classes_[probs.argmax(axis=1)]
+        # Below the confidence threshold we abstain with "uncertain".
+        labels = np.where(top_conf >= CONFIDENCE_THRESHOLD, top_pred, UNCERTAIN_LABEL)
+        predicted[active_idx] = labels
+        confidence[active_idx] = top_conf
+
+    # Approximate start time of each window in seconds.
+    step_seconds = window_size * (1 - overlap) / TARGET_HZ
     results = pd.DataFrame(
         {
-            "window_id": range(len(predictions)),
-            "predicted_class": predictions,
+            "window_id": range(n_windows),
+            "predicted_class": predicted,
             "confidence": confidence,
-            "time_start_seconds": [i * step_seconds for i in range(len(predictions))],
+            "time_start_seconds": [i * step_seconds for i in range(n_windows)],
         }
     )
-
-    # Attach pipeline metadata so callers (the app, tests) can surface the
-    # detected rate and how many samples were used after resampling.
     results.attrs["detected_hz"] = detected_hz
     results.attrs["n_samples_after_resample"] = len(raw_df)
     return results
