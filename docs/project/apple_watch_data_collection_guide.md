@@ -1,11 +1,13 @@
 # Apple Watch Data Collection Guide
 
 ## Goal
-Record personal gym session data to test model generalization on real Apple Watch data.  
-Target: ≥ 65% macro F1 on self-recorded data (see `docs/business_understanding/business_understanding.md` Section 5).
+Record an Apple Watch gym session with **Sensor Logger** and upload it to the
+app to recognize **bicep curl, tricep extension, and row** per 2-second window.
+Pauses are detected automatically as **rest** (energy gate, ADR-017), so you do
+**not** need to record rest separately.
 
-This guide tells you exactly what to record and how to export it so Cell 8 in
-`notebooks/05_evaluation.ipynb` can process the files automatically.
+> The model is trained on the Kaggle Gym Workout IMU dataset (Apple Watch, 100 Hz
+> — ADR-016). Only the single **`WristMotion.csv`** file is needed.
 
 ---
 
@@ -14,30 +16,29 @@ This guide tells you exactly what to record and how to export it so Cell 8 in
   https://apps.apple.com/app/sensor-logger/id1531582925
   (install it on both the iPhone **and** the Apple Watch)
 - **Device:** Apple Watch (Series 6 or later recommended)
-- **Channels to enable:** Wrist Motion (Accelerometer + Gyroscope) — all others optional
-- **Sampling rate:** Set to **50 Hz** to match the RecoFit training data
+- **Channel to enable:** **Wrist Motion** (Device Motion) — provides accelerometer
+  + gyroscope. All other channels are optional/ignored.
+- **Sampling rate:** the Apple Watch records Wrist Motion at **~100 Hz**, which
+  matches training. The app also resamples any rate to 100 Hz automatically, so
+  you don't need to set this precisely.
 
 ---
 
 ## Recording Protocol
-For each of the 6 exercises:
-1. Start a new recording in Sensor Logger
-2. Perform **3 sets × 10 repetitions**
-3. Rest **30 seconds** between sets (keep recording — rest windows are important for the model)
-4. Stop recording after the 3rd set
-5. Name the file: `<exercise_name>_session<N>.csv` (e.g. `bicep_curl_session1.csv`)
+For each of the three exercises:
+1. Start a new recording in Sensor Logger.
+2. Perform **3 sets × 10 repetitions** with normal rest between sets — keep the
+   recording running through the pauses (they are detected as `rest`).
+3. Stop the recording after the last set.
+4. Export it (see below) and upload the `WristMotion.csv` to the app.
 
----
-
-## Exercises to Record
 | Exercise | Sets | Reps | Notes |
 |----------|------|------|-------|
-| bicep_curl | 3 | 10 | Dumbbell, both arms alternating or simultaneous |
-| shoulder_press | 3 | 10 | Dumbbell, standing |
-| squat | 3 | 10 | Bodyweight or barbell |
-| tricep_extension | 3 | 10 | Overhead dumbbell, one or both arms |
-| lateral_raise | 3 | 10 | Dumbbell, standing |
-| rest | — | — | 2 minutes of standing/walking between exercises (record separately) |
+| bicep_curl | 3 | 10 | Dumbbell curl — elbow flexion |
+| tricep_extension | 3 | 10 | Overhead dumbbell/cable extension — one or both arms |
+| row | 3 | 10 | Cable / dumbbell row — horizontal pull |
+
+(You can also record a single exercise per file to check one class at a time.)
 
 ---
 
@@ -47,38 +48,21 @@ For each of the 6 exercises:
 3. Choose **CSV** (a folder/ZIP of CSVs) or the combined **ZIP** export.
 4. Transfer the export to the computer running the app.
 
-A Sensor Logger export folder/ZIP contains several files. The one that matters is:
+A Sensor Logger export contains several files. Only one matters:
 
 | File | Use |
 |------|-----|
-| **`WristMotion.csv`** | **PRIMARY** — accelerometer + gyroscope from the wrist |
-| `HeartRate.csv` | optional |
-| `Tags.csv` | optional — user-defined tags with timestamps, useful for labeling |
-| `Metadata.csv`, `Manifest.csv` | metadata |
-| `Watch*.csv` (Barometer, Compass, Location, Magnetometer, …) | ignored |
+| **`WristMotion.csv`** | **THE ONLY FILE NEEDED** — accelerometer + gyroscope from the wrist |
+| `HeartRate.csv`, `Tags.csv`, `Metadata.csv`, `Watch*.csv` … | ignored by the app |
 
 ---
 
-## What File to Upload to the App
-On the app's **🔮 Predict Exercise** page you can upload **either**:
+## What to Upload to the App
+On the **🔮 Predict Exercise** page upload **either**:
 
 - the single **`WristMotion.csv`** file, **or**
-- the **full ZIP** of the Sensor Logger export — the app automatically finds
-  `WristMotion.csv` inside it (even in a subfolder).
-
-### File placement for notebook-based evaluation
-For the generalization test in `notebooks/05_evaluation.ipynb`, place files in
-`data/raw/apple_watch/` using this naming convention:
-
-```
-data/raw/apple_watch/
-├── bicep_curl_session1.csv
-├── shoulder_press_session1.csv
-├── squat_session1.csv
-├── tricep_extension_session1.csv
-├── lateral_raise_session1.csv
-└── rest_session1.csv
-```
+- the **full ZIP** of the export — the app finds `WristMotion.csv` inside it
+  automatically (even in a subfolder).
 
 ---
 
@@ -91,60 +75,53 @@ quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
 ```
 
 - **Used by the model:** `seconds_elapsed` (timestamp), `accelerationX/Y/Z`
-  (linear acceleration → `ax/ay/az`), `rotationRateX/Y/Z` (gyroscope → `gx/gy/gz`).
-- **Discarded:** `gravityX/Y/Z`, `quaternionW/X/Y/Z`, `pitch`, `roll`, `yaw`, `time`.
-- **Sampling rate:** Apple Watch records at **~100 Hz**; the pipeline auto-detects
-  this and decimates to **50 Hz** to match training — see ADR-012.
-
-> ℹ️ **Unit alignment (implemented, ADR-013):** the model is trained on **MM-Fit**
-> (wrist-worn smartwatch). The loader matches MM-Fit's units automatically — it
-> reconstructs total acceleration and converts g → m/s²
-> (`ax = (accelerationX + gravityX) × 9.80665`, ~9.81 m/s² at rest) and leaves
-> the gyroscope in rad/s (which already matches MM-Fit). The earlier RecoFit
-> deg/s conversion (ADR-012) is reverted.
->
-> ⚠️ **Known limitation (ADR-013/014):** with MM-Fit, **push-ups are recognized
-> correctly** on real Apple Watch recordings. However, **bicep curls are still
-> confused with tricep extensions**. Two reasons: (1) a residual orientation gap
-> between the Apple Watch and MM-Fit's TicWatch, and (2) bicep curl and tricep
-> extension are near-identical at the wrist (both are elbow rotations) — even the
-> in-domain test confuses them most. Rotation augmentation was tried and rejected
-> (ADR-014). The robust fix for this specific pair is a few labeled Apple Watch
-> recordings of *your own* bicep/tricep sessions to fine-tune the model — use the
-> Recording Protocol above.
+  (user acceleration in g), `gravityX/Y/Z` (g), `rotationRateX/Y/Z` (gyro, rad/s).
+- **Canonicalization (matches training exactly — ADR-016):** acceleration is
+  reconstructed as **total acceleration in g** (`ax = accelerationX + gravityX`,
+  ≈ 1 g at rest) and the gyroscope is kept in **rad/s**. Both the Kaggle training
+  data and Sensor Logger are Apple CoreMotion, so **no unit conversion** is needed.
+- **Sampling rate:** ~100 Hz; the pipeline resamples to exactly 100 Hz
+  (`canonical.resample_uniform`).
+- **Discarded:** `quaternion*`, `pitch`, `roll`, `yaw`, `time`.
 
 ---
 
-## Column Format Expected
-The loader (`src/ml4b/data/apple_watch_loader.py`,
-`detect_and_normalize_columns()`) auto-detects the format and normalizes every
-input to the internal schema `[timestamp, ax, ay, az, gx, gy, gz]`. One of the
-following column sets must be present (matched case-insensitively):
+## How the App Interprets a Recording
+1. **Resample** to 100 Hz, **window** into 2 s segments (200 samples, 50% overlap).
+2. **Activity gate** (ADR-017): low-motion windows → `rest` (this is how pauses
+   between sets are handled — you do not record rest separately).
+3. **Invariant features** (ADR-018) → **Random Forest** predicts one of the three
+   exercises.
+4. **Confidence threshold** (ADR-020): if the top probability < 0.50 the window is
+   reported as `uncertain`.
+
+---
+
+## Supported Column Formats
+`src/ml4b/data/apple_watch_loader.py` (`detect_and_normalize_columns()`)
+auto-detects the format and normalizes to `[timestamp, ax, ay, az, gx, gy, gz]`
+(total accel in g, gyro rad/s). One of these column sets must be present
+(case-insensitive):
 
 | Format | Columns (source) |
 |--------|------------------|
-| A — Sensor Logger default WristMotion.csv | `time, seconds_elapsed, x, y, z, roll, pitch, yaw` |
+| PRIMARY — real WristMotion.csv | `seconds_elapsed, accelerationX/Y/Z, rotationRateX/Y/Z` (+ `gravityX/Y/Z`) |
+| A — default WristMotion.csv | `time, seconds_elapsed, x, y, z, roll, pitch, yaw` |
 | B — pre-normalized | `timestamp, ax, ay, az, gx, gy, gz` |
 | C — seconds_elapsed variant | `seconds_elapsed, x, y, z, roll, pitch, yaw` |
 | D — DeviceMotion export | `time, accelerationX/Y/Z, rotationRateX/Y/Z` |
 
 If detection fails, the loader raises a `ValueError` listing the columns it
-found, so you can identify the mismatch and add a new mapping to
-`WRIST_MOTION_COLUMN_MAPPINGS`.
-
-**Unit note (ADR-013):** Apple's Core Motion (Wrist Motion) reports *user*
-acceleration in **g** (gravity removed) plus a separate gravity vector, and
-rotation rate in **rad/s**. The training data (MM-Fit) is in **m/s² including
-gravity** and **rad/s**, so the loader reconstructs total acceleration and
-converts g → m/s² (`× 9.80665`); the gyroscope is left in rad/s.
+found, so a new mapping can be added to `WRIST_MOTION_COLUMN_MAPPINGS`.
 
 ---
 
 ## Troubleshooting
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| `ValueError: Could not detect Sensor Logger column format` | Column name mismatch | Check the CSV headers and add a mapping to `WRIST_MOTION_COLUMN_MAPPINGS` in `apple_watch_loader.py` |
+| `ValueError: Could not detect Sensor Logger column format` | Column-name mismatch | Check the CSV headers; add a mapping to `WRIST_MOTION_COLUMN_MAPPINGS` in `apple_watch_loader.py` |
 | `FileNotFoundError: WristMotion.csv not found in ZIP` | Wrong ZIP uploaded | Upload the Sensor Logger export ZIP that contains `WristMotion.csv` |
-| `ValueError: Recording too short` | Fewer than 100 samples (2 s) | Record at least ~15–30 seconds |
-| All predictions are `rest` | Recording too short / mostly idle | Perform clear, repeated reps; ensure 50 Hz sampling |
-| Low macro F1 (< 50%) | Wrong sensor rate | Confirm Sensor Logger is set to 50 Hz |
+| `ValueError: Recording too short` | Fewer than 200 samples (~2 s at 100 Hz) | Record at least ~15–30 seconds |
+| Many windows are `rest` | Long pauses / watch held still | Expected — the energy gate marks low-motion windows as rest |
+| Many windows are `uncertain` | Out-of-scope motion or a new user's style | Expected for an exercise outside the 3 classes; see the single-subject limitation (ADR-021) |
+| Curls predicted as tricep extensions | Both are elbow movements that look alike at the wrist | Known confusable pair — the most-confused cell in the confusion matrix |

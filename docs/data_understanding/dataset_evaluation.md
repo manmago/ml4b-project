@@ -2,13 +2,15 @@
 
 > CRISP-DM Phase 2 — Data Understanding | Completed: 2026-05-15
 
-> ⚠️ **Superseded by ADR-013 (2026-05-29).** This Phase-2 evaluation selected
-> **RecoFit** and rejected MM-Fit (for its small participant count). In
-> Iteration 2 that decision was **reversed**: the model failed to generalize to
-> the wrist-worn Apple Watch because RecoFit's sensor is **forearm-worn**.
-> **MM-Fit (wrist-worn) is now the primary training dataset** — sensor placement
-> proved more important than participant count. See
-> [`ADR-013`](../decisions/ADR-013-switch-training-dataset-to-mmfit.md).
+> ✅ **FINAL decision: Kaggle Gym Workout IMU dataset (ADR-016, 2026-05-31).**
+> The training anchor changed twice. (1) Phase 2 chose **RecoFit** (forearm-worn,
+> 50 Hz). (2) ADR-013 switched to **MM-Fit** (wrist, but a non-Apple smartwatch).
+> Both scored well in-sample yet failed on real Apple-Watch uploads — a
+> **device-domain mismatch**. (3) ADR-016 adopts the **Kaggle Gym Workout IMU
+> dataset, recorded *on an Apple Watch*** (100 Hz, left wrist), removing that
+> mismatch, with **3** classes: bicep_curl, tricep_extension, row. The RecoFit
+> and MM-Fit evaluations below are retained for history; the final-state summary
+> is in §6. See [`ADR-016`](../decisions/ADR-016-final-target-classes-apple-watch.md).
 
 ---
 
@@ -129,7 +131,9 @@ No peer-reviewed paper or validated methodology. Participant count and sensor pl
 
 ---
 
-## 4. Final Decision
+## 4. Final Decision (HISTORICAL — Iteration 1)
+
+> Superseded twice; the current decision is in §6. Kept for history.
 
 **Primary dataset: RecoFit (Microsoft Research)**
 
@@ -144,7 +148,9 @@ No peer-reviewed paper or validated methodology. Participant count and sensor pl
 
 ---
 
-## 5. Final Exercise Class Selection
+## 5. Exercise Class Selection (HISTORICAL — Iteration 1, RecoFit 6-class)
+
+> Superseded by the 3-class Kaggle selection in §6. Kept for history.
 
 The RecoFit dataset contains **75 exercise classes** in total. The following criteria were used to select the final 6 target classes for model training:
 
@@ -169,3 +175,47 @@ The RecoFit dataset contains **75 exercise classes** in total. The following cri
 - **Deadlift** (Dumbbell Deadlift Row, ~20 participants) — insufficient data, below 50% threshold
 
 **Rationale:** This data-driven selection approach is methodologically stronger than an arbitrary upfront selection. By anchoring class selection on actual subject coverage in the dataset, the model is guaranteed sufficient training samples for each class. See `docs/decisions/ADR-005-exercise-class-selection.md` for the full decision rationale.
+
+---
+
+## 6. Final State (Iteration 3 — Kaggle Apple-Watch anchor, ADR-016)
+
+After RecoFit (Iteration 1) and MM-Fit (Iteration 2) both failed to transfer to
+real Apple-Watch uploads, the decisive factor was identified as **device-domain
+shift**: a model trained on a non-Apple sensor does not generalise to an Apple
+Watch. The fix is to train on data recorded *on* an Apple Watch.
+
+### Chosen dataset
+
+| Field | Detail |
+|-------|--------|
+| Name | Kaggle "Gym Workout IMU Dataset" (shakthisairam123) |
+| Device | **Apple Watch SE**, left wrist (same device family as deployment) |
+| Sensors | CoreMotion: user acceleration (g) + gravity (g) + rotation rate (rad/s) |
+| Sampling rate | **100 Hz** |
+| Size | 164 single-set CSV files; **75** map to our 3 classes |
+| Subjects | **1** (single subject — the key limitation, see ADR-021) |
+| Source | https://www.kaggle.com/datasets/shakthisairam123/gym-workout-imu-dataset |
+
+### Final 3-class selection (ADR-016)
+
+Chosen to maximise per-class coverage **and** biomechanical distinctness across
+different movement axes:
+
+| Class | Kaggle abbreviations | Movement axis | Sets |
+|-------|----------------------|---------------|------|
+| bicep_curl | AIDBC, IDBC, PREC | elbow flexion | 24 |
+| tricep_extension | CGOCTE, MTE, SAOCTE, SAODTE | overhead elbow extension | 30 |
+| row | CGCR, NGCR, MGTBR | horizontal pull | 21 |
+
+Rejected alternatives: `lateral_raise` (overlaps with the start of a curl) and
+`shoulder_press` (confusable with overhead triceps, fewer sets). `push_up` is
+**absent** from this dataset (its `APULL` is an assisted *pull*-up), so it was
+dropped from the original plan. Full rationale: ADR-016.
+
+### Honest limitation
+
+Single-subject data means we evaluate with **leave-one-set-out** CV (ADR-021),
+which measures generalisation to an unseen *set*, not a new *person*.
+Augmentation (ADR-019) synthesises the missing subject diversity. Real-world
+cross-person accuracy will be below the reported macro F1 of 0.776.

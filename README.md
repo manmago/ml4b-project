@@ -2,31 +2,35 @@
 
 **ML4B SoSe 2026 · FAU Nürnberg · Lehrstuhl für Wirtschaftsinformatik**
 
-Recognize gym exercises from wrist-worn sensor data (Apple Watch accelerometer
-+ gyroscope, 50 Hz) using machine learning. Record a workout with the **Sensor
-Logger** app, upload the file to the Streamlit web app, and get the recognized
-exercise per 2-second window with a confidence score.
+Recognize **three gym exercises — bicep curl, tricep extension, row —** from
+wrist-worn **Apple Watch** sensor data (accelerometer + gyroscope). Record a
+workout with the free **Sensor Logger** app, upload the file to the Streamlit web
+app, and get the recognized exercise per 2-second window with a confidence score.
+Pauses between sets are detected automatically as **rest**, and low-confidence
+windows are reported as **uncertain**.
 
 ---
 
-## Quickstart — 3 Commands
+## Quickstart — one command
 
 ```bash
+# 1. Install uv once (macOS/Linux/WSL):
+curl -LsSf https://astral.sh/uv/install.sh | sh
+#    Windows (PowerShell): powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. Clone and launch
 git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
-uv sync
-uv run streamlit run app/streamlit_app.py
+make run        # or: ./run_app.sh   ·   run_app.bat (Windows)   ·   uv run streamlit run app/streamlit_app.py
 ```
 
 → Open **http://localhost:8501**
 
-**No dataset download needed** — the trained model
-(`models/saved/best_model.joblib`) and feature list
-(`data/processed/feature_names.txt`) are included in the repository.
-
-OS-specific instructions: [`docs/setup/Setup_WSL_Windows.md`](docs/setup/Setup_WSL_Windows.md),
-[`docs/setup/Setup_macOS.md`](docs/setup/Setup_macOS.md),
-[`docs/setup/Setup_Windows.md`](docs/setup/Setup_Windows.md).
+**No Python install, no `uv sync`, no pip, no conda, no dataset needed.** `uv run`
+provisions Python and every dependency from `uv.lock` on first launch, and the
+trained model is committed to the repo (ADR-022, ADR-011). OS-specific guides:
+[WSL](docs/setup/Setup_WSL_Windows.md) · [macOS](docs/setup/Setup_macOS.md) ·
+[Windows](docs/setup/Setup_Windows.md).
 
 ---
 
@@ -34,12 +38,13 @@ OS-specific instructions: [`docs/setup/Setup_WSL_Windows.md`](docs/setup/Setup_W
 
 | Page | Purpose |
 |------|---------|
-| 🏠 **Home** | Project overview, headline metrics, Sensor Logger instructions |
-| 🔮 **Predict Exercise** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window predictions, timeline, distribution, downloadable results |
-| 📊 **Model Performance** | Test metrics, model comparison, per-class F1, confusion matrix |
+| 🏠 **Home** | Project overview, honest metrics, Sensor Logger instructions |
+| 🔮 **Predict Exercise** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window timeline, distribution, results table, CSV download, detected sampling rate |
+| 📊 **Model Performance** | Leave-one-set-out metrics, per-class F1, confusion matrix, model details, honest limitations |
 
-**Recognized exercises (7 classes):** Bicep Curl · Shoulder Press · Squat ·
-Tricep Extension · Lateral Raise · Push Up · Rest.
+**Recognized exercises (3 classes):** Bicep Curl · Tricep Extension · Row.
+Plus two non-exercise outputs produced *outside* the model: **rest** (energy
+gate) and **uncertain** (low confidence).
 
 ---
 
@@ -47,16 +52,20 @@ Tricep Extension · Lateral Raise · Push Up · Rest.
 
 | Metric | Value |
 |--------|-------|
-| Best model | Random Forest |
-| Training dataset | **MM-Fit** (wrist-worn smartwatch — see ADR-013) |
-| Test Macro F1 | **0.944** ✅ (target ≥ 0.80) |
-| Test Accuracy | 97.8% |
-| Val Macro F1 | 0.866 |
+| Best model | Random Forest (300 trees, `class_weight='balanced'`, seed 42) |
+| Training anchor | **Kaggle Gym Workout IMU** — Apple Watch, 100 Hz, single subject (ADR-016) |
+| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; ADR-021) |
+| Macro F1 | **0.776** (target ≥ 0.80) |
+| Accuracy | 78.2% |
+| Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
 
-> **Real Apple Watch note:** the model is now trained on wrist-worn smartwatch
-> data (MM-Fit) instead of the forearm-worn RecoFit (ADR-013). Push-ups are
-> recognized correctly on real Apple Watch recordings; bicep curls can still be
-> confused with tricep extensions (residual device-orientation gap — ADR-013/014).
+> ⚠️ **Honest limitation.** The training anchor is a **single subject**, so true
+> cross-*person* performance cannot be measured and will be **below** these
+> numbers. Augmentation (rotation/time-warp/mirror/jitter) synthesises the
+> missing subject diversity (ADR-019). The methodology — Apple-Watch training
+> domain, leakage-free evaluation, device-invariant features, an energy gate for
+> rest, and confidence-based abstention — is sound; the ceiling is data-limited.
+> See the **Limitations** section of [`docs/project/project_overview.md`](docs/project/project_overview.md).
 
 ---
 
@@ -64,12 +73,12 @@ Tricep Extension · Lateral Raise · Push Up · Rest.
 
 ```
 app/            Streamlit web app (entry point: app/streamlit_app.py)
-src/ml4b/       Reusable package: data loaders, windowing, features, models
-scripts/        build_mmfit_dataset.py + train_model.py — reproduce the model
+src/ml4b/       Reusable package: loaders, windowing, invariant features, gate, model
+scripts/        train_model.py (retrain) · inspect_kaggle_dataset.py
 notebooks/      One Jupyter notebook per CRISP-DM phase (01–06)
-models/saved/   Trained model (best_model.joblib) — committed
+models/saved/   Trained model + model_metrics.json — committed (app runs with no dataset)
 data/           Datasets (raw + processed) — NOT in git, except feature_names.txt
-docs/           Architecture, ADRs, CRISP-DM log, setup guides, data dictionary
+docs/           Architecture, ADRs (001–022), CRISP-DM log, setup guides, data dictionary
 tests/          Unit tests
 ```
 
@@ -81,31 +90,29 @@ understand the whole project from one document.
 
 ## Retrain the Model (optional)
 
-Only needed to reproduce the model from raw data. The model is trained on the
-**MM-Fit** dataset (see ADR-013):
+Only needed to reproduce the model from raw data — the app ships with it trained.
 
 ```bash
-# 1. Download + unzip the MM-Fit sensor data (~1.7 GB) into data/raw/
-curl -L https://s3.eu-west-2.amazonaws.com/vradu.uk/mm-fit.zip -o data/raw/mm-fit.zip
-cd data/raw && unzip mm-fit.zip && cd ../..
-
-# 2. Build the feature CSVs, then train
-uv run python scripts/build_mmfit_dataset.py
-uv run python scripts/train_model.py
+# 1. Download the Kaggle Gym Workout IMU dataset (Apple Watch, 100 Hz):
+#    https://www.kaggle.com/datasets/shakthisairam123/gym-workout-imu-dataset
+#    Unzip the CSV files into data/raw/kaggle_gym_imu/
+# 2. Train:
+make train        # or: uv run python scripts/train_model.py
 ```
 
-The original Phase 1–5 pipeline used RecoFit (`data/raw/recofit/`); it was
-superseded by MM-Fit in ADR-013 because RecoFit's sensor was forearm-worn while
-the Apple Watch is wrist-worn.
+This rewrites `models/saved/best_model.joblib`, `models/saved/model_metrics.json`
+and `data/processed/feature_names.txt`. Uses `random_state=42` throughout. The
+dataset choice (Kaggle over the abandoned RecoFit / MM-Fit) is documented in
+ADR-016 and [`docs/data_understanding/dataset_evaluation.md`](docs/data_understanding/dataset_evaluation.md).
 
 ---
 
 ## Development
 
 ```bash
-uv run ruff format .      # format
-uv run ruff check .       # lint
-uv run pytest             # run tests
+make test         # uv run pytest
+make lint         # uv run ruff check .
+make format       # uv run ruff format .
 ```
 
 Branch workflow: `main → develop → feature/xxx`. Never commit directly to
@@ -117,6 +124,6 @@ Branch workflow: `main → develop → feature/xxx`. Never commit directly to
 
 - **Course:** ML4B (Machine Learning for Business), SoSe 2026
 - **Methodology:** CRISP-DM (Business Understanding → … → Deployment)
-- **Dataset:** MM-Fit (wrist-worn smartwatch, gym exercises) — see ADR-013;
-  originally RecoFit (Microsoft Research), superseded for device-match reasons
+- **Dataset:** Kaggle Gym Workout IMU (Apple Watch) — ADR-016; RecoFit and MM-Fit
+  were evaluated and abandoned for device-domain mismatch
 - **Deliverable:** Streamlit web application + presentation

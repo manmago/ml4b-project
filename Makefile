@@ -16,7 +16,7 @@ setup:  ## Install all dependencies (incl. dev tools) into .venv.
 run:  ## Launch the Streamlit app at http://localhost:8501.
 	uv run streamlit run app/streamlit_app.py
 
-train:  ## Reproduce the trained model (needs the RecoFit dataset to rebuild features).
+train:  ## Retrain the model (needs the Kaggle dataset in data/raw/kaggle_gym_imu/).
 	uv run python scripts/train_model.py
 
 test:  ## Run the unit test suite.

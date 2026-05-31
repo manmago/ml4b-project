@@ -19,6 +19,13 @@ from ml4b.data.apple_watch_loader import predict_from_sensor_logger
 # Below this many windows the recording is likely too short to be meaningful.
 MIN_WINDOWS_WARNING = 5
 
+# Fixed colours for the two non-exercise outputs so they read as "not a class".
+# The three real exercises keep Plotly's default colour sequence.
+NON_EXERCISE_COLORS = {"Rest": "#c9ccd1", "Uncertain": "#8a8f98"}
+
+# Display labels that are not trained exercise classes.
+NON_EXERCISE_LABELS = {"Rest", "Uncertain"}
+
 
 def _humanize(label: str) -> str:
     """Convert a snake_case class label to a Title Case display string.
@@ -62,7 +69,9 @@ def render(model: Any, feature_names: list[str]) -> None:
     st.title("🔮 Predict Exercise")
     st.markdown(
         "Upload a recording from **Sensor Logger** (Apple Watch) to recognize "
-        "which exercise was performed in each 2-second window."
+        "which exercise — **bicep curl, tricep extension or row** — was performed "
+        "in each 2-second window. Low-motion pauses are marked **rest**, and "
+        "windows the model is unsure about are marked **uncertain**."
     )
 
     uploaded_file = st.file_uploader(
@@ -120,33 +129,59 @@ def render(model: Any, feature_names: list[str]) -> None:
 
     # --- Summary metrics ---------------------------------------------------
     total_seconds = float(results["time_start_seconds"].max()) + 2.0
-    most_common = results["exercise"].mode().iloc[0]
-    avg_conf = float(results["confidence"].mean())
+    detected_hz = results.attrs.get("detected_hz", "n/a")
+    # "Most common" should reflect a real EXERCISE, not rest/uncertain.
+    exercises_only = results[~results["exercise"].isin(NON_EXERCISE_LABELS)]
+    most_common = (
+        exercises_only["exercise"].mode().iloc[0] if not exercises_only.empty else "—"
+    )
+    # Confidence is NaN for gated rest windows; mean() skips them automatically.
+    avg_conf = (
+        float(results["confidence"].mean())
+        if results["confidence"].notna().any()
+        else 0.0
+    )
+    rest_pct = float((results["predicted_class"] == "rest").mean())
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Windows", len(results))
     c2.metric("Duration", f"{total_seconds:.0f} s")
-    c3.metric("Most Common", most_common)
-    c4.metric("Avg Confidence", f"{avg_conf:.0%}")
+    c3.metric("Top Exercise", most_common)
+    c4.metric("Detected rate", f"{detected_hz} Hz")
+
+    c5, c6 = st.columns(2)
+    c5.metric("Avg Confidence (classified)", f"{avg_conf:.0%}")
+    c6.metric("Rest (gated)", f"{rest_pct:.0%}")
+
+    st.caption(
+        "The recording is resampled to 100 Hz before windowing. **Rest** windows "
+        "are detected by an energy gate (not the model) and have no confidence; "
+        "**uncertain** windows are active but below the confidence threshold."
+    )
 
     st.divider()
 
     # --- Timeline chart ----------------------------------------------------
     st.markdown("### 📈 Exercise Timeline")
-    st.caption("Each bar is one 2-second window, coloured by predicted exercise.")
+    st.caption(
+        "Each bar is one 2-second window over time, coloured by the predicted "
+        "label (rest and uncertain shown in grey)."
+    )
+    # Constant-height coloured strip: communicates WHAT was detected WHEN without
+    # mixing the (missing) confidence of rest windows into the y-axis.
+    results["_band"] = 1
     timeline = px.bar(
         results,
         x="time_start_seconds",
-        y="confidence",
+        y="_band",
         color="exercise",
-        labels={
-            "time_start_seconds": "Time (seconds)",
-            "confidence": "Confidence",
-            "exercise": "Exercise",
-        },
-        hover_data={"window_id": True},
+        color_discrete_map=NON_EXERCISE_COLORS,
+        labels={"time_start_seconds": "Time (seconds)", "exercise": "Label"},
+        hover_data={"window_id": True, "confidence": ":.2f", "_band": False},
     )
-    timeline.update_layout(yaxis_range=[0, 1], bargap=0.0, height=400)
+    timeline.update_layout(
+        bargap=0.0, height=260, yaxis=dict(visible=False, range=[0, 1])
+    )
     st.plotly_chart(timeline, width="stretch")
 
     # --- Distribution pie + table -----------------------------------------
@@ -155,7 +190,14 @@ def render(model: Any, feature_names: list[str]) -> None:
         st.markdown("### 🥧 Exercise Distribution")
         dist = results["exercise"].value_counts().reset_index()
         dist.columns = ["exercise", "windows"]
-        pie = px.pie(dist, names="exercise", values="windows", hole=0.4)
+        pie = px.pie(
+            dist,
+            names="exercise",
+            values="windows",
+            hole=0.4,
+            color="exercise",
+            color_discrete_map=NON_EXERCISE_COLORS,
+        )
         pie.update_layout(height=380)
         st.plotly_chart(pie, width="stretch")
     with right:

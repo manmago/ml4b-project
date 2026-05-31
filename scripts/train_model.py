@@ -1,113 +1,255 @@
-"""One-shot training script for ML4B gym exercise recognition.
+"""Train the final 3-class Apple-Watch exercise-recognition model.
 
-Trains the full pipeline (load -> window -> features -> split -> train)
-and saves best_model.joblib, random_forest.joblib and feature_names.txt.
+Trains the production model on the Kaggle Gym Workout IMU dataset (Apple Watch,
+100 Hz, single subject — ADR-016) for three classes: ``bicep_curl``, ``row`` and
+``tricep_extension``. The pipeline is:
+
+    load (3-class Kaggle) -> sliding window (200 @ 100 Hz, 50% overlap)
+        -> augment (rotation + time-warp + mirror + jitter, ADR-019)
+        -> invariant features (ADR-018)
+        -> Random Forest (class_weight='balanced', seed 42)
+
+Evaluation uses **leave-one-set-out** cross-validation (each Kaggle file is one
+set / group), so windows from the same set never appear in both train and test —
+the only honest estimate available for a single-subject dataset. True
+leave-one-*subject*-out is impossible here (one subject); this limitation is
+documented in ADR-021. Augmented copies of a held-out set are also excluded from
+its training folds, so there is no leakage through augmentation.
+
+Outputs (committed so the app runs with no dataset — ADR-011):
+    models/saved/best_model.joblib
+    models/saved/random_forest.joblib
+    data/processed/feature_names.txt
+    reports/figures/confusion_matrix_*.png
+    reports/leave_one_set_out_results.json
 
 Run with:
     uv run python scripts/train_model.py
-
-This script is the alternative to running notebooks 03 + 04 manually.
-Use it whenever the Jupyter kernel is unavailable, or to reproduce the
-trained model from scratch (requires the RecoFit .mat dataset).
-
-If processed feature CSVs already exist in data/processed/, the expensive
-load + window + feature-extraction steps are skipped and the script jumps
-straight to model training — so it also works without the raw dataset.
 """
 
+from __future__ import annotations
+
+import json
 import time
 
 import joblib
+import numpy as np
 import pandas as pd
+from sklearn.model_selection import LeaveOneGroupOut
 
-from ml4b.data.features import extract_features
-from ml4b.data.loader import load_recofit_raw
-from ml4b.data.splitting import subject_based_split, undersample_majority_class
+from ml4b.data.activity_gate import (
+    ACCEL_MAG_STD_THRESHOLD,
+    GYRO_MAG_MEAN_THRESHOLD,
+    window_energy,
+)
+from ml4b.data.augmentation import augment_windows
+from ml4b.data.canonical import OVERLAP, WINDOW_SIZE
+from ml4b.data.features_invariant import extract_invariant_features, feature_columns
+from ml4b.data.kaggle_loader import TARGET_CLASSES, load_kaggle_3class
 from ml4b.data.windowing import apply_sliding_window
 from ml4b.models.evaluate import evaluate_model
 from ml4b.models.train import train_random_forest
-from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, find_project_root
+from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, REPORTS_DIR
 
-# Resolve all paths from the project root — never hardcode absolute paths.
-PROJECT_ROOT = find_project_root()
-MAT_FILE = (
-    PROJECT_ROOT / "data" / "raw" / "recofit" / "exercise_data.50.0000_singleonly.mat"
-)
+# Number of augmented copies per original window (→ 6× total). See ADR-019.
+N_AUGMENT = 5
+# Fixed class order for reproducible reports and confusion-matrix axes.
+CLASS_NAMES = sorted(TARGET_CLASSES)
 
-# Identifier columns carried through the feature frame that are NOT model inputs.
-ID_COLUMNS = ["subject_id", "exercise_name", "window_id"]
+
+def _report_gate_calibration(window_df: pd.DataFrame) -> dict[str, float]:
+    """Sanity-check that the activity-gate thresholds clear real exercise.
+
+    Computes the accel-magnitude-std and gyro-magnitude-mean of every original
+    exercise window and reports low percentiles, so we can confirm the gate
+    thresholds (ADR-017) sit safely below genuine exercise energy.
+
+    Args:
+        window_df: Original (non-augmented) windows.
+
+    Returns:
+        Dict of percentile statistics and the fraction of windows the gate
+        would (correctly) keep as active.
+    """
+    accel_stds: list[float] = []
+    gyro_means: list[float] = []
+    for _, row in window_df.iterrows():
+        a_std, g_mean = window_energy(
+            row["raw_ax"],
+            row["raw_ay"],
+            row["raw_az"],
+            row["raw_gx"],
+            row["raw_gy"],
+            row["raw_gz"],
+        )
+        accel_stds.append(a_std)
+        gyro_means.append(g_mean)
+    accel_arr = np.array(accel_stds)
+    gyro_arr = np.array(gyro_means)
+    # An exercise window is kept active if it clears EITHER threshold.
+    kept = np.mean(
+        (accel_arr > ACCEL_MAG_STD_THRESHOLD) | (gyro_arr > GYRO_MAG_MEAN_THRESHOLD)
+    )
+    return {
+        "accel_std_p01": float(np.percentile(accel_arr, 1)),
+        "accel_std_p05": float(np.percentile(accel_arr, 5)),
+        "accel_std_median": float(np.median(accel_arr)),
+        "gyro_mean_p01": float(np.percentile(gyro_arr, 1)),
+        "gyro_mean_p05": float(np.percentile(gyro_arr, 5)),
+        "gyro_mean_median": float(np.median(gyro_arr)),
+        "fraction_kept_active": float(kept),
+    }
 
 
 def main() -> None:
-    """Run the end-to-end training pipeline and persist the model artifacts."""
-    print("=" * 60)
-    print("ML4B Training Script")
-    print("=" * 60)
+    """Run the end-to-end 3-class training pipeline and persist artifacts."""
+    print("=" * 64)
+    print("ML4B Training — 3-class Apple-Watch model (Kaggle anchor)")
+    print("=" * 64)
 
-    # Reuse already-processed features when present so the script runs even
-    # without the 2.5 GB raw dataset (and is much faster on repeat runs).
-    if (DATA_PROCESSED / "train_features.csv").exists():
-        print("Processed data found — skipping to model training")
-        train_df = pd.read_csv(DATA_PROCESSED / "train_features.csv")
-        val_df = pd.read_csv(DATA_PROCESSED / "val_features.csv")
-        feature_names = (
-            (DATA_PROCESSED / "feature_names.txt").read_text().strip().split("\n")
-        )
-    else:
-        print("Step 1/5: Loading raw data...")
-        raw_df = load_recofit_raw(MAT_FILE)
-        print(f"  Raw shape: {raw_df.shape}")
+    print("Step 1/6: Loading 3-class Kaggle data...")
+    raw_df = load_kaggle_3class()
+    n_sets = raw_df["recording_id"].nunique()
+    print(f"  Rows: {len(raw_df):,} | sets: {n_sets} | classes: {CLASS_NAMES}")
+    print("  Sets per class:")
+    print(
+        raw_df.groupby("exercise_name")["recording_id"]
+        .nunique()
+        .to_string(header=False)
+    )
 
-        print("Step 2/5: Applying sliding window...")
-        window_df = apply_sliding_window(raw_df, window_size=100, overlap=0.5)
-        print(f"  Windows: {len(window_df)}")
+    print(f"Step 2/6: Sliding window (size={WINDOW_SIZE} @100Hz, overlap={OVERLAP})...")
+    window_df = apply_sliding_window(
+        raw_df, window_size=WINDOW_SIZE, overlap=OVERLAP, sampling_rate=100
+    )
+    n_orig = len(window_df)
+    print(f"  Original windows: {n_orig:,}")
 
-        print("Step 3/5: Extracting features...")
-        feature_df = extract_features(window_df)
-        feature_names = [c for c in feature_df.columns if c not in ID_COLUMNS]
-        print(f"  Features: {len(feature_names)}")
+    # Activity-gate calibration check (does not alter training labels).
+    gate_stats = _report_gate_calibration(window_df)
+    print(
+        f"  Activity gate: {gate_stats['fraction_kept_active'] * 100:.1f}% of "
+        "exercise windows clear the rest thresholds (want ~100%)."
+    )
 
-        print("Step 4/5: Splitting data (subject-based, seed=42)...")
-        train_df, val_df, test_df = subject_based_split(
-            feature_df, test_size=0.2, val_size=0.1, random_state=42
-        )
-        # Cap the dominant 'rest' class on the TRAIN split only — see ADR-008.
-        train_df = undersample_majority_class(
-            train_df, majority_class="rest", multiplier=2.0, random_state=42
-        )
+    print(f"Step 3/6: Augmenting (n_augment={N_AUGMENT}, seed=42)...")
+    combined = augment_windows(window_df, n_augment=N_AUGMENT, random_state=42)
+    print(f"  Total windows after augmentation: {len(combined):,}")
 
-        # Persist processed splits so future runs (and the app) skip recompute.
-        DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
-        train_df.to_csv(DATA_PROCESSED / "train_features.csv", index=False)
-        val_df.to_csv(DATA_PROCESSED / "val_features.csv", index=False)
-        test_df.to_csv(DATA_PROCESSED / "test_features.csv", index=False)
-        (DATA_PROCESSED / "feature_names.txt").write_text("\n".join(feature_names))
-        print(f"  Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
-
-    print("Step 5/5: Training Random Forest...")
-    X_train = train_df[feature_names].values
-    y_train = train_df["exercise_name"].values
-    X_val = val_df[feature_names].values
-    y_val = val_df["exercise_name"].values
-
+    print("Step 4/6: Extracting invariant features...")
     t0 = time.time()
-    model = train_random_forest(X_train, y_train, random_state=42)
-    print(f"  Trained in {time.time() - t0:.1f}s")
+    feats = extract_invariant_features(combined)
+    feature_names = feature_columns(feats)
+    # Mark which rows are augmented: augment_windows keeps originals first.
+    is_augmented = np.arange(len(feats)) >= n_orig
+    print(f"  Features: {len(feature_names)} | extracted in {time.time() - t0:.1f}s")
 
-    # Validation-set sanity check — primary metric is macro F1 (ADR-008).
-    results = evaluate_model(model, X_val, y_val, "Random Forest", sorted(set(y_val)))
-    print(f"  Val Macro F1: {results['macro_f1']:.4f}")
-    print(f"  Val Accuracy: {results['accuracy']:.4f}")
+    X = feats[feature_names].to_numpy()
+    y = feats["exercise_name"].to_numpy()
+    groups = feats["recording_id"].to_numpy()
 
-    # Save under both names: best_model.joblib (what the app loads) and
-    # random_forest.joblib (algorithm-specific archive copy).
+    print("Step 5/6: Leave-one-set-out cross-validation (honest metric)...")
+    # For each held-out set, train on all OTHER sets (incl. their augmented
+    # copies) and test ONLY on the held-out set's original windows. This is the
+    # leak-free, single-subject-honest estimate (ADR-021).
+    logo = LeaveOneGroupOut()
+    y_true_all: list[str] = []
+    y_pred_all: list[str] = []
+    t0 = time.time()
+    for train_idx, test_idx in logo.split(X, y, groups):
+        # Restrict the test set to ORIGINAL windows of the held-out set.
+        test_idx = test_idx[~is_augmented[test_idx]]
+        if len(test_idx) == 0:
+            continue
+        fold_model = train_random_forest(X[train_idx], y[train_idx], random_state=42)
+        y_pred_all.extend(fold_model.predict(X[test_idx]).tolist())
+        y_true_all.extend(y[test_idx].tolist())
+    print(f"  {logo.get_n_splits(groups=groups)} folds in {time.time() - t0:.1f}s")
+
+    # Aggregate the held-out predictions into honest metrics + confusion matrix.
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    cv_results = evaluate_model(
+        _ConstPredictor(y_pred_all),
+        np.zeros((len(y_true_all), 1)),  # X unused by the const predictor
+        np.array(y_true_all),
+        "Leave-One-Set-Out CV",
+        CLASS_NAMES,
+        save_dir=REPORTS_DIR,
+    )
+    print(f"  CV Macro F1 : {cv_results['macro_f1']:.4f}")
+    print(f"  CV Accuracy : {cv_results['accuracy']:.4f}")
+    print("  Per-class F1:")
+    for cls, f1 in cv_results["per_class_f1"].items():
+        print(f"    {cls:<18} {f1:.4f}")
+
+    print("Step 6/6: Training final model on all data + saving...")
+    # The shipped model is trained on ALL sets and ALL augmented copies so it
+    # uses every available example; the honest performance estimate is the CV
+    # number above, not this model's training fit.
+    final_model = train_random_forest(X, y, random_state=42)
+
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, MODELS_DIR / "best_model.joblib")
-    joblib.dump(model, MODELS_DIR / "random_forest.joblib")
-    print(f"Model saved to {MODELS_DIR}/best_model.joblib")
-    print("=" * 60)
+    # compress=3 keeps the model identical but shrinks the on-disk size ~5x so it
+    # stays well under GitHub's 100 MB per-file limit (the model is committed so
+    # the app runs without the dataset — ADR-011).
+    joblib.dump(final_model, MODELS_DIR / "best_model.joblib", compress=3)
+    joblib.dump(final_model, MODELS_DIR / "random_forest.joblib", compress=3)
+    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    (DATA_PROCESSED / "feature_names.txt").write_text("\n".join(feature_names))
+
+    # Persist the honest results for the docs and the Model Performance page.
+    results_payload = {
+        "classes": CLASS_NAMES,
+        "n_sets": int(n_sets),
+        "n_original_windows": int(n_orig),
+        "n_features": len(feature_names),
+        "n_augment": N_AUGMENT,
+        "evaluation": "leave-one-set-out (single subject; no LOSO possible)",
+        "cv_macro_f1": round(float(cv_results["macro_f1"]), 4),
+        "cv_accuracy": round(float(cv_results["accuracy"]), 4),
+        "cv_per_class_f1": {
+            k: round(v, 4) for k, v in cv_results["per_class_f1"].items()
+        },
+        "confusion_matrix": cv_results["confusion_matrix"].tolist(),
+        "confusion_matrix_labels": CLASS_NAMES,
+        "activity_gate_calibration": gate_stats,
+        "activity_gate_thresholds": {
+            "accel_mag_std": ACCEL_MAG_STD_THRESHOLD,
+            "gyro_mag_mean": GYRO_MAG_MEAN_THRESHOLD,
+        },
+    }
+    (REPORTS_DIR.parent / "leave_one_set_out_results.json").write_text(
+        json.dumps(results_payload, indent=2)
+    )
+    # Also write a committed copy next to the model so the Streamlit Model
+    # Performance page can show the real, honest metrics after a fresh clone
+    # (reports/ is gitignored; models/saved/model_metrics.json is not — ADR-011).
+    (MODELS_DIR / "model_metrics.json").write_text(
+        json.dumps(results_payload, indent=2)
+    )
+
+    print(f"  Saved model -> {MODELS_DIR / 'best_model.joblib'}")
+    print(f"  Saved features -> {DATA_PROCESSED / 'feature_names.txt'}")
+    print("=" * 64)
     print("TRAINING COMPLETE")
-    print("=" * 60)
+    print("=" * 64)
+
+
+class _ConstPredictor:
+    """Minimal predictor that replays pre-computed labels for evaluate_model.
+
+    The leave-one-set-out loop already produced per-window predictions; this thin
+    adapter lets us reuse :func:`ml4b.models.evaluate.evaluate_model` (which
+    calls ``model.predict(X)``) to compute the aggregate metrics and confusion
+    matrix without retraining.
+    """
+
+    def __init__(self, predictions: list[str]) -> None:
+        self._predictions = np.array(predictions)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Return the stored predictions, ignoring ``X``."""
+        return self._predictions
 
 
 if __name__ == "__main__":
