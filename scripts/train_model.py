@@ -224,7 +224,9 @@ def main() -> None:
     # Also write a committed copy next to the model so the Streamlit Model
     # Performance page can show the real, honest metrics after a fresh clone
     # (reports/ is gitignored; models/saved/model_metrics.json is not — ADR-011).
-    (MODELS_DIR / "model_metrics.json").write_text(json.dumps(results_payload, indent=2))
+    (MODELS_DIR / "model_metrics.json").write_text(
+        json.dumps(results_payload, indent=2)
+    )
 
     print(f"  Saved model -> {MODELS_DIR / 'best_model.joblib'}")
     print(f"  Saved features -> {DATA_PROCESSED / 'feature_names.txt'}")
