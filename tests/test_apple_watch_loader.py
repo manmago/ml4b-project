@@ -97,16 +97,19 @@ def test_detect_format_a() -> None:
     assert list(out.columns) == INTERNAL_COLUMNS
 
 
-def test_primary_restores_gravity_and_keeps_gyro_rad_s() -> None:
-    """PRIMARY format restores gravity + converts g->m/s²; gyro stays rad/s (MM-Fit units)."""
-    from ml4b.data.apple_watch_loader import G_MS2
+def test_primary_restores_total_acceleration_in_g() -> None:
+    """PRIMARY format reconstructs total acceleration in g; gyro stays rad/s.
 
+    The Kaggle training data and Sensor Logger uploads are both Apple CoreMotion,
+    so acceleration is canonicalized to total acceleration in g (userAccel +
+    gravity) with NO m/s² conversion — see ADR-016.
+    """
     df = _format_primary()
     out = detect_and_normalize_columns(df)
-    # ax must equal (accelerationX + gravityX) converted from g to m/s².
-    expected_ax = (df["accelerationX"].to_numpy() + df["gravityX"].to_numpy()) * G_MS2
+    # ax must equal (accelerationX + gravityX), kept in g (no scaling).
+    expected_ax = df["accelerationX"].to_numpy() + df["gravityX"].to_numpy()
     assert np.allclose(out["ax"].to_numpy(), expected_ax)
-    # gx must equal rotationRateX unchanged (rad/s matches MM-Fit's rad/s).
+    # gx must equal rotationRateX unchanged (already rad/s).
     assert np.allclose(out["gx"].to_numpy(), df["rotationRateX"].to_numpy())
 
 
@@ -182,8 +185,12 @@ def test_predict_pipeline_shape(tmp_path: Path) -> None:
 
 
 def test_predict_too_short_raises(tmp_path: Path) -> None:
-    """A recording shorter than one window raises a clear ValueError."""
+    """A recording shorter than one 2 s window raises a clear ValueError.
+
+    Uses PRIMARY format with proper seconds_elapsed so the 100 Hz resample
+    yields ~50 samples (~0.5 s) — well below the 200-sample (2 s) window.
+    """
     csv = tmp_path / "WristMotion.csv"
-    _format_a(n=50).to_csv(csv, index=False)  # < 100 samples
+    _format_primary(n=50).to_csv(csv, index=False)  # ~0.5 s at 100 Hz
     with pytest.raises(ValueError, match="too short"):
-        predict_from_sensor_logger(csv, _FakeModel(), [f"f{i}" for i in range(47)])
+        predict_from_sensor_logger(csv, _FakeModel(), [f"f{i}" for i in range(39)])

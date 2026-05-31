@@ -40,9 +40,11 @@ def apply_sliding_window(
 
     Returns:
         DataFrame where each row is one window, with columns:
-        [subject_id, exercise_name, window_id, raw_ax, raw_ay, raw_az,
-         raw_gx, raw_gy, raw_gz]
-        where raw_* columns contain lists of values for that window.
+        [subject_id, exercise_name, recording_id, window_id, raw_ax, raw_ay,
+         raw_az, raw_gx, raw_gy, raw_gz]
+        where raw_* columns contain lists of values for that window. The
+        ``recording_id`` is carried through so downstream code can group windows
+        by their source recording/set (e.g. leave-one-set-out evaluation).
     """
     # Guard against nonsensical configuration that would create an infinite or
     # zero-length stride loop.
@@ -68,7 +70,7 @@ def apply_sliding_window(
 
     # sort=False preserves insertion order, which keeps results reproducible
     # for a given input ordering without paying the cost of an extra sort.
-    for (subject_id, exercise_name, _recording_id), group in df.groupby(
+    for (subject_id, exercise_name, recording_id), group in df.groupby(
         group_cols, sort=False
     ):
         # Convert each axis to a numpy array once per group — list-slicing a
@@ -100,6 +102,7 @@ def apply_sliding_window(
                 {
                     "subject_id": subject_id,
                     "exercise_name": exercise_name,
+                    "recording_id": recording_id,
                     "window_id": window_id,
                     "raw_ax": ax[start:end].tolist(),
                     "raw_ay": ay[start:end].tolist(),
@@ -116,6 +119,7 @@ def apply_sliding_window(
     columns = [
         "subject_id",
         "exercise_name",
+        "recording_id",
         "window_id",
         "raw_ax",
         "raw_ay",
