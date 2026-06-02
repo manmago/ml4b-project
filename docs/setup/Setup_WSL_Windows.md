@@ -12,10 +12,13 @@ Open a **WSL (Ubuntu)** terminal and run:
 ```bash
 # 1. Install uv (one command — it provides Python and all dependencies for you)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-#    then restart the terminal (or: source $HOME/.local/bin/env)
+#    The installer adds uv to your PATH, but the CURRENT shell won't see it yet.
+#    Open a NEW terminal (or reload now: source $HOME/.local/bin/env — or
+#    source ~/.bashrc), otherwise you get "uv: command not found".  Check: uv --version
 
-# 2. Clone the repository
-git clone git@github.com:AnshulAgrawal7/ml4b-project.git
+# 2. Clone the repository (HTTPS works for everyone — no SSH key needed)
+git clone https://github.com/AnshulAgrawal7/ml4b-project.git
+#    SSH alternative (only if you have an SSH key): git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
 
 # 3. Launch the app
@@ -87,8 +90,6 @@ cat ~/.ssh/id_ed25519.pub                      # add this key at GitHub → Sett
 git config --global user.name  "Your Name"
 git config --global user.email "you@example.com"
 ```
-Prefer HTTPS? Clone with
-`git clone https://github.com/AnshulAgrawal7/ml4b-project.git`.
 Branch workflow: `main → develop → feature/xxx`; never commit to `main`.
 </details>
 
