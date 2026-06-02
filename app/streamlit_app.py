@@ -56,6 +56,23 @@ def load_model():
 
 
 @st.cache_resource
+def load_novelty_detector():
+    """Load the open-set novelty detector — cached for the session lifetime.
+
+    The detector flags exercises the model was never trained on as ``unknown``
+    (ADR-024). It is optional: if the artifact is missing the app still runs,
+    just without out-of-distribution rejection.
+
+    Returns:
+        The deserialized ``NoveltyDetector``, or ``None`` if not available.
+    """
+    path = MODELS_DIR / "novelty_detector.joblib"
+    if not path.exists():
+        return None
+    return joblib.load(path)
+
+
+@st.cache_resource
 def load_feature_names() -> list[str]:
     """Load the ordered feature-name list — cached for the session lifetime.
 
@@ -72,9 +89,10 @@ def load_feature_names() -> list[str]:
     return path.read_text().strip().split("\n")
 
 
-# Load model and features once at startup (cached across reruns).
+# Load model, features and (optional) novelty detector once at startup.
 model = load_model()
 feature_names = load_feature_names()
+novelty_detector = load_novelty_detector()
 
 # Sidebar branding + navigation.
 st.sidebar.title("🏋️ ML4B Exercise Recognition")
@@ -101,7 +119,7 @@ if page == "🏠 Home":
 elif page == "🔮 Predict Exercise":
     from app.pages.prediction import render
 
-    render(model, feature_names)
+    render(model, feature_names, novelty_detector)
 elif page == "📊 Model Performance":
     from app.pages.model_performance import render
 
