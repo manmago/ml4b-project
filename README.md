@@ -18,8 +18,14 @@ windows are reported as **uncertain**.
 curl -LsSf https://astral.sh/uv/install.sh | sh
 #    Windows (PowerShell): powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# 2. Clone and launch
-git clone git@github.com:AnshulAgrawal7/ml4b-project.git
+#    IMPORTANT: the installer adds uv to your PATH, but your CURRENT shell does
+#    not know it yet. Open a NEW terminal (or reload: source ~/.bashrc /
+#    ~/.zshrc, Windows: close & reopen PowerShell) — otherwise `uv` is "not found".
+#    Check it works:  uv --version
+
+# 2. Clone and launch  (HTTPS works for everyone; use SSH only if you have a key)
+git clone https://github.com/AnshulAgrawal7/ml4b-project.git
+#    SSH alternative: git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
 make run        # or: ./run_app.sh   ·   run_app.bat (Windows)   ·   uv run streamlit run app/streamlit_app.py
 ```
