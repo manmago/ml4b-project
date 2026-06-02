@@ -150,3 +150,7 @@ tmp/
 !models/saved/novelty_detector.joblib
 !models/saved/model_metrics.json
 !data/processed/feature_names.txt
+
+# Local-only developer tooling — kept on disk, intentionally not tracked.
+CLAUDE.md
+agents/

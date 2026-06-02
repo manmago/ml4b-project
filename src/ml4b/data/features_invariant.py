@@ -1,7 +1,7 @@
 """Device-invariant feature extraction for the 3-class Apple-Watch model.
 
 This is the feature stage used by BOTH the training pipeline and the Streamlit
-inference pipeline (the CLAUDE.md reuse rule). It replaces the earlier
+inference pipeline (the project's reuse rule). It replaces the earlier
 per-axis ``ml4b.data.features`` for the final model because raw per-axis
 statistics are sensitive to exactly how the watch sits on the wrist, which
 differs between people and between the training watch and a new user's watch.

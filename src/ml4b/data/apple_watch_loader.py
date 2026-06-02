@@ -1,7 +1,7 @@
 """Apple Watch / Sensor Logger inference pipeline for the 3-class model.
 
 Handles CSV (or ZIP) files exported from the Sensor Logger iOS app and runs the
-*identical* preprocessing used in training, satisfying the CLAUDE.md rule that
+*identical* preprocessing used in training, satisfying the project's rule that
 training and inference share one pipeline. The shared building blocks are:
 
   * :mod:`ml4b.data.canonical`          — units, sampling rate, window size
