@@ -2,7 +2,7 @@
 
 Project: ML4B SoSe 2026 — Gym Exercise Recognition  
 Team: Anshul Agrawal  
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 Iteration 3 (final) completed: 2026-05-31 — Kaggle Apple-Watch anchor, 3 classes (ADR-016)
 Phase 1 completed: 2026-05-15
 Phase 2 completed: 2026-05-22
@@ -166,9 +166,20 @@ download. The final model (Random Forest on the Kaggle Apple-Watch anchor,
 3 classes, **leave-one-set-out Macro F1 = 0.776**) is committed alongside its
 metrics, the feature list, and a reproducible training script. Sensor Logger
 exports are accepted as either `WristMotion.csv` or a full ZIP. The project is
-handover-ready: every decision is documented in `docs/decisions/` (ADR-001–023),
+handover-ready: every decision is documented in `docs/decisions/` (ADR-001–025),
 the single-subject limitation is documented honestly, and OS-specific setup
 guides cover WSL, macOS, and Windows.
+
+**Continuous-session support (2026-06-02, ADR-024/025):** the inference pipeline
+now handles one continuous Sensor Logger recording with several exercises and rest
+pauses — users no longer record each exercise separately. Pauses are detected as
+`rest` by the energy gate (ADR-017); an open-set **novelty detector**
+(`src/ml4b/data/novelty.py`, per-class Mahalanobis on the invariant features) flags
+exercises the model was never trained on as `unknown` instead of forcing them into
+one of the three classes; and `src/ml4b/data/session.py` folds the per-window
+predictions into rest-bounded, majority-voted **bouts** shown as a "Detected Sets"
+table in the app. The detector is fit by `scripts/fit_novelty_detector.py` and
+committed as `models/saved/novelty_detector.joblib`; the Random Forest is unchanged.
 
 **Notebook alignment (2026-06-01, ADR-023):** the CRISP-DM notebooks
 (`02_data_understanding` … `06_streamlit_demo`) were migrated from the old

@@ -15,8 +15,8 @@ Classify gym exercises from **Apple Watch** sensor streams (accelerometer +
 gyroscope) using supervised ML. The model distinguishes **3 exercise classes** —
 `bicep_curl`, `tricep_extension`, `row` — chosen for biomechanical distinctness
 and coverage on the Apple-Watch training anchor (ADR-016). Two further outputs
-are produced **outside** the model: `rest` (energy gate, ADR-017) and
-`uncertain` (confidence threshold, ADR-020).
+are produced **outside** the model: `rest` (energy gate, ADR-017), `unknown`
+(novelty detector, ADR-024) and `uncertain` (confidence threshold, ADR-020).
 
 ### Dataset Journey (three iterations)
 | Iteration | Source | Outcome |
@@ -115,6 +115,8 @@ src/ml4b/
 │   ├── apple_watch_loader.py # INFER: Sensor Logger CSV/ZIP → predict_from_sensor_logger()
 │   ├── windowing.py          # Sliding window (200 @ 100 Hz, 50% overlap; carries recording_id)
 │   ├── activity_gate.py      # Energy-threshold rest detection (ADR-017)
+│   ├── novelty.py            # Open-set novelty detection → unknown (ADR-024)
+│   ├── session.py            # Bout segmentation → per-set summary (ADR-025)
 │   ├── features_invariant.py # 39 device-invariant features (ADR-018)
 │   ├── augmentation.py       # rotation+time-warp+mirror+jitter (ADR-019)
 │   ├── features.py           # LEGACY 47 per-axis features (abandoned)
@@ -181,11 +183,13 @@ User uploads WristMotion.csv OR a Sensor Logger ZIP
     │   windowing.apply_sliding_window(200, 0.5)        (SAME as training)
     │   activity_gate.gate_window_df()         — low-energy windows → rest
     │   features_invariant.extract_invariant_features() (SAME as training)
-    │   model.predict_proba() on ACTIVE windows
+    │   novelty.NoveltyDetector.is_known()    — out-of-distribution → unknown (ADR-024)
+    │   model.predict_proba() on KNOWN ACTIVE windows
     │   confidence < 0.50 → "uncertain" (ADR-020)
-Per-window: predicted_class ∈ {3 exercises, rest, uncertain}, confidence, time
+Per-window: predicted_class ∈ {3 exercises, rest, unknown, uncertain}, confidence, time
     │
-    ▼ app/pages/prediction.py — detected rate, timeline, pie, table, CSV download
+    ▼ session.summarize_session()             — fold windows into per-set bouts (ADR-025)
+    ▼ app/pages/prediction.py — detected rate, timeline, detected sets, pie, table, CSV
 ```
 
 > Model + metrics are loaded once via `st.cache_resource` / `load_model_metrics()`
