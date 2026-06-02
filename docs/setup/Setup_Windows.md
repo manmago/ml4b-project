@@ -12,10 +12,13 @@ Open **PowerShell** and run:
 ```powershell
 # 1. Install uv (one command — it provides Python and all dependencies for you)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-#    then close and reopen PowerShell so PATH updates
+#    Close and reopen PowerShell afterwards so the PATH update loads — otherwise
+#    `uv` is "not recognized" in this window.  Check it works:  uv --version
 
 # 2. Clone the repository (install Git from https://git-scm.com/download/win first)
-git clone git@github.com:AnshulAgrawal7/ml4b-project.git
+#    HTTPS works for everyone — no SSH key needed:
+git clone https://github.com/AnshulAgrawal7/ml4b-project.git
+#    SSH alternative (only if you have an SSH key): git clone git@github.com:AnshulAgrawal7/ml4b-project.git
 cd ml4b-project
 
 # 3. Launch the app
@@ -86,8 +89,6 @@ Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | Set-Clipboard   # add at GitH
 git config --global user.name  "Your Name"
 git config --global user.email "you@example.com"
 ```
-Prefer HTTPS? Clone with
-`git clone https://github.com/AnshulAgrawal7/ml4b-project.git`.
 Branch workflow: `main → develop → feature/xxx`; never commit to `main`.
 </details>
 
