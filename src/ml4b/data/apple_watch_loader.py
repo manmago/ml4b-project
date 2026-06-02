@@ -15,16 +15,19 @@ total acceleration (userAcceleration + gravity) in **g** and rotation rate in
 **rad/s** — no cross-device unit conversion (the device-domain match that
 motivated ADR-016).
 
-Pipeline (see ADR-016..ADR-021):
+Pipeline (see ADR-016..ADR-024):
     load (CSV/ZIP) -> normalize columns -> resample to 100 Hz
         -> sliding window (200, 50% overlap)
         -> activity gate (rest is NOT a model class)
-        -> invariant features -> predict (3 classes)
+        -> invariant features
+        -> novelty gate (unknown is NOT a model class; optional)
+        -> predict (3 classes)
         -> confidence threshold -> "uncertain"
 
-The model never predicts ``rest`` or ``uncertain``; those are produced by the
-gate and the confidence threshold respectively, so the three trained classes
-only compete on genuine, confident movement.
+The model never predicts ``rest``, ``unknown`` or ``uncertain``; those are
+produced by the activity gate, the novelty detector and the confidence threshold
+respectively, so the three trained classes only compete on genuine, confident,
+in-distribution movement.
 """
 
 from __future__ import annotations
@@ -50,6 +53,12 @@ from ml4b.data.windowing import apply_sliding_window
 
 # Label used when the model's top probability is below CONFIDENCE_THRESHOLD.
 UNCERTAIN_LABEL = "uncertain"
+
+# Label used for active windows the (optional) novelty detector rejects as
+# out-of-distribution — an exercise the closed-set model was never trained on
+# (ADR-024). Distinct from UNCERTAIN_LABEL: novelty is "not one of our classes",
+# uncertainty is "one of our classes, but the model is not confident".
+NOVEL_LABEL = "unknown"
 
 # Internal schema every loader output must conform to.
 INTERNAL_COLUMNS = ["timestamp", "ax", "ay", "az", "gx", "gy", "gz"]
@@ -237,13 +246,14 @@ def predict_from_sensor_logger(
     feature_names: list[str],
     window_size: int = WINDOW_SIZE,
     overlap: float = OVERLAP,
+    novelty_detector: Any | None = None,
 ) -> pd.DataFrame:
     """Run the full 3-class prediction pipeline on a Sensor Logger export.
 
     Pipeline: load (CSV/ZIP) -> normalize -> resample to 100 Hz -> sliding
-    window -> activity gate (rest) -> invariant features -> model predict ->
-    confidence threshold (uncertain). Uses the same preprocessing modules as
-    training so predictions are consistent.
+    window -> activity gate (rest) -> invariant features -> novelty gate
+    (unknown) -> model predict -> confidence threshold (uncertain). Uses the same
+    preprocessing modules as training so predictions are consistent.
 
     Args:
         csv_file: Path to ``WristMotion.csv`` or a Sensor Logger ZIP.
@@ -251,13 +261,18 @@ def predict_from_sensor_logger(
         feature_names: Ordered feature names from ``feature_names.txt``.
         window_size: Samples per window. Default 200 = 2 s at 100 Hz.
         overlap: Overlap fraction. Default 0.5.
+        novelty_detector: Optional fitted
+            :class:`ml4b.data.novelty.NoveltyDetector`. When provided, active
+            windows it rejects as out-of-distribution are labelled ``unknown``
+            and never reach the model. When ``None``, behaviour is unchanged.
 
     Returns:
         DataFrame with one row per window and columns
         ``[window_id, predicted_class, confidence, time_start_seconds]``. The
-        ``predicted_class`` is one of the three exercises, ``rest`` (gated), or
-        ``uncertain`` (low confidence). ``DataFrame.attrs`` carries
-        ``detected_hz`` and ``n_samples_after_resample``.
+        ``predicted_class`` is one of the three exercises, ``rest`` (gated),
+        ``unknown`` (novelty-rejected), or ``uncertain`` (low confidence).
+        ``DataFrame.attrs`` carries ``detected_hz`` and
+        ``n_samples_after_resample``.
 
     Raises:
         ValueError: If the recording is too short to form a single window.
@@ -303,13 +318,28 @@ def predict_from_sensor_logger(
 
     if active_mask.any():
         active_idx = np.where(active_mask)[0]
-        probs = model.predict_proba(X[active_idx])
-        top_conf = probs.max(axis=1)
-        top_pred = model.classes_[probs.argmax(axis=1)]
-        # Below the confidence threshold we abstain with "uncertain".
-        labels = np.where(top_conf >= CONFIDENCE_THRESHOLD, top_pred, UNCERTAIN_LABEL)
-        predicted[active_idx] = labels
-        confidence[active_idx] = top_conf
+
+        # Novelty gate (optional): reject out-of-distribution windows as
+        # "unknown" so an unseen exercise is not forced into one of the three
+        # trained classes. Only the windows the detector accepts as known reach
+        # the model. See ADR-024.
+        if novelty_detector is not None:
+            known = novelty_detector.is_known(X[active_idx])
+            predicted[active_idx[~known]] = NOVEL_LABEL  # confidence stays NaN
+            model_idx = active_idx[known]
+        else:
+            model_idx = active_idx
+
+        if len(model_idx) > 0:
+            probs = model.predict_proba(X[model_idx])
+            top_conf = probs.max(axis=1)
+            top_pred = model.classes_[probs.argmax(axis=1)]
+            # Below the confidence threshold we abstain with "uncertain".
+            labels = np.where(
+                top_conf >= CONFIDENCE_THRESHOLD, top_pred, UNCERTAIN_LABEL
+            )
+            predicted[model_idx] = labels
+            confidence[model_idx] = top_conf
 
     # Approximate start time of each window in seconds.
     step_seconds = window_size * (1 - overlap) / TARGET_HZ
