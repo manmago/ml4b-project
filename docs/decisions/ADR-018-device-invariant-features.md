@@ -24,8 +24,8 @@ scale/offset:
   per-axis offset and gain.
 - **Gyro/accel ratio** — how rotational vs translational the movement is.
 
-The identical module is used in training and in the app (the CLAUDE.md reuse
-rule).
+The identical module is used in training and in the app (the project's
+shared-pipeline reuse rule).
 
 ## Alternatives Considered
 - **Keep the per-axis `features.py` (47 features)** — orientation-sensitive;

@@ -116,7 +116,8 @@ make format       # uv run ruff format .
 ```
 
 Branch workflow: `main → develop → feature/xxx`. Never commit directly to
-`main`. See [`CLAUDE.md`](CLAUDE.md) for the full contribution workflow.
+`main`. Commits follow Conventional Commits (`feat:`, `fix:`, `docs:`, …) and
+pair code with its documentation.
 
 ---
 

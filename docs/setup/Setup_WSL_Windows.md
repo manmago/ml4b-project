@@ -89,7 +89,7 @@ git config --global user.email "you@example.com"
 ```
 Prefer HTTPS? Clone with
 `git clone https://github.com/AnshulAgrawal7/ml4b-project.git`.
-Branch workflow (CLAUDE.md): `main → develop → feature/xxx`; never commit to `main`.
+Branch workflow: `main → develop → feature/xxx`; never commit to `main`.
 </details>
 
 <details>

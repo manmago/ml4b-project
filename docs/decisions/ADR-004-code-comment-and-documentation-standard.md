@@ -39,4 +39,4 @@ Gym exercise recognition involves domain-specific choices (window size, sampling
 **Negative / Trade-offs:**
 - More writing required per function and code block
 - Comments can drift from code if not maintained — requires discipline and review enforcement
-- Slightly longer files; offset by the reviewer agent catching missing documentation
+- Slightly longer files; offset by code review catching missing documentation
