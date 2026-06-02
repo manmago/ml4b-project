@@ -121,9 +121,10 @@ Serialised, trained model files plus their metrics.
 ```
 models/
 └── saved/
-    ├── best_model.joblib    ← IN git (exception) — Random Forest used by the app (compressed)
-    ├── random_forest.joblib ← IN git (exception) — archive copy of the same model
-    └── model_metrics.json   ← IN git (exception) — honest leave-one-set-out metrics
+    ├── best_model.joblib       ← IN git (exception) — Random Forest used by the app (compressed)
+    ├── random_forest.joblib    ← IN git (exception) — archive copy of the same model
+    ├── novelty_detector.joblib ← IN git (exception) — open-set novelty detector (ADR-024)
+    └── model_metrics.json      ← IN git (exception) — honest leave-one-set-out metrics
                                 shown on the Model Performance page
 ```
 
@@ -166,9 +167,11 @@ src/ml4b/
 │   │                            carries recording_id for set-grouped evaluation
 │   ├── features_invariant.py ← CURRENT features: 39 device-invariant features (ADR-018)
 │   ├── activity_gate.py      ← Energy-threshold rest detection — not a class (ADR-017)
+│   ├── novelty.py            ← Open-set novelty detection — unseen exercise → unknown (ADR-024)
+│   ├── session.py            ← Bout segmentation — fold windows into per-set summary (ADR-025)
 │   ├── augmentation.py       ← Rotation+time-warp+mirror+jitter augmentation (ADR-019)
 │   ├── apple_watch_loader.py ← Sensor Logger CSV/ZIP loader + predict_from_sensor_logger()
-│   │                            (resample → window → gate → invariant features → predict)
+│   │                            (resample → window → gate → features → novelty → predict)
 │   ├── features.py           ← LEGACY per-axis features (47) — abandoned MM-Fit pipeline
 │   ├── loader.py             ← LEGACY RecoFit .mat loader — abandoned (ADR-013/016)
 │   ├── mmfit_loader.py       ← LEGACY MM-Fit loader — abandoned (ADR-016)
@@ -196,6 +199,8 @@ scripts/
 ├── train_model.py            ← Train the 3-class model on Kaggle data with leave-one-set-out
 │                                CV; saves best_model.joblib + model_metrics.json + feature_names.txt.
 │                                Run: uv run python scripts/train_model.py
+├── fit_novelty_detector.py  ← Fit the open-set novelty detector on Kaggle invariant features;
+│                                saves novelty_detector.joblib (ADR-024). Run: uv run python scripts/fit_novelty_detector.py
 ├── inspect_kaggle_dataset.py ← Read-only audit of the Kaggle dataset (columns, labels,
 │                                sets per exercise, sampling rate). Run: uv run python scripts/inspect_kaggle_dataset.py
 ├── build_mmfit_dataset.py    ← LEGACY MM-Fit feature builder — abandoned (ADR-016)
@@ -222,6 +227,8 @@ tests/
 ├── __init__.py
 ├── test_features_invariant.py ← 39 features, identifier carry-through, rotation invariance
 ├── test_activity_gate.py      ← rest vs active gating, index-aligned mask
+├── test_novelty.py            ← known vs novel detection, thresholds, serialization (ADR-024)
+├── test_session.py            ← bout segmentation, majority vote, unknown bouts (ADR-025)
 ├── test_augmentation.py       ← rotation + composed augmentation: size, determinism, recording_id
 ├── test_apple_watch_loader.py ← column auto-detect, ZIP, predict pipeline, error guards
 ├── test_features.py           ← LEGACY per-axis feature tests
@@ -237,7 +244,7 @@ tests/
 | What | Why |
 |------|-----|
 | `data/` | Large and/or personal data |
-| `models/saved/*.joblib` except `best_model.joblib` / `random_forest.joblib` | Binary; large. The committed exceptions let the app run without the dataset. |
+| `models/saved/*.joblib` except `best_model.joblib` / `random_forest.joblib` / `novelty_detector.joblib` | Binary; large. The committed exceptions let the app run without the dataset. |
 | `.env` | Secrets and local paths |
 | `.venv/` | Reproducible via `uv` |
 | `__pycache__/`, `*.pyc`, `.ipynb_checkpoints/`, `*.egg-info/` | Auto-generated |

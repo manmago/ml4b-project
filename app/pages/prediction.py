@@ -15,16 +15,21 @@ import plotly.express as px
 import streamlit as st
 
 from ml4b.data.apple_watch_loader import predict_from_sensor_logger
+from ml4b.data.session import summarize_session
 
 # Below this many windows the recording is likely too short to be meaningful.
 MIN_WINDOWS_WARNING = 5
 
-# Fixed colours for the two non-exercise outputs so they read as "not a class".
+# Fixed colours for the non-exercise outputs so they read as "not a class".
 # The three real exercises keep Plotly's default colour sequence.
-NON_EXERCISE_COLORS = {"Rest": "#c9ccd1", "Uncertain": "#8a8f98"}
+NON_EXERCISE_COLORS = {
+    "Rest": "#c9ccd1",
+    "Uncertain": "#8a8f98",
+    "Unknown": "#e06c75",  # reddish: an exercise the model was not trained on
+}
 
 # Display labels that are not trained exercise classes.
-NON_EXERCISE_LABELS = {"Rest", "Uncertain"}
+NON_EXERCISE_LABELS = {"Rest", "Uncertain", "Unknown"}
 
 
 def _humanize(label: str) -> str:
@@ -59,19 +64,24 @@ def _save_upload_to_tempfile(uploaded_file: Any) -> Path:
     return Path(tmp.name)
 
 
-def render(model: Any, feature_names: list[str]) -> None:
+def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -> None:
     """Render the Predict Exercise page.
 
     Args:
         model: Trained classifier loaded by the app entry point.
         feature_names: Ordered feature names the model expects.
+        novelty_detector: Optional fitted novelty detector that flags exercises
+            the model was not trained on as ``unknown`` (ADR-024). When ``None``,
+            no out-of-distribution rejection is applied.
     """
     st.title("🔮 Predict Exercise")
     st.markdown(
-        "Upload a recording from **Sensor Logger** (Apple Watch) to recognize "
-        "which exercise — **bicep curl, tricep extension or row** — was performed "
-        "in each 2-second window. Low-motion pauses are marked **rest**, and "
-        "windows the model is unsure about are marked **uncertain**."
+        "Upload **one continuous recording** from **Sensor Logger** (Apple "
+        "Watch) — you can do several exercises with rest pauses in a single "
+        "session. Each 2-second window is recognized as **bicep curl, tricep "
+        "extension or row**. Low-motion pauses are marked **rest**, exercises "
+        "the model was not trained on are marked **unknown**, and windows the "
+        "model is unsure about are marked **uncertain**."
     )
 
     uploaded_file = st.file_uploader(
@@ -94,7 +104,9 @@ def render(model: Any, feature_names: list[str]) -> None:
     tmp_path = _save_upload_to_tempfile(uploaded_file)
     try:
         with st.spinner("Running prediction pipeline..."):
-            results = predict_from_sensor_logger(tmp_path, model, feature_names)
+            results = predict_from_sensor_logger(
+                tmp_path, model, feature_names, novelty_detector=novelty_detector
+            )
     except ValueError as exc:
         # Raised for unknown columns or a too-short recording.
         st.error(f"❌ Could not process the file:\n\n{exc}")
@@ -183,6 +195,44 @@ def render(model: Any, feature_names: list[str]) -> None:
         bargap=0.0, height=260, yaxis=dict(visible=False, range=[0, 1])
     )
     st.plotly_chart(timeline, width="stretch")
+
+    # --- Detected sets (bout summary) -------------------------------------
+    st.markdown("### 🏋️ Detected Sets")
+    st.caption(
+        "Active windows between rest pauses are grouped into sets. Each set's "
+        "exercise is the majority vote of its windows, which smooths out single "
+        "misclassified windows."
+    )
+    sets = summarize_session(results)
+    if sets.empty:
+        st.info("No active sets detected — the recording looks like rest only.")
+    else:
+        sets_display = sets.copy()
+        sets_display["Exercise"] = sets_display["label"].map(_humanize)
+        sets_display = sets_display[
+            ["bout_id", "Exercise", "duration_s", "n_windows", "mean_confidence"]
+        ].rename(
+            columns={
+                "bout_id": "Set",
+                "duration_s": "Duration (s)",
+                "n_windows": "Windows",
+                "mean_confidence": "Avg Confidence",
+            }
+        )
+        # Sets are 1-based for humans.
+        sets_display["Set"] = sets_display["Set"] + 1
+        st.dataframe(
+            sets_display,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Avg Confidence": st.column_config.ProgressColumn(
+                    "Avg Confidence", min_value=0.0, max_value=1.0, format="%.2f"
+                ),
+            },
+        )
+
+    st.divider()
 
     # --- Distribution pie + table -----------------------------------------
     left, right = st.columns([1, 1])

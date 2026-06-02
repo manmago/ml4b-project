@@ -17,7 +17,7 @@
 | Sampling rate | **100 Hz** (native; the app resamples any rate to 100 Hz) |
 | Raw file format | CSV (both Kaggle and Sensor Logger — Apple CoreMotion) |
 | Target classes | **3** — `bicep_curl`, `tricep_extension`, `row` (ADR-016) |
-| Non-model outputs | `rest` (energy gate, ADR-017), `uncertain` (confidence threshold, ADR-020) |
+| Non-model outputs | `rest` (energy gate, ADR-017), `unknown` (novelty detector, ADR-024), `uncertain` (confidence threshold, ADR-020) |
 | Units (canonical) | Accel **total acceleration in g** (userAccel + gravity); gyro **rad/s** |
 
 Canonicalization is defined once in `src/ml4b/data/canonical.py` and shared by
@@ -105,8 +105,8 @@ Mapping from Kaggle exercise abbreviations (`ABBREV_TO_CLASS` in
 | `tricep_extension` | CGOCTE, MTE, SAOCTE, SAODTE |
 | `row` | CGCR, NGCR, MGTBR |
 
-All other Kaggle exercises are ignored. `rest` and `uncertain` are produced at
-inference, not trained.
+All other Kaggle exercises are ignored. `rest`, `unknown` and `uncertain` are
+produced at inference, not trained.
 
 ---
 
