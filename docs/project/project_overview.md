@@ -136,7 +136,6 @@ Every decision has a full ADR in `docs/decisions/`. Plain-language summary:
 |----------|--------------|-----|
 | Package manager | uv | ADR-001 |
 | ML framework | scikit-learn | ADR-002 |
-| Multi-agent AI setup | data_scientist + documenter + reviewer | ADR-003 |
 | Code/doc standard | Google docstrings + inline comments | ADR-004 |
 | Sliding window | 2 s window (200 @ 100 Hz), 50% overlap | ADR-006 |
 | Commit model to git | yes — app runs with no dataset | ADR-011 |

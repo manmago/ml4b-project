@@ -37,7 +37,7 @@ UbiComp/ISWC 2020, CC-BY-4.0) as the training source.
   which wrist the Apple Watch is on.
 - New loader `src/ml4b/data/mmfit_loader.py` emits the **same long-format
   schema** as `load_recofit_raw`, so windowing + feature extraction are reused
-  unchanged (CLAUDE.md architectural rule).
+  unchanged (the project's shared-pipeline rule).
 - New builder `scripts/build_mmfit_dataset.py` writes the standard processed
   CSVs, so `scripts/train_model.py`, the notebooks and the app are unchanged.
 - **Classes:** keep the original 6 and add **`push_up`** (MM-Fit `pushups`),

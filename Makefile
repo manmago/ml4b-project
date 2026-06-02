@@ -2,7 +2,7 @@
 #
 # Usage: make <target>   (run from the project root)
 # These wrap the canonical `uv run ...` commands so contributors don't have to
-# remember them. See CLAUDE.md for the full workflow.
+# remember them. See README.md for the full workflow.
 
 .PHONY: help run train test lint format check setup
 

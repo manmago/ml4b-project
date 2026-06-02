@@ -10,7 +10,6 @@
 ```
 ml4b-project/
 │
-├── agents/                 ← Claude Code specialist agent instruction files
 ├── app/                    ← Streamlit web application
 ├── data/                   ← All data (mostly NOT in git — except feature_names.txt)
 ├── docs/                   ← Project documentation (incl. ADRs 001–022)
@@ -24,7 +23,6 @@ ml4b-project/
 ├── .streamlit/             ← Streamlit config (single sidebar navigation)
 ├── .env.example            ← Template showing all available env variables
 ├── .gitignore              ← What git ignores (with model/metrics exceptions)
-├── CLAUDE.md               ← Instructions for the Claude Code AI assistant
 ├── Makefile                ← Shortcuts: make run / train / test / lint / format
 ├── run_app.sh              ← One-click app launcher (macOS/Linux/WSL)
 ├── run_app.bat             ← One-click app launcher (Windows)
@@ -36,12 +34,6 @@ ml4b-project/
 ---
 
 ## Folder-by-Folder Breakdown
-
-### `agents/`
-Claude Code specialist agent instruction files (`data_scientist.md`,
-`documenter.md`, `reviewer.md`). `.md` instructions only.
-
----
 
 ### `app/`
 The Streamlit web application for live exercise prediction.

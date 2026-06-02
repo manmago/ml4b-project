@@ -7,7 +7,7 @@ app's inference pipeline (Sensor Logger uploads):
 1. **Pipeline constants** — sampling rate, window size, overlap, lag trim, and
    the confidence threshold. Both ``scripts/train_model.py`` and
    ``ml4b.data.apple_watch_loader`` import these so the two pipelines can never
-   drift apart (the core architectural rule in CLAUDE.md).
+   drift apart (the project's core architectural rule).
 
 2. **Channel canonicalization** — both data sources are Apple CoreMotion
    ``DeviceMotion`` streams. CoreMotion reports *user* acceleration (gravity
