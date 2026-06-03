@@ -1,34 +1,27 @@
 # Architecture Documentation — ML4B Gym Exercise Recognition
-> arc42 lightweight format — mandatory sections: 1, 2, 3, 5, 6, 8
+> Lightweight architecture overview. Full goal/scope rationale lives in
+> [`business_understanding.md`](../business_understanding/business_understanding.md);
+> every design decision is captured in [`docs/decisions/`](../decisions/) (ADRs).
+> This document focuses on the parts that are *architectural*: context, building
+> blocks, runtime pipelines, and the cross-cutting rules that hold them together.
 
 ---
 
-## 1. Goals and Requirements
+## 1. Goals and Constraints
 
-### Primary Research Question
-> "Can a machine-learning model trained on Apple-Watch sensor data accurately
-> classify gym exercises from a new recording, and what are the honest limits of
-> that performance given the available data?"
+**Primary goal.** Classify gym exercises from **Apple Watch** sensor streams
+(accelerometer + gyroscope) using supervised ML. The model distinguishes
+**3 exercise classes** — `bicep_curl`, `tricep_extension`, `row` (ADR-016).
+Three further outputs are produced **outside** the model: `rest` (energy gate,
+ADR-017), `unknown` (novelty detector, ADR-024) and `uncertain` (confidence
+threshold, ADR-020).
 
-### Primary Goal
-Classify gym exercises from **Apple Watch** sensor streams (accelerometer +
-gyroscope) using supervised ML. The model distinguishes **3 exercise classes** —
-`bicep_curl`, `tricep_extension`, `row` — chosen for biomechanical distinctness
-and coverage on the Apple-Watch training anchor (ADR-016). Two further outputs
-are produced **outside** the model: `rest` (energy gate, ADR-017), `unknown`
-(novelty detector, ADR-024) and `uncertain` (confidence threshold, ADR-020).
+**Dataset anchor.** Training data is the Kaggle *Gym Workout IMU* dataset
+(Apple Watch SE, left wrist, 100 Hz). Two earlier datasets (RecoFit, MM-Fit)
+were dropped because of device-domain shift on real Apple-Watch uploads — see
+ADR-013/016 for the full journey. Only **Wrist Motion** (accel + gyro) is used.
 
-### Dataset Journey (three iterations)
-| Iteration | Source | Outcome |
-|-----------|--------|---------|
-| 1 | RecoFit (forearm, 50 Hz) | Failed on wrist-worn Apple Watch (ADR-013) |
-| 2 | MM-Fit (non-Apple smartwatch) | High test F1 but failed on real Apple-Watch uploads |
-| 3 (final) | **Kaggle Gym Workout IMU (Apple Watch, 100 Hz)** | Removes device-domain shift (ADR-016) |
-
-Only **Wrist Motion** (accelerometer + gyroscope) is used. All other Sensor
-Logger channels are discarded.
-
-### Quality Goals
+**Quality goals (architecturally relevant):**
 | Priority | Quality Goal | Scenario |
 |----------|-------------|----------|
 | 1 | Reproducibility | Any team member runs the app with one command on a new machine (`uv run streamlit run …`) |
@@ -36,40 +29,18 @@ Logger channels are discarded.
 | 3 | Modularity / shared pipeline | Training and inference import the *same* preprocessing modules |
 | 4 | Explainability | Predictions and confidence are shown per window in the app |
 
-### Performance Target
-| Criterion | Target | Achieved |
-|-----------|--------|----------|
-| Macro F1 (leave-one-set-out CV) | ≥ 0.80 | 0.776 (single-subject ceiling, ADR-021) |
+**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80 — achieved 0.776
+(single-subject ceiling, ADR-021).
 
-### Stakeholders
-| Role | Concern |
-|------|---------|
-| FAU ML4B Course | Correct CRISP-DM application; honest reporting |
-| Development team | Clear structure, reproducible environment |
-| Demo audience | Usable Streamlit UI for live predictions |
+**Key constraints:** Python 3.11 + `uv` (one-command run, ADR-022); Streamlit UI
+(Python-native, no frontend work); scikit-learn (interpretable tabular models);
+runs locally only (WSL/macOS/Windows), no cloud. No multi-subject Apple-Watch
+data is collectable, which forces the single-subject anchor + augmentation
+(ADR-019/021). Stakeholders and full scope: see `business_understanding.md`.
 
 ---
 
-## 2. Constraints
-
-### Technical
-| Constraint | Rationale |
-|-----------|-----------|
-| Python 3.11 | Course requirement |
-| `uv` package manager | Reproducible lockfile, one-command run (ADR-022) |
-| Streamlit UI | Python-native, no frontend work |
-| scikit-learn | Suited to tabular sensor features, interpretable |
-
-### Organisational
-| Constraint | Rationale |
-|-----------|-----------|
-| University project (SoSe 2026) | Semester timeline |
-| No cloud infrastructure | Runs locally (WSL/macOS/Windows) |
-| **No multi-subject Apple-Watch data collectable** | Forces single-subject anchor + augmentation (ADR-019/021) |
-
----
-
-## 3. System Context
+## 2. System Context
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -105,7 +76,7 @@ reason the Kaggle dataset was chosen (ADR-016).
 
 ---
 
-## 5. Building Block View
+## 3. Building Block View
 
 ```
 src/ml4b/
@@ -147,7 +118,7 @@ src/ml4b/
 
 ---
 
-## 6. Runtime View
+## 4. Runtime View
 
 ### Training Pipeline (`scripts/train_model.py`)
 ```
@@ -197,7 +168,7 @@ Per-window: predicted_class ∈ {3 exercises, rest, unknown, uncertain}, confide
 
 ---
 
-## 8. Cross-Cutting Concepts
+## 5. Cross-Cutting Concepts
 
 ### Shared training/inference pipeline (the core rule)
 Training (`kaggle_loader`) and inference (`apple_watch_loader`) both import
