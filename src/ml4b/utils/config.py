@@ -67,5 +67,9 @@ def _resolve(env_var: str, default: str) -> Path:
 
 DATA_RAW: Path = _resolve("ML4B_DATA_RAW", "data/raw")
 DATA_PROCESSED: Path = _resolve("ML4B_DATA_PROCESSED", "data/processed")
+# User-correction feedback for continual learning (ADR-027). Not in git — it is
+# the end user's own labelled corrections, persisted locally and fed back into
+# retraining.
+DATA_FEEDBACK: Path = _resolve("ML4B_DATA_FEEDBACK", "data/feedback")
 MODELS_DIR: Path = _resolve("ML4B_MODELS_DIR", "models/saved")
 REPORTS_DIR: Path = _resolve("ML4B_REPORTS_DIR", "reports/figures")

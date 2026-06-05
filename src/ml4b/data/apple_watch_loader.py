@@ -247,7 +247,8 @@ def predict_from_sensor_logger(
     window_size: int = WINDOW_SIZE,
     overlap: float = OVERLAP,
     novelty_detector: Any | None = None,
-) -> pd.DataFrame:
+    return_windows: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
     """Run the full 3-class prediction pipeline on a Sensor Logger export.
 
     Pipeline: load (CSV/ZIP) -> normalize -> resample to 100 Hz -> sliding
@@ -265,6 +266,9 @@ def predict_from_sensor_logger(
             :class:`ml4b.data.novelty.NoveltyDetector`. When provided, active
             windows it rejects as out-of-distribution are labelled ``unknown``
             and never reach the model. When ``None``, behaviour is unchanged.
+        return_windows: When True, also return the raw windowed DataFrame so the
+            caller can capture user corrections for continual learning (ADR-027).
+            Its row order matches ``results`` (row position == ``window_id``).
 
     Returns:
         DataFrame with one row per window and columns
@@ -272,7 +276,9 @@ def predict_from_sensor_logger(
         ``predicted_class`` is one of the three exercises, ``rest`` (gated),
         ``unknown`` (novelty-rejected), or ``uncertain`` (low confidence).
         ``DataFrame.attrs`` carries ``detected_hz`` and
-        ``n_samples_after_resample``.
+        ``n_samples_after_resample``. If ``return_windows`` is True, returns a
+        ``(results, window_df)`` tuple instead, where ``window_df`` holds the
+        per-window raw signal channels (``raw_a*`` / ``raw_g*``).
 
     Raises:
         ValueError: If the recording is too short to form a single window.
@@ -353,4 +359,6 @@ def predict_from_sensor_logger(
     )
     results.attrs["detected_hz"] = detected_hz
     results.attrs["n_samples_after_resample"] = len(raw_df)
+    if return_windows:
+        return results, window_df
     return results

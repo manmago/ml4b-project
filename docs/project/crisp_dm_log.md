@@ -188,3 +188,12 @@ import from `src/ml4b/`, run top-to-bottom against `data/raw/kaggle_gym_imu/`,
 and `04_modeling` reproduces the committed leave-one-set-out macro F1 of 0.776.
 There is no `01_business_understanding.ipynb` or `06_deployment.ipynb` in the
 repo; those phases are documented under `docs/` instead.
+
+**Continual learning / human-in-the-loop (2026-06-05, ADR-027):** the app now
+captures the user's per-window label corrections and can rebuild the model from
+the base data **plus** those corrections through the same windowing → augmentation
+→ invariant-feature → Random Forest pipeline (`src/ml4b/feedback/`,
+`scripts/update_model.py`). Corrections persist to `data/feedback/feedback.jsonl`
+(raw windows + label); new labels become new classes. This is a deployment-phase
+loop back into Data Preparation/Modeling — the direct, documented attack on the
+single-subject limitation (ADR-021).

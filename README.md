@@ -113,6 +113,23 @@ ADR-016 and [`docs/data_understanding/dataset_evaluation.md`](docs/data_understa
 
 ---
 
+## Improve the Model with Your Corrections (continual learning)
+
+The app learns from you. On the **Predict Exercise** page, after a prediction,
+open **✏️ Correct & Improve**, set the correct label for any window (or type a
+**new** exercise), and **save** — corrections are stored in
+`data/feedback/feedback.jsonl` (local, never committed). Then click **🔁 Retrain
+model with my corrections** (or run `uv run python scripts/update_model.py`) to
+rebuild the model on the base data **plus** your corrections, using the same
+pipeline as initial training. New labels become new classes automatically.
+
+The originally-shipped model is backed up to `models/saved/best_model_base.joblib`
+(restore with `uv run python scripts/update_model.py --restore-base`). Retraining
+needs the base Kaggle dataset; without it, corrections are still collected for
+later. See [ADR-027](docs/decisions/ADR-027-continual-learning-feedback-loop.md).
+
+---
+
 ## Development
 
 ```bash

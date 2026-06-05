@@ -39,6 +39,9 @@ data/processed/*
 !data/processed/.gitkeep
 !data/processed/README.md
 data/external/
+# User-correction feedback for continual learning (ADR-027) — the end user's own
+# labelled data, kept local and never committed.
+data/feedback/
 *.csv
 *.parquet
 *.h5
