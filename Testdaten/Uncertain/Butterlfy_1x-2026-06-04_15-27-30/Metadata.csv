@@ -1,0 +1,2 @@
+version,device name,recording epoch time,recording time,recording timezone,platform,appVersion,device id,sensors,sampleRateMs,standardisation,platform version
+3,iPhone 13,1780586850713,2026-06-04_15-27-30,Europe/Berlin,ios,1.59,a51dc9ae-343e-4d4e-897e-40f119bd758a,Heart Rate|Wrist Motion|Watch Location|Watch Barometer|Watch Magnetometer|Watch Compass|Activity|Headphone|Annotation,10|10|10|10|10|10|0|10|,false,18.7.1

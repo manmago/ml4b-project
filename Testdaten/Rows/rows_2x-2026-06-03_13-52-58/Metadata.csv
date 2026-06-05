@@ -1,0 +1,2 @@
+version,device name,recording epoch time,recording time,recording timezone,platform,appVersion,device id,sensors,sampleRateMs,standardisation
+4,Watch6.6,1780494778687,2026-06-03_13-52-58,Europe/Berlin,watchos,1.59,2392741E-E9ED-4DFC-95B8-5FD51B40E07D,WatchBarometer|WatchCompass|WatchMagnetometer|WatchLocation|HeartRate|WatchAccelerometerUncalibrated|WristMotion,0|0|0|0|0|0|0,false

@@ -39,7 +39,6 @@ data/processed/*
 !data/processed/.gitkeep
 !data/processed/README.md
 data/external/
-*.csv
 *.parquet
 *.h5
 *.hdf5
