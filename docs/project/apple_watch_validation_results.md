@@ -38,7 +38,7 @@ Date: 2026-06-01 · Model: `best_model.joblib` (leave-one-set-out macro F1 0.776
   watch was idle for much of that long recording), and `uncertain` absorbs
   low-confidence windows — neither is forced into a wrong exercise class.
 - **Push-ups are out of scope and behave as expected.** `push_up` is **not** a
-  trained class (it is absent from the Kaggle dataset — ADR-016). The model maps
+  trained class (it is absent from the Kaggle dataset — DECISIONS.md). The model maps
   the motion to its nearest in-scope class (`tricep_extension`, which also
   involves elbow extension) at **low confidence (0.51)** with 9/32 windows
   `uncertain`. This is a faithful "I don't have this class" signal, not a claim
@@ -46,12 +46,12 @@ Date: 2026-06-01 · Model: `best_model.joblib` (leave-one-set-out macro F1 0.776
 
 ## What this does and does not show
 
-- **Does show:** the Apple-Watch training domain (ADR-016) transfers — real
+- **Does show:** the Apple-Watch training domain (DECISIONS.md) transfers — real
   Apple-Watch curls are correctly identified, unlike the previous MM-Fit model;
   the rest gate and confidence threshold behave sensibly on real data.
 - **Does not show:** cross-subject performance. These samples are from a single
   user; with only 3 recordings this is a qualitative check. As documented in
-  ADR-021, true cross-person accuracy is expected to be **below** the
+  DECISIONS.md, true cross-person accuracy is expected to be **below** the
   leave-one-set-out macro F1 of 0.776 and cannot be measured from the
   single-subject anchor.
 

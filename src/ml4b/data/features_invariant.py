@@ -24,7 +24,7 @@ The features here are deliberately robust to that nuisance variation:
   describe the repetition cadence, the single most informative cue separating a
   real exercise from a still pause.
 
-See ADR-018 for the rationale and ADR-019 for the augmentation that complements
+See DECISIONS.md for the rationale and DECISIONS.md for the augmentation that complements
 these features.
 """
 

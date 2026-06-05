@@ -71,7 +71,7 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
         model: Trained classifier loaded by the app entry point.
         feature_names: Ordered feature names the model expects.
         novelty_detector: Optional fitted novelty detector that flags exercises
-            the model was not trained on as ``unknown`` (ADR-024). When ``None``,
+            the model was not trained on as ``unknown`` (DECISIONS.md). When ``None``,
             no out-of-distribution rejection is applied.
     """
     st.title("🔮 Predict Exercise")

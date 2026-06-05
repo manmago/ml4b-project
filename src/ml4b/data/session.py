@@ -5,7 +5,7 @@ emits one label per 2-second window over a whole continuous recording. For a rea
 gym session — where the user records once and performs several exercises with rest
 pauses between sets — a flat per-window list is hard to read. This module folds
 that timeline into **bouts**: maximal runs of consecutive *active* windows, split
-by the ``rest`` windows the activity gate detected (ADR-017, ADR-025).
+by the ``rest`` windows the activity gate detected (DECISIONS.md).
 
 Each bout is the natural unit of a gym "set". It is summarised by a single label
 chosen by majority vote over the genuine-exercise windows in the bout, which also

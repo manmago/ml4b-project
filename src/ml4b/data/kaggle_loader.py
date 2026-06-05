@@ -1,6 +1,6 @@
 """Loader for the Kaggle 'Gym Workout IMU Dataset' (Apple Watch, 100 Hz).
 
-This is the training-data source for the final 3-class model (see ADR-016). The
+This is the training-data source for the final 3-class model (see DECISIONS.md). The
 dataset is 164 single-set CSV files recorded on an Apple Watch SE worn on the
 left wrist, sampled at 100 Hz. Each file is one set; the filename encodes the
 exercise (``DDMMYY_ABBREV_Wweight_Sset_Rreps-timestamp.csv``) and the in-file
@@ -13,7 +13,7 @@ selecting only the files that map to our three target classes and canonicalizing
 the channels via :mod:`ml4b.data.canonical` so they are byte-for-byte compatible
 with the Sensor Logger inference path.
 
-Why three classes (see ADR-016): they maximise per-class coverage AND are
+Why three classes (see DECISIONS.md): they maximise per-class coverage AND are
 biomechanically distinct across different movement axes — elbow flexion
 (curl), elbow extension overhead (triceps), and horizontal pull (row).
 """
@@ -35,7 +35,7 @@ KAGGLE_DIR: Path = DATA_RAW / "kaggle_gym_imu"
 
 # Maps each raw Kaggle exercise abbreviation to one of our three target classes.
 # Only abbreviations listed here are loaded; every other exercise in the dataset
-# (presses, raises, pulldowns, wrist curls, ...) is ignored. See ADR-016 for the
+# (presses, raises, pulldowns, wrist curls, ...) is ignored. See DECISIONS.md for the
 # decode of every abbreviation and the rationale for these groupings.
 ABBREV_TO_CLASS: dict[str, str] = {
     # bicep_curl — elbow flexion (24 sets total)
@@ -118,7 +118,7 @@ def load_kaggle_3class(kaggle_dir: Path = KAGGLE_DIR) -> pd.DataFrame:
 
     Each file becomes one ``recording_id`` (its filename stem) so the sliding
     window never crosses a set boundary and so the trainer can group by set for
-    leave-one-set-out evaluation (see ADR-021). The single-subject dataset is
+    leave-one-set-out evaluation (see DECISIONS.md). The single-subject dataset is
     given a constant ``subject_id`` of 0.
 
     Args:

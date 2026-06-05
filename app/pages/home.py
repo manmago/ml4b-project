@@ -28,7 +28,7 @@ def render() -> None:
         "This app recognizes **three gym exercises from wrist-worn sensor data** "
         "(Apple Watch accelerometer + gyroscope) using a Random Forest model "
         "trained on the **Kaggle Gym Workout IMU dataset** — recorded on an Apple "
-        "Watch, the same device you upload from (see ADR-016). Record a workout "
+        "Watch, the same device you upload from (see DECISIONS.md). Record a workout "
         "with the **Sensor Logger** app, upload the file, and the app predicts "
         "which exercise you performed in each 2-second window — with a confidence "
         "score. Pauses between sets are detected automatically as **rest**."
@@ -41,7 +41,7 @@ def render() -> None:
     col2.metric(
         "Macro F1 (leave-one-set-out)",
         f"{metrics['cv_macro_f1']:.3f}",
-        help="Honest cross-set estimate on a single-subject dataset — see ADR-021.",
+        help="Honest cross-set estimate on a single-subject dataset — see DECISIONS.md.",
     )
     col3.metric("Accuracy (leave-one-set-out)", f"{metrics['cv_accuracy']:.1%}")
     col4.metric("Exercises", "3 classes")
@@ -65,11 +65,11 @@ def render() -> None:
             "1. **Resample** the upload to 100 Hz (Apple Watch native rate)\n"
             "2. **Sliding window** — 2 s windows (200 samples, 50% overlap)\n"
             "3. **Activity gate** — low-motion windows are labelled `rest` "
-            "(ADR-017)\n"
+            "(DECISIONS.md)\n"
             "4. **Invariant features** — orientation-robust magnitude, shape and "
-            "spectral features (ADR-018)\n"
+            "spectral features (DECISIONS.md)\n"
             "5. **Prediction** — Random Forest classifies each active window; "
-            "low-confidence windows become `uncertain` (ADR-020)\n\n"
+            "low-confidence windows become `uncertain` (DECISIONS.md)\n\n"
             "The app uses the **exact same preprocessing code as training** "
             "(`src/ml4b/data/`), so predictions stay consistent."
         )

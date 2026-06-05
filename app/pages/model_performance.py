@@ -1,7 +1,7 @@
 """Model Performance page for the ML4B Streamlit app.
 
 Displays the **honest leave-one-set-out** evaluation of the Random Forest trained
-on the Kaggle Gym Workout IMU dataset (Apple Watch, single subject — ADR-016).
+on the Kaggle Gym Workout IMU dataset (Apple Watch, single subject — DECISIONS.md).
 All numbers are loaded from the committed ``models/saved/model_metrics.json`` so
 the page always reflects what training actually produced (no hardcoded metrics,
 no dataset needed). Reproduce with ``uv run python scripts/train_model.py``.
@@ -40,7 +40,7 @@ def render() -> None:
         "cross-validation**: each of the dataset's exercise *sets* is held out "
         "once and predicted by a model trained on the others, so no window from a "
         "set is ever used to score itself. This is the honest, leakage-free "
-        "estimate for a single-subject dataset (ADR-021). Reproduce with "
+        "estimate for a single-subject dataset (DECISIONS.md). Reproduce with "
         "`uv run python scripts/train_model.py`."
     )
 
@@ -128,15 +128,15 @@ def render() -> None:
             ],
             "Value": [
                 "Random Forest (300 trees, class_weight='balanced', seed 42)",
-                "Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (ADR-016)",
+                "Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (DECISIONS.md)",
                 ", ".join(_humanize(c) for c in classes) + " (+ rest, uncertain)",
-                f"{metrics['n_features']} device-invariant features (ADR-018)",
+                f"{metrics['n_features']} device-invariant features (DECISIONS.md)",
                 "200 samples = 2 s @ 100 Hz, 50% overlap",
-                f"{metrics['n_augment']}× rotation+time-warp+mirror+jitter (ADR-019)",
+                f"{metrics['n_augment']}× rotation+time-warp+mirror+jitter (DECISIONS.md)",
                 f"{metrics['evaluation']}",
                 f"energy gate: accel-std > {gate['accel_mag_std']} g OR "
-                f"gyro-mean > {gate['gyro_mag_mean']} rad/s (ADR-017)",
-                "max class probability < 0.50 → 'uncertain' (ADR-020)",
+                f"gyro-mean > {gate['gyro_mag_mean']} rad/s (DECISIONS.md)",
+                "max class probability < 0.50 → 'uncertain' (DECISIONS.md)",
             ],
         }
     )
@@ -149,7 +149,7 @@ def render() -> None:
         "ℹ️ **Why macro F1, not accuracy?** Macro F1 averages the F1 score equally "
         "across all classes, regardless of how many windows each has. That rewards "
         "the model for getting *every* exercise right — not just the most common "
-        "one — which is what matters for a balanced 3-class recognizer. See ADR-008."
+        "one — which is what matters for a balanced 3-class recognizer. See DECISIONS.md."
     )
 
     # --- Limitations (prominent, honest) -----------------------------------
@@ -164,7 +164,7 @@ def render() -> None:
         "else's movement style.\n"
         "- **Augmentation substitutes for missing subject diversity.** Random "
         "rotation, time-warp, mirroring and jitter synthesise the variability that "
-        "more subjects would have provided (ADR-019) — a sound, documented "
+        "more subjects would have provided (DECISIONS.md) — a sound, documented "
         "mitigation, but not a replacement for real multi-subject data, which was "
         "not available.\n"
         "- **Methodology is correct even if the ceiling is limited:** Apple-Watch "

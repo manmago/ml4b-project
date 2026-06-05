@@ -1,9 +1,9 @@
 """Sensor data augmentation — a synthetic substitute for subject diversity.
 
 The final model is trained on a **single-subject** Apple-Watch dataset (the
-Kaggle Gym Workout IMU dataset; ADR-016) yet must generalise to *other* people
+Kaggle Gym Workout IMU dataset; DECISIONS.md) yet must generalise to *other* people
 uploading from *their* Apple Watch. We cannot collect more subjects, so instead
-we synthesise the variability that more subjects would have provided (ADR-019).
+we synthesise the variability that more subjects would have provided (DECISIONS.md).
 Four physically-motivated augmentations are composed per copy:
 
 * **Random 3-D rotation** — simulates different watch orientations / mounting and

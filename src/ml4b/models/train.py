@@ -8,7 +8,7 @@ class_weight='balanced' as a second safeguard against class imbalance
 The three models trained here — Random Forest, XGBoost, SVM — are compared
 by macro F1 on the validation set in notebooks/04_modeling.ipynb. The winner
 is serialised to models/saved/ for use in the Streamlit app.
-See ADR-009 for the model selection rationale.
+See DECISIONS.md for the model selection rationale.
 """
 
 from typing import Any
@@ -31,7 +31,7 @@ def train_random_forest(
     multi-class classification natively, is robust to feature
     scaling differences, provides feature importance scores,
     and typically performs well on tabular sensor features.
-    See ADR-009 for model selection rationale.
+    See DECISIONS.md for model selection rationale.
 
     Args:
         X_train: Feature matrix of shape (n_samples, n_features)
@@ -48,7 +48,7 @@ def train_random_forest(
     # trees scored ~1.0 macro F1 on TRAIN — a sign of over-confident
     # memorization that generalizes worse across devices. Capping depth and
     # enlarging leaves trades almost no validation F1 for a less over-fit,
-    # better-calibrated model — see ADR-015.
+    # better-calibrated model — see DECISIONS.md.
     # min_samples_split=5: avoid splitting on tiny, noise-driven subsets.
     # class_weight='balanced': reweights each class by inverse frequency —
     # second safety net on top of the undersampling done in data preparation.
@@ -75,7 +75,7 @@ def train_xgboost(
     XGBoost uses sequential boosting (each tree corrects prior residuals)
     rather than bagging, which often outperforms Random Forest on tabular data.
     It natively handles multi-class via softmax and does not require feature
-    scaling. See ADR-009 for model selection rationale.
+    scaling. See DECISIONS.md for model selection rationale.
 
     String class labels are encoded to integers internally via LabelEncoder
     (XGBoost requires numeric targets when sample_weight is provided).
@@ -148,7 +148,7 @@ def train_svm(
     dominate the decision boundary. StandardScaler is applied inside a Pipeline
     so the scaler is fitted on training data only, preventing data leakage.
     The Pipeline also ensures the scaler is automatically applied at prediction
-    time in the Streamlit app. See ADR-009 for model selection rationale.
+    time in the Streamlit app. See DECISIONS.md for model selection rationale.
 
     Args:
         X_train: Feature matrix (scaled internally by the Pipeline)

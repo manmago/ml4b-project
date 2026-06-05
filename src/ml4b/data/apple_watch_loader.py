@@ -13,9 +13,9 @@ Both the Kaggle training data and Sensor Logger uploads are Apple CoreMotion
 ``DeviceMotion`` streams, so the canonicalization is the same on both sides:
 total acceleration (userAcceleration + gravity) in **g** and rotation rate in
 **rad/s** — no cross-device unit conversion (the device-domain match that
-motivated ADR-016).
+motivated DECISIONS.md).
 
-Pipeline (see ADR-016..ADR-024):
+Pipeline (see DECISIONS.md):
     load (CSV/ZIP) -> normalize columns -> resample to 100 Hz
         -> sliding window (200, 50% overlap)
         -> activity gate (rest is NOT a model class)
@@ -56,7 +56,7 @@ UNCERTAIN_LABEL = "uncertain"
 
 # Label used for active windows the (optional) novelty detector rejects as
 # out-of-distribution — an exercise the closed-set model was never trained on
-# (ADR-024). Distinct from UNCERTAIN_LABEL: novelty is "not one of our classes",
+# (DECISIONS.md). Distinct from UNCERTAIN_LABEL: novelty is "not one of our classes",
 # uncertainty is "one of our classes, but the model is not confident".
 NOVEL_LABEL = "unknown"
 
@@ -154,7 +154,7 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             # Reconstruct TOTAL acceleration in g (userAccel + gravity) when the
             # mapping read CoreMotion user acceleration and a gravity vector is
             # available — this matches the Kaggle training canonicalization
-            # exactly (total accel in g, no m/s² conversion). See ADR-016.
+            # exactly (total accel in g, no m/s² conversion). See DECISIONS.md.
             mapped_from_acceleration = any(
                 key.lower().startswith("acceleration") for key in mapping
             )
@@ -322,7 +322,7 @@ def predict_from_sensor_logger(
         # Novelty gate (optional): reject out-of-distribution windows as
         # "unknown" so an unseen exercise is not forced into one of the three
         # trained classes. Only the windows the detector accepts as known reach
-        # the model. See ADR-024.
+        # the model. See DECISIONS.md.
         if novelty_detector is not None:
             known = novelty_detector.is_known(X[active_idx])
             predicted[active_idx[~known]] = NOVEL_LABEL  # confidence stays NaN

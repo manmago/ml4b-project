@@ -23,9 +23,9 @@ window — with a confidence score.
 3. **Row** — horizontal pull
 
 Plus two outputs produced *outside* the model:
-- **Rest** — low-motion pauses, detected by an energy gate (ADR-017), not a
+- **Rest** — low-motion pauses, detected by an energy gate (DECISIONS.md), not a
   trained class.
-- **Uncertain** — an active window the model is not confident about (ADR-020).
+- **Uncertain** — an active window the model is not confident about (DECISIONS.md).
 
 ---
 
@@ -49,7 +49,7 @@ make run        # or ./run_app.sh · run_app.bat · uv run streamlit run app/str
 
 → Open **http://localhost:8501**. No Python install, no `uv sync`, no dataset
 needed — `uv run` provisions everything and the trained model is committed
-(ADR-022, ADR-011). OS guides: `docs/setup/Setup_*.md`.
+(DECISIONS.md). OS guides: `docs/setup/Setup_*.md`.
 
 ---
 
@@ -68,23 +68,23 @@ streams, so the canonicalization is identical on both sides.
 **Step 2 — Resample** to 100 Hz (Apple Watch native rate; `canonical.resample_uniform`).
 
 **Step 3 — Sliding window** — `src/ml4b/data/windowing.py`, 200 samples = 2 s,
-50% overlap (ADR-006). Carries `recording_id` so windows can be grouped by set.
+50% overlap (DECISIONS.md). Carries `recording_id` so windows can be grouped by set.
 
 **Step 4 — Activity gate** — `src/ml4b/data/activity_gate.py` labels low-energy
-windows as `rest` so they never reach the model (ADR-017).
+windows as `rest` so they never reach the model (DECISIONS.md).
 
 **Step 5 — Invariant features** — `src/ml4b/data/features_invariant.py`, 39
 orientation-/offset-robust features: magnitude stats + spectral, per-window
-z-normalized shape features, axis-pair correlations (ADR-018).
+z-normalized shape features, axis-pair correlations (DECISIONS.md).
 
 **Step 6 — Model** — Random Forest (`src/ml4b/models/train.py`),
 `class_weight='balanced'`, `random_state=42`.
 
 **Step 7 — Confidence threshold** — predictions below 0.50 top probability are
-reported as `uncertain` (ADR-020).
+reported as `uncertain` (DECISIONS.md).
 
 Training augments windows 6× (rotation + time-warp + mirror + jitter) to
-synthesise the subject diversity a single-subject dataset lacks (ADR-019).
+synthesise the subject diversity a single-subject dataset lacks (DECISIONS.md).
 
 ---
 
@@ -93,8 +93,8 @@ synthesise the subject diversity a single-subject dataset lacks (ADR-019).
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest |
-| Training anchor | Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (ADR-016) |
-| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; ADR-021) |
+| Training anchor | Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (DECISIONS.md) |
+| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; DECISIONS.md) |
 | Macro F1 | **0.776** |
 | Accuracy | 78.2% |
 | Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
@@ -112,44 +112,45 @@ This is a methodologically sound project with a **data-limited ceiling**:
 - **Single-subject training anchor.** The Kaggle dataset is one person on one
   Apple Watch. True leave-one-**subject**-out evaluation is impossible, so the
   reported macro F1 measures generalisation to an unseen **set**, not a new
-  **person** (ADR-021).
+  **person** (DECISIONS.md).
 - **Real-world performance will be below the reported numbers** for a different
   user, because the model has never seen anyone else's movement style.
-- **Augmentation substitutes for missing subject diversity** (ADR-019) — a
+- **Augmentation substitutes for missing subject diversity** (DECISIONS.md) — a
   documented, standard mitigation when target-domain multi-subject data cannot
   be collected, but not a replacement for real data.
 - **No target-domain multi-subject data was available**, and none could be
   collected within the project.
 
 What *is* solid: the training domain matches deployment (Apple Watch → Apple
-Watch, ADR-016), evaluation is leakage-free (ADR-021), features are
-device-invariant (ADR-018), rest is gated rather than learned (ADR-017), and the
-model abstains when unsure (ADR-020).
+Watch, DECISIONS.md), evaluation is leakage-free (DECISIONS.md), features are
+device-invariant (DECISIONS.md), rest is gated rather than learned (DECISIONS.md), and the
+model abstains when unsure (DECISIONS.md).
 
 ---
 
 ## 7. Key Decisions Made (and Why)
 
-Every decision has a full ADR in `docs/decisions/`. Plain-language summary:
+Every decision is recorded in [`docs/DECISIONS.md`](../DECISIONS.md) (with the
+section noted). Plain-language summary:
 
-| Decision | What we chose | ADR |
-|----------|--------------|-----|
-| Package manager | uv | ADR-001 |
-| ML framework | scikit-learn | ADR-002 |
-| Code/doc standard | Google docstrings + inline comments | ADR-004 |
-| Sliding window | 2 s window (200 @ 100 Hz), 50% overlap | ADR-006 |
-| Commit model to git | yes — app runs with no dataset | ADR-011 |
-| Dataset journey | RecoFit → MM-Fit → **Kaggle Apple-Watch** | ADR-013, ADR-016 |
-| **Final 3 classes** | bicep_curl, tricep_extension, row (distinct axes, best coverage) | **ADR-016** |
-| **Activity gate** | energy-threshold rest (not a class) | **ADR-017** |
-| **Invariant features** | magnitude + z-norm shape + correlations (39) | **ADR-018** |
-| **Augmentation** | rotation+time-warp+mirror+jitter as subject-diversity substitute | **ADR-019** |
-| **Confidence threshold** | < 0.50 → uncertain | **ADR-020** |
-| **Evaluation** | leave-one-set-out (single subject limitation) | **ADR-021** |
-| **One-command launch** | `uv run` / Makefile / run_app scripts | **ADR-022** |
+| Decision | What we chose | DECISIONS.md |
+|----------|--------------|--------------|
+| Package manager | uv | §1 |
+| ML framework | scikit-learn | §2 |
+| Code/doc standard | Google docstrings + inline comments | §7 |
+| Sliding window | 2 s window (200 @ 100 Hz), 50% overlap | §4 |
+| Commit model to git | yes — app runs with no dataset | §3 |
+| Dataset journey | RecoFit → MM-Fit → **Kaggle Apple-Watch** | §3 |
+| **Final 3 classes** | bicep_curl, tricep_extension, row (distinct axes, best coverage) | **§3** |
+| **Activity gate** | energy-threshold rest (not a class) | **§5** |
+| **Invariant features** | magnitude + z-norm shape + correlations (39) | **§4** |
+| **Augmentation** | rotation+time-warp+mirror+jitter as subject-diversity substitute | **§4** |
+| **Confidence threshold** | < 0.50 → uncertain | **§5** |
+| **Evaluation** | leave-one-set-out (single subject limitation) | **§6** |
+| **One-command launch** | `uv run` / Makefile / run_app scripts | **§1** |
 
-Earlier ADRs (005, 007, 008, 009, 010, 012, 013, 014, 015) document the original
-RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
+The original RecoFit/MM-Fit pipeline that was superseded is summarised in
+`DECISIONS.md` §3 and §6 (marked "superseded") and kept for history.
 
 ---
 
@@ -159,7 +160,7 @@ RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
 |--------------|---------------|
 | Project goals and research question | `docs/business_understanding/business_understanding.md` |
 | Dataset evaluation and selection | `docs/data_understanding/dataset_evaluation.md` |
-| All technical decisions | `docs/decisions/ADR-001` … `ADR-023` |
+| All technical decisions | `docs/DECISIONS.mdDECISIONS.md` … `DECISIONS.md` |
 | CRISP-DM progress log | `docs/project/crisp_dm_log.md` |
 | System architecture (arc42) | `docs/architecture/architecture.md` |
 | Sensor columns + features | `docs/data/data_dictionary.md` |
@@ -175,7 +176,7 @@ RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
 
 ## 9. Dataset
 
-**Kaggle "Gym Workout IMU Dataset" (current training anchor — ADR-016)**
+**Kaggle "Gym Workout IMU Dataset" (current training anchor — DECISIONS.md)**
 - Apple Watch SE, **left wrist**, **100 Hz**, accelerometer + gyroscope.
 - 164 single-set CSV files; 75 of them map to our 3 classes (24 bicep / 21 row /
   30 triceps). Single subject.
@@ -184,9 +185,9 @@ RecoFit/MM-Fit pipeline that was superseded; they are kept for history.
 
 **Abandoned sources (kept only for history):**
 - **MM-Fit** — non-Apple smartwatch; good test scores but failed to transfer to
-  real Apple-Watch uploads (device-domain mismatch). Superseded by Kaggle (ADR-016).
+  real Apple-Watch uploads (device-domain mismatch). Superseded by Kaggle (DECISIONS.md).
 - **RecoFit** (Microsoft Research) — forearm-worn sensor, 50 Hz; superseded
-  because the Apple Watch is wrist-worn (ADR-013).
+  because the Apple Watch is wrist-worn (DECISIONS.md).
 
 ---
 

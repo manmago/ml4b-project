@@ -4,13 +4,13 @@ This module covers two responsibilities:
 
 1. **Subject-based splitting** (:func:`subject_based_split`) — partitions the
    feature DataFrame into disjoint train / val / test sets at the *subject*
-   level to prevent data leakage.  See ADR-007.
+   level to prevent data leakage.  See DECISIONS.md.
 
 2. **Majority-class undersampling** (:func:`undersample_majority_class`) —
    reduces the dominance of the ``rest`` class, which accounts for ~89% of
    windows after windowing.  Without correction a model predicting "rest"
    for every window would achieve ~89% accuracy — useless in practice.
-   See ADR-008.
+   See DECISIONS.md.
 
 Only the *training* set is undersampled.  Val and test sets intentionally
 keep the original distribution so evaluation metrics reflect real-world
@@ -110,7 +110,7 @@ def undersample_majority_class(
     Strategy: cap the majority class at multiplier × size of the
     largest minority class. This preserves enough rest examples for
     the model to learn the rest pattern while reducing dominance.
-    See ADR-008 for full rationale.
+    See DECISIONS.md for full rationale.
 
     Args:
         df: Feature DataFrame with label_column.

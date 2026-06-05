@@ -102,7 +102,7 @@ def test_primary_restores_total_acceleration_in_g() -> None:
 
     The Kaggle training data and Sensor Logger uploads are both Apple CoreMotion,
     so acceleration is canonicalized to total acceleration in g (userAccel +
-    gravity) with NO m/s² conversion — see ADR-016.
+    gravity) with NO m/s² conversion — see DECISIONS.md.
     """
     df = _format_primary()
     out = detect_and_normalize_columns(df)
