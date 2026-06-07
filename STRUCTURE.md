@@ -23,7 +23,7 @@ ml4b-project/
 ├── .streamlit/             ← Streamlit config (single sidebar navigation)
 ├── .env.example            ← Template showing all available env variables
 ├── .gitignore              ← What git ignores (with model/metrics exceptions)
-├── Makefile                ← Shortcuts: make run / train / update / test / lint / format
+├── Makefile                ← Shortcuts: make run / train / update / calibrate / test / lint / format
 ├── run_app.sh              ← One-click app launcher (macOS/Linux/WSL)
 ├── run_app.bat             ← One-click app launcher (Windows)
 ├── STRUCTURE.md            ← This file
@@ -166,6 +166,7 @@ src/ml4b/
 │   │                            carries recording_id for set-grouped evaluation
 │   ├── features_invariant.py ← CURRENT features: 39 device-invariant features (DECISIONS.md)
 │   ├── activity_gate.py      ← Energy-threshold rest detection — not a class (DECISIONS.md)
+│   ├── testdaten.py          ← Testdaten/ folder discovery + labels (shared by rebuild + calibrate)
 │   ├── novelty.py            ← Open-set novelty detection — unseen exercise → unknown (DECISIONS.md)
 │   ├── session.py            ← Bout segmentation — fold windows into per-set summary (DECISIONS.md)
 │   ├── augmentation.py       ← Rotation+time-warp+mirror+jitter augmentation (DECISIONS.md)
@@ -205,6 +206,9 @@ scripts/
 │                                committed Testdaten/<Exercise>/ folders (DECISIONS.md §8,
 │                                docs/project/continual_training.md). Run: uv run python
 │                                scripts/rebuild_from_testdaten.py  (--no-cv to skip CV)
+├── calibrate_gate.py         ← Read-only: measure rest (Testdaten/Rest/) vs exercise (Kaggle)
+│                                energy, recommend activity-gate thresholds in the gap (`make
+│                                calibrate`; DECISIONS.md §5). Run: uv run python scripts/calibrate_gate.py
 ├── train_model.py            ← Train the 3-class model on Kaggle data ONLY, with leave-one-set-out
 │                                CV; saves best_model.joblib + model_metrics.json + feature_names.txt.
 │                                Run: uv run python scripts/train_model.py

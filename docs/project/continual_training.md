@@ -97,7 +97,13 @@ committed by one person** — nobody hand-edits the model, which keeps merges cl
 ## Why Rest and Uncertain are validation, not classes
 - **Rest** is detected by a device-agnostic **energy gate**, not a learned class.
   A learned rest class transfers badly between people and over-predicts rest on real
-  uploads, so we keep the gate and only use `Rest/` recordings to check it.
+  uploads, so we keep the gate. `Rest/` recordings instead **calibrate** the gate:
+  the threshold must sit *below* real exercise energy and *above* genuine rest energy,
+  so the gate is bounded from both sides. `make calibrate`
+  (`scripts/calibrate_gate.py`) measures both distributions, reports the margin to
+  each side, and recommends a threshold in the gap — apply one by editing the two
+  constants in `src/ml4b/data/activity_gate.py`. Record a few pauses (watch still,
+  fidgeting, drinking) into `Testdaten/Rest/` to verify/tune the lower bound.
 - **Uncertain** holds *other* exercises (squats, presses, …). Instead of an
   "everything-else" class (which only memorises the few foreign exercises we happened
   to record), the **novelty detector** rejects anything far from the known classes —

@@ -4,7 +4,7 @@
 # These wrap the canonical `uv run ...` commands so contributors don't have to
 # remember them. See README.md for the full workflow.
 
-.PHONY: help run train update test lint format check setup
+.PHONY: help run train update calibrate test lint format check setup
 
 help:  ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -21,6 +21,9 @@ train:  ## Train from scratch on the Kaggle anchor only (needs data/raw/kaggle_g
 
 update:  ## Rebuild model+novelty+metrics from Kaggle + committed Testdaten/ (continual learning).
 	uv run python scripts/rebuild_from_testdaten.py
+
+calibrate:  ## Analyse the activity-gate thresholds against rest + exercise energy (read-only).
+	uv run python scripts/calibrate_gate.py
 
 test:  ## Run the unit test suite.
 	uv run pytest

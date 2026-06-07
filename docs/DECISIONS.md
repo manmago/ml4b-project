@@ -130,6 +130,13 @@ confidently emitting a wrong label on real, open-ended recordings:
   class. A learned `rest` over-predicted on real uploads and the Kaggle anchor has
   no rest data anyway. Windows below both thresholds are `rest` and never reach
   the model. The same gate is used in training exploration and the app.
+  *Calibration:* the thresholds are bounded from two sides — they must stay **below**
+  real exercise energy (upper bound, from Kaggle) **and above** genuine rest energy
+  (lower bound, from committed `Testdaten/Rest/`). `scripts/calibrate_gate.py`
+  (`make calibrate`) measures both distributions and recommends a threshold in the
+  gap; rest recordings thus *calibrate the gate* rather than becoming a class. With
+  no `Testdaten/Rest/` data the lower bound is unverified (currently ~90% of Kaggle
+  exercise windows clear the gate; the rest are low-energy pauses).
 - **Confidence threshold → `uncertain`.** If the model's top class probability is
   below `0.50`, the window is reported `uncertain` instead of a forced class —
   honest abstention for a 3-class model on open-ended motion.

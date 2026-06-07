@@ -74,110 +74,30 @@ from sklearn.model_selection import LeaveOneGroupOut
 from ml4b.data.activity_gate import (
     ACCEL_MAG_STD_THRESHOLD,
     GYRO_MAG_MEAN_THRESHOLD,
-    gate_window_df,
     window_energy,
 )
-from ml4b.data.apple_watch_loader import (
-    load_and_window_recording,
-    predict_from_sensor_logger,
-)
+from ml4b.data.apple_watch_loader import predict_from_sensor_logger
 from ml4b.data.augmentation import augment_windows
 from ml4b.data.canonical import OVERLAP, WINDOW_SIZE
 from ml4b.data.features_invariant import extract_invariant_features, feature_columns
 from ml4b.data.kaggle_loader import TARGET_CLASSES, load_kaggle_3class
 from ml4b.data.novelty import NoveltyDetector
+from ml4b.data.testdaten import (
+    REST_PREFIXES,
+    UNCERTAIN_PREFIXES,
+    iter_category,
+    load_exercise_windows,
+    recording_name,
+)
 from ml4b.data.windowing import apply_sliding_window
 from ml4b.models.evaluate import evaluate_model
 from ml4b.models.train import train_random_forest
-from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, PROJECT_ROOT, REPORTS_DIR
+from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, REPORTS_DIR
 
 # Number of augmented copies per original window (-> 6x total). Same as training.
 N_AUGMENT = 5
 # Fixed class order for reproducible reports and confusion-matrix axes.
 CLASS_NAMES = sorted(TARGET_CLASSES)
-# Where the committed Apple-Watch recordings live (one subfolder per category).
-TESTDATEN_DIR = PROJECT_ROOT / "Testdaten"
-
-# Folder-name prefix (lower-cased) -> training label. Prefix match keeps us robust
-# to per-recording suffixes and filename typos: only the folder sets the label.
-EXERCISE_PREFIXES: tuple[tuple[str, str], ...] = (
-    ("biceps_curls", "bicep_curl"),
-    ("rows", "row"),
-    ("triceps_extensions", "tricep_extension"),
-)
-# Non-training folders, used for validation only (never become classes).
-REST_PREFIXES: tuple[str, ...] = ("rest",)
-UNCERTAIN_PREFIXES: tuple[str, ...] = ("uncertain",)
-
-
-def _label_for(folder_name: str) -> str | None:
-    """Return the training label for a Testdaten subfolder, or None if it is not
-    an exercise folder (e.g. ``Rest`` / ``Uncertain`` / anything unrecognised).
-    """
-    name = folder_name.lower()
-    for prefix, label in EXERCISE_PREFIXES:
-        if name.startswith(prefix):
-            return label
-    return None
-
-
-def _recordings_in(folder) -> list:
-    """List the Sensor Logger recordings inside a Testdaten subfolder.
-
-    A recording is either a ``<rec>/WristMotion.csv`` directory export or a
-    Sensor Logger ``.zip`` placed directly in the folder.
-    """
-    return sorted(folder.glob("*/WristMotion.csv")) + sorted(folder.glob("*.zip"))
-
-
-def _recording_name(rec) -> str:
-    """Human-readable id for a recording (its export-folder name, or zip stem)."""
-    return rec.parent.name if rec.suffix.lower() == ".csv" else rec.stem
-
-
-def _load_testdaten_windows() -> tuple[pd.DataFrame, dict[str, int]]:
-    """Window every labelled Testdaten exercise recording into one frame.
-
-    For each exercise folder, every recording is loaded through the SAME front
-    half of the prediction pipeline, gated to its active (motion) windows, and
-    tagged with the folder's label and a unique ``recording_id`` so leave-one-
-    set-out CV treats each recording as one held-out set.
-
-    Returns:
-        ``(window_df, per_label_counts)`` — the combined windowed frame (empty if
-        no recordings) and how many recordings contributed per label.
-    """
-    frames: list[pd.DataFrame] = []
-    counts: dict[str, int] = {}
-    if not TESTDATEN_DIR.is_dir():
-        return pd.DataFrame(), counts
-
-    for sub in sorted(p for p in TESTDATEN_DIR.iterdir() if p.is_dir()):
-        label = _label_for(sub.name)
-        if label is None:
-            continue  # Rest / Uncertain / unrecognised: not a training class.
-        for rec in _recordings_in(sub):
-            rec_name = _recording_name(rec)
-            try:
-                window_df, _hz, _n = load_and_window_recording(rec)
-            except ValueError as exc:
-                print(f"    ! skip {sub.name}/{rec_name}: {exc}")
-                continue
-            # Keep only active (real-movement) windows; a clean set is mostly
-            # motion and rest windows add noise to a labelled set.
-            active = gate_window_df(window_df).to_numpy()
-            window_df = window_df[active].copy()
-            if window_df.empty:
-                print(f"    ! {sub.name}/{rec_name}: all windows gated as rest")
-                continue
-            # Overwrite the loader's placeholder label/group with the real ones.
-            window_df["exercise_name"] = label
-            window_df["recording_id"] = f"testdaten::{label}::{rec_name}"
-            frames.append(window_df)
-            counts[label] = counts.get(label, 0) + 1
-
-    combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    return combined, counts
 
 
 def _gate_calibration(window_df: pd.DataFrame) -> dict[str, float]:
@@ -274,48 +194,52 @@ def _validate_open_set(
     Rest recording we want the windows gated out as ``rest``. Neither folder is a
     training class.
     """
-    if not TESTDATEN_DIR.is_dir():
+    rest_recs = list(iter_category(REST_PREFIXES))
+    unc_recs = list(iter_category(UNCERTAIN_PREFIXES))
+    if not rest_recs and not unc_recs:
         return
     print("\nValidation — real app output (not used for training):")
-    for sub in sorted(p for p in TESTDATEN_DIR.iterdir() if p.is_dir()):
-        name = sub.name.lower()
-        is_uncertain = name.startswith(UNCERTAIN_PREFIXES)
-        is_rest = name.startswith(REST_PREFIXES)
-        if not (is_uncertain or is_rest):
+
+    def _labels(rec):
+        results = predict_from_sensor_logger(
+            rec, model, feature_names, novelty_detector=detector
+        )
+        return results["predicted_class"].astype(str)
+
+    for _folder, rec in rest_recs:
+        try:
+            labels = _labels(rec)
+        except ValueError as exc:
+            print(f"  ! skip {recording_name(rec)}: {exc}")
             continue
-        for rec in _recordings_in(sub):
-            rec_name = _recording_name(rec)
-            try:
-                results = predict_from_sensor_logger(
-                    rec, model, feature_names, novelty_detector=detector
-                )
-            except ValueError as exc:
-                print(f"  ! skip {sub.name}/{rec_name}: {exc}")
-                continue
-            labels = results["predicted_class"].astype(str)
-            if is_rest:
-                # Want a HIGH rest fraction: a rest recording should be gated out.
-                frac_rest = float((labels == "rest").mean())
-                print(
-                    f"  [Rest]      {rec_name}: {frac_rest:5.1%} windows rest (want high)"
-                )
-                continue
-            # Uncertain: among ACTIVE (non-rest) windows, how many did the app
-            # refuse to call a confident exercise (unknown OR uncertain)?
-            active = labels[labels != "rest"]
-            if active.empty:
-                print(f"  [Uncertain] {rec_name}: no active windows")
-                continue
-            refused = active.isin(["unknown", "uncertain"]).mean()
-            guessed = active[~active.isin(["unknown", "uncertain"])]
-            top = ", ".join(
-                f"{k}:{v:.0%}"
-                for k, v in guessed.value_counts(normalize=True).head(2).items()
-            )
-            print(
-                f"  [Uncertain] {rec_name}: {refused:5.1%} refused as unknown/uncertain "
-                f"(want high) | else confidently [{top or '—'}]"
-            )
+        # Want a HIGH rest fraction: a rest recording should be gated out.
+        frac_rest = float((labels == "rest").mean())
+        print(
+            f"  [Rest]      {recording_name(rec)}: {frac_rest:5.1%} windows rest (want high)"
+        )
+
+    for _folder, rec in unc_recs:
+        try:
+            labels = _labels(rec)
+        except ValueError as exc:
+            print(f"  ! skip {recording_name(rec)}: {exc}")
+            continue
+        # Among ACTIVE (non-rest) windows, how many did the app refuse to call a
+        # confident exercise (unknown OR uncertain)?
+        active = labels[labels != "rest"]
+        if active.empty:
+            print(f"  [Uncertain] {recording_name(rec)}: no active windows")
+            continue
+        refused = active.isin(["unknown", "uncertain"]).mean()
+        guessed = active[~active.isin(["unknown", "uncertain"])]
+        top = ", ".join(
+            f"{k}:{v:.0%}"
+            for k, v in guessed.value_counts(normalize=True).head(2).items()
+        )
+        print(
+            f"  [Uncertain] {recording_name(rec)}: {refused:5.1%} refused as "
+            f"unknown/uncertain (want high) | else confidently [{top or '—'}]"
+        )
 
 
 def main() -> None:
@@ -352,7 +276,7 @@ def main() -> None:
     )
 
     print("Step 2/6: Loading committed Testdaten recordings...")
-    td_win, td_counts = _load_testdaten_windows()
+    td_win, td_counts = load_exercise_windows()
     if td_win.empty:
         print("  No Testdaten exercise recordings found — rebuilding on Kaggle only.")
         combined = base_win
