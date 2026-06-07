@@ -166,3 +166,56 @@ def summarize_session(
     _flush()  # close the final bout if the recording ended mid-exercise
 
     return pd.DataFrame(bouts, columns=columns)
+
+
+def count_sets(
+    sets: pd.DataFrame,
+    include_non_exercise: bool = False,
+) -> list[tuple[str, int]]:
+    """Count how many sets were detected per exercise label.
+
+    Folds the per-bout table from :func:`summarize_session` into a per-label set
+    count — the answer to "how many sets of each exercise did I do?". A recording
+    of *bicep curl → rest → bicep curl* yields ``[("bicep_curl", 2)]`` (two sets,
+    one exercise), which is exactly the "2 sets of bicep curl" headline the app
+    shows.
+
+    Args:
+        sets: The per-bout DataFrame returned by :func:`summarize_session`
+            (one row per set, carrying a ``label`` column).
+        include_non_exercise: If ``False`` (default), drop ``rest`` / ``uncertain``
+            / ``unknown`` sets so only genuine exercises are counted. If ``True``,
+            keep them (e.g. to also report "1 uncertain set").
+
+    Returns:
+        A list of ``(label, count)`` pairs ordered by each label's first
+        appearance in time. Empty if there are no qualifying sets.
+    """
+    if sets.empty:
+        return []
+    # dict preserves insertion order (3.7+); bouts are time-ordered, so the
+    # result is ordered by when each exercise was first performed.
+    counts: dict[str, int] = {}
+    for label in sets["label"]:
+        if not include_non_exercise and label in _NON_EXERCISE:
+            continue
+        counts[label] = counts.get(label, 0) + 1
+    return list(counts.items())
+
+
+def format_set_summary(sets: pd.DataFrame) -> str:
+    """Render a one-line, human-readable set summary of a recording.
+
+    Args:
+        sets: The per-bout DataFrame from :func:`summarize_session`.
+
+    Returns:
+        A display string like ``"2 sets of Bicep Curl · 1 set of Row"``, or an
+        empty string if no genuine-exercise sets were detected.
+    """
+    parts = []
+    for label, n in count_sets(sets):
+        nice = label.replace("_", " ").title()
+        unit = "set" if n == 1 else "sets"
+        parts.append(f"{n} {unit} of {nice}")
+    return " · ".join(parts)

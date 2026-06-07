@@ -16,7 +16,7 @@ import plotly.express as px
 import streamlit as st
 
 from ml4b.data.apple_watch_loader import predict_from_sensor_logger
-from ml4b.data.session import dominant_label, summarize_session
+from ml4b.data.session import dominant_label, format_set_summary, summarize_session
 from ml4b.feedback import store
 
 # Post-hoc outputs that are not meaningful as a human correction target.
@@ -215,6 +215,11 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     if sets.empty:
         st.info("No active sets detected — the recording looks like rest only.")
     else:
+        # Headline count, e.g. "2 sets of Bicep Curl · 1 set of Row" — the plain
+        # answer to "what did I just do?" before the per-set detail table.
+        summary_line = format_set_summary(sets)
+        if summary_line:
+            st.markdown(f"#### 🧮 {summary_line}")
         sets_display = sets.copy()
         sets_display["Exercise"] = sets_display["label"].map(_humanize)
         sets_display = sets_display[
