@@ -23,7 +23,7 @@ def test_target_classes_are_three_and_sorted() -> None:
 
 
 def test_mapping_covers_expected_abbreviations() -> None:
-    """The documented abbreviation groupings (ADR-016) are present."""
+    """The documented abbreviation groupings (DECISIONS.md) are present."""
     assert ABBREV_TO_CLASS["IDBC"] == "bicep_curl"
     assert ABBREV_TO_CLASS["SAOCTE"] == "tricep_extension"
     assert ABBREV_TO_CLASS["NGCR"] == "row"

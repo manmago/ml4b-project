@@ -1,22 +1,22 @@
 """Train the final 3-class Apple-Watch exercise-recognition model.
 
 Trains the production model on the Kaggle Gym Workout IMU dataset (Apple Watch,
-100 Hz, single subject — ADR-016) for three classes: ``bicep_curl``, ``row`` and
+100 Hz, single subject — DECISIONS.md) for three classes: ``bicep_curl``, ``row`` and
 ``tricep_extension``. The pipeline is:
 
     load (3-class Kaggle) -> sliding window (200 @ 100 Hz, 50% overlap)
-        -> augment (rotation + time-warp + mirror + jitter, ADR-019)
-        -> invariant features (ADR-018)
+        -> augment (rotation + time-warp + mirror + jitter, DECISIONS.md)
+        -> invariant features (DECISIONS.md)
         -> Random Forest (class_weight='balanced', seed 42)
 
 Evaluation uses **leave-one-set-out** cross-validation (each Kaggle file is one
 set / group), so windows from the same set never appear in both train and test —
 the only honest estimate available for a single-subject dataset. True
 leave-one-*subject*-out is impossible here (one subject); this limitation is
-documented in ADR-021. Augmented copies of a held-out set are also excluded from
+documented in DECISIONS.md. Augmented copies of a held-out set are also excluded from
 its training folds, so there is no leakage through augmentation.
 
-Outputs (committed so the app runs with no dataset — ADR-011):
+Outputs (committed so the app runs with no dataset — DECISIONS.md):
     models/saved/best_model.joblib
     models/saved/random_forest.joblib
     data/processed/feature_names.txt
@@ -51,7 +51,7 @@ from ml4b.models.evaluate import evaluate_model
 from ml4b.models.train import train_random_forest
 from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR, REPORTS_DIR
 
-# Number of augmented copies per original window (→ 6× total). See ADR-019.
+# Number of augmented copies per original window (→ 6× total). See DECISIONS.md.
 N_AUGMENT = 5
 # Fixed class order for reproducible reports and confusion-matrix axes.
 CLASS_NAMES = sorted(TARGET_CLASSES)
@@ -62,7 +62,7 @@ def _report_gate_calibration(window_df: pd.DataFrame) -> dict[str, float]:
 
     Computes the accel-magnitude-std and gyro-magnitude-mean of every original
     exercise window and reports low percentiles, so we can confirm the gate
-    thresholds (ADR-017) sit safely below genuine exercise energy.
+    thresholds (DECISIONS.md) sit safely below genuine exercise energy.
 
     Args:
         window_df: Original (non-augmented) windows.
@@ -151,7 +151,7 @@ def main() -> None:
     print("Step 5/6: Leave-one-set-out cross-validation (honest metric)...")
     # For each held-out set, train on all OTHER sets (incl. their augmented
     # copies) and test ONLY on the held-out set's original windows. This is the
-    # leak-free, single-subject-honest estimate (ADR-021).
+    # leak-free, single-subject-honest estimate (DECISIONS.md).
     logo = LeaveOneGroupOut()
     y_true_all: list[str] = []
     y_pred_all: list[str] = []
@@ -191,7 +191,7 @@ def main() -> None:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     # compress=3 keeps the model identical but shrinks the on-disk size ~5x so it
     # stays well under GitHub's 100 MB per-file limit (the model is committed so
-    # the app runs without the dataset — ADR-011).
+    # the app runs without the dataset — DECISIONS.md).
     joblib.dump(final_model, MODELS_DIR / "best_model.joblib", compress=3)
     joblib.dump(final_model, MODELS_DIR / "random_forest.joblib", compress=3)
     DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
@@ -223,7 +223,7 @@ def main() -> None:
     )
     # Also write a committed copy next to the model so the Streamlit Model
     # Performance page can show the real, honest metrics after a fresh clone
-    # (reports/ is gitignored; models/saved/model_metrics.json is not — ADR-011).
+    # (reports/ is gitignored; models/saved/model_metrics.json is not — DECISIONS.md).
     (MODELS_DIR / "model_metrics.json").write_text(
         json.dumps(results_payload, indent=2)
     )

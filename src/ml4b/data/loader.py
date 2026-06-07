@@ -9,7 +9,7 @@ recording into a single long-format pandas DataFrame.
 The loader also applies ``EXERCISE_MAPPING``: only the RecoFit class labels
 listed there are kept and they are renamed to our 6 standardized target
 classes (bicep_curl, shoulder_press, squat, tricep_extension, lateral_raise,
-rest). The selection rationale is documented in ADR-005.
+rest). The selection rationale is documented in DECISIONS.md.
 
 Downstream modules in this subpackage consume the DataFrame produced by
 :func:`load_recofit_raw` — see ``windowing.py`` next.
@@ -32,7 +32,7 @@ import scipy.io
 # target classes. Multiple RecoFit variants of the same movement are merged
 # (e.g. "Bicep Curl" and "Two-arm Dumbbell Curl" both map to "bicep_curl").
 # Any RecoFit label NOT present here is filtered out during loading.
-# Selection rationale: ADR-005 (data-driven, >30 participants per class).
+# Selection rationale: DECISIONS.md (data-driven, >30 participants per class).
 EXERCISE_MAPPING: dict[str, str] = {
     # Bicep Curl variants → bicep_curl
     "Two-arm Dumbbell Curl (both arms, not alternating)": "bicep_curl",

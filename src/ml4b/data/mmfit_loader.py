@@ -6,7 +6,7 @@ plus phones, earbuds and RGB-D video. We use only the **smartwatch
 accelerometer + gyroscope** streams because they match the deployment device
 — an Apple Watch worn on the wrist.
 
-Why MM-Fit replaced RecoFit (see ADR-013):
+Why MM-Fit replaced RecoFit (see DECISIONS.md):
     RecoFit's inertial sensor was an armband on the **forearm**; the Apple Watch
     sits on the **wrist**. That placement gap (the wrist adds supination /
     pronation the forearm sensor never sees) is the root cause of the domain
@@ -36,7 +36,7 @@ This loader produces the **same long-format schema as**
 
     [subject_id, exercise_name, recording_id, timestamp, ax, ay, az, gx, gy, gz]
 
-Key processing decisions (ADR-013):
+Key processing decisions (DECISIONS.md):
     * **Both wrists** are loaded as independent recording streams. This doubles
       the data and — because the left/right wrist axes are mirror images —
       makes the model agnostic to which wrist the Apple Watch is worn on.
@@ -49,7 +49,7 @@ Key processing decisions (ADR-013):
 Units: MM-Fit's TicWatch (Wear OS / Android) reports accelerometer in
 **m/s² including gravity** and gyroscope in **rad/s**. These raw units are
 passed through unchanged; the Apple Watch loader is aligned to *these* units
-(see ``apple_watch_loader.py`` and ADR-013), not to RecoFit's.
+(see ``apple_watch_loader.py`` and DECISIONS.md), not to RecoFit's.
 """
 
 import csv

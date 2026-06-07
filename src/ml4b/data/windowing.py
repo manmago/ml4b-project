@@ -10,7 +10,7 @@ recording_id) group — we never let a window straddle two recordings, two
 exercises, or two subjects, because that would mix unrelated motion patterns
 and corrupt the labels.
 
-Window size of 2 s (100 samples at 50 Hz) and 50% overlap chosen — see ADR-006.
+Window size of 2 s (100 samples at 50 Hz) and 50% overlap chosen — see DECISIONS.md.
 """
 
 import pandas as pd
@@ -29,7 +29,7 @@ def apply_sliding_window(
     Windows are created per subject and per recording to avoid
     mixing data across different exercise sessions.
 
-    Window size of 2 s and 50% overlap chosen — see ADR-006.
+    Window size of 2 s and 50% overlap chosen — see DECISIONS.md.
 
     Args:
         df: Raw DataFrame from load_recofit_raw() with columns

@@ -3,11 +3,11 @@
 ## Goal
 Record an Apple Watch gym session with **Sensor Logger** and upload it to the
 app to recognize **bicep curl, tricep extension, and row** per 2-second window.
-Pauses are detected automatically as **rest** (energy gate, ADR-017), so you do
+Pauses are detected automatically as **rest** (energy gate, DECISIONS.md), so you do
 **not** need to record rest separately.
 
 > The model is trained on the Kaggle Gym Workout IMU dataset (Apple Watch, 100 Hz
-> — ADR-016). Only the single **`WristMotion.csv`** file is needed.
+> — DECISIONS.md). Only the single **`WristMotion.csv`** file is needed.
 
 ---
 
@@ -76,7 +76,7 @@ quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
 
 - **Used by the model:** `seconds_elapsed` (timestamp), `accelerationX/Y/Z`
   (user acceleration in g), `gravityX/Y/Z` (g), `rotationRateX/Y/Z` (gyro, rad/s).
-- **Canonicalization (matches training exactly — ADR-016):** acceleration is
+- **Canonicalization (matches training exactly — DECISIONS.md):** acceleration is
   reconstructed as **total acceleration in g** (`ax = accelerationX + gravityX`,
   ≈ 1 g at rest) and the gyroscope is kept in **rad/s**. Both the Kaggle training
   data and Sensor Logger are Apple CoreMotion, so **no unit conversion** is needed.
@@ -88,11 +88,11 @@ quaternionW, quaternionX, quaternionY, quaternionZ, pitch, roll, yaw
 
 ## How the App Interprets a Recording
 1. **Resample** to 100 Hz, **window** into 2 s segments (200 samples, 50% overlap).
-2. **Activity gate** (ADR-017): low-motion windows → `rest` (this is how pauses
+2. **Activity gate** (DECISIONS.md): low-motion windows → `rest` (this is how pauses
    between sets are handled — you do not record rest separately).
-3. **Invariant features** (ADR-018) → **Random Forest** predicts one of the three
+3. **Invariant features** (DECISIONS.md) → **Random Forest** predicts one of the three
    exercises.
-4. **Confidence threshold** (ADR-020): if the top probability < 0.50 the window is
+4. **Confidence threshold** (DECISIONS.md): if the top probability < 0.50 the window is
    reported as `uncertain`.
 
 ---
@@ -123,5 +123,5 @@ found, so a new mapping can be added to `WRIST_MOTION_COLUMN_MAPPINGS`.
 | `FileNotFoundError: WristMotion.csv not found in ZIP` | Wrong ZIP uploaded | Upload the Sensor Logger export ZIP that contains `WristMotion.csv` |
 | `ValueError: Recording too short` | Fewer than 200 samples (~2 s at 100 Hz) | Record at least ~15–30 seconds |
 | Many windows are `rest` | Long pauses / watch held still | Expected — the energy gate marks low-motion windows as rest |
-| Many windows are `uncertain` | Out-of-scope motion or a new user's style | Expected for an exercise outside the 3 classes; see the single-subject limitation (ADR-021) |
+| Many windows are `uncertain` | Out-of-scope motion or a new user's style | Expected for an exercise outside the 3 classes; see the single-subject limitation (DECISIONS.md) |
 | Curls predicted as tricep extensions | Both are elbow movements that look alike at the wrist | Known confusable pair — the most-confused cell in the confusion matrix |

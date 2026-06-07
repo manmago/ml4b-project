@@ -1,6 +1,6 @@
 """Build processed feature CSVs from the MM-Fit dataset.
 
-This script replaces the RecoFit-based data preparation (see ADR-013). It loads
+This script replaces the RecoFit-based data preparation (see DECISIONS.md). It loads
 the wrist-worn smartwatch streams from MM-Fit, runs the **same** windowing and
 feature-extraction pipeline used everywhere else in the project, and writes the
 standard processed artifacts that ``scripts/train_model.py`` and the notebooks
@@ -89,7 +89,7 @@ def main() -> None:
         type=int,
         default=0,
         help="Rotation-augmentation copies per TRAIN window (0 = off). "
-        "Adds cross-device orientation robustness — see ADR-014.",
+        "Adds cross-device orientation robustness — see DECISIONS.md.",
     )
     args = parser.parse_args()
 
@@ -109,10 +109,10 @@ def main() -> None:
     train_df = _build_split("train", TRAIN_W_IDS, n_rotations=args.augment)
     feature_names = [c for c in train_df.columns if c not in ID_COLUMNS]
 
-    # Cap the dominant 'rest' class on the TRAIN split only — see ADR-008.
+    # Cap the dominant 'rest' class on the TRAIN split only — see DECISIONS.md.
     # Rest is ~80% of windows in MM-Fit. multiplier=1.5 (down from 2.0) keeps
     # rest close to the largest exercise class, which reduces the model's
-    # tendency to over-predict 'rest' on real Apple Watch data — see ADR-015.
+    # tendency to over-predict 'rest' on real Apple Watch data — see DECISIONS.md.
     before = len(train_df)
     train_df = undersample_majority_class(
         train_df, majority_class="rest", multiplier=1.5, random_state=42

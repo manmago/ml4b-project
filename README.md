@@ -34,7 +34,7 @@ make run        # or: ./run_app.sh   ·   run_app.bat (Windows)   ·   uv run st
 
 **No Python install, no `uv sync`, no pip, no conda, no dataset needed.** `uv run`
 provisions Python and every dependency from `uv.lock` on first launch, and the
-trained model is committed to the repo (ADR-022, ADR-011). OS-specific guides:
+trained model is committed to the repo (DECISIONS.md). OS-specific guides:
 [WSL](docs/setup/Setup_WSL_Windows.md) · [macOS](docs/setup/Setup_macOS.md) ·
 [Windows](docs/setup/Setup_Windows.md).
 
@@ -59,8 +59,8 @@ gate) and **uncertain** (low confidence).
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest (300 trees, `class_weight='balanced'`, seed 42) |
-| Training anchor | **Kaggle Gym Workout IMU** — Apple Watch, 100 Hz, single subject (ADR-016) |
-| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; ADR-021) |
+| Training anchor | **Kaggle Gym Workout IMU** — Apple Watch, 100 Hz, single subject (DECISIONS.md) |
+| Evaluation | **Leave-one-set-out** cross-validation (leakage-free; DECISIONS.md) |
 | Macro F1 | **0.776** (target ≥ 0.80) |
 | Accuracy | 78.2% |
 | Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
@@ -68,7 +68,7 @@ gate) and **uncertain** (low confidence).
 > ⚠️ **Honest limitation.** The training anchor is a **single subject**, so true
 > cross-*person* performance cannot be measured and will be **below** these
 > numbers. Augmentation (rotation/time-warp/mirror/jitter) synthesises the
-> missing subject diversity (ADR-019). The methodology — Apple-Watch training
+> missing subject diversity (DECISIONS.md). The methodology — Apple-Watch training
 > domain, leakage-free evaluation, device-invariant features, an energy gate for
 > rest, and confidence-based abstention — is sound; the ceiling is data-limited.
 > See the **Limitations** section of [`docs/project/project_overview.md`](docs/project/project_overview.md).
@@ -84,7 +84,7 @@ scripts/        train_model.py (retrain) · inspect_kaggle_dataset.py
 notebooks/      One Jupyter notebook per CRISP-DM phase (01–06)
 models/saved/   Trained model + model_metrics.json — committed (app runs with no dataset)
 data/           Datasets (raw + processed) — NOT in git, except feature_names.txt
-docs/           Architecture, ADRs (001–022), CRISP-DM log, setup guides, data dictionary
+docs/           Architecture, DECISIONS.md, CRISP-DM log, setup guides, data dictionary
 tests/          Unit tests
 ```
 
@@ -109,7 +109,7 @@ make train        # or: uv run python scripts/train_model.py
 This rewrites `models/saved/best_model.joblib`, `models/saved/model_metrics.json`
 and `data/processed/feature_names.txt`. Uses `random_state=42` throughout. The
 dataset choice (Kaggle over the abandoned RecoFit / MM-Fit) is documented in
-ADR-016 and [`docs/data_understanding/dataset_evaluation.md`](docs/data_understanding/dataset_evaluation.md).
+DECISIONS.md and [`docs/data_understanding/dataset_evaluation.md`](docs/data_understanding/dataset_evaluation.md).
 
 ---
 
@@ -131,6 +131,6 @@ pair code with its documentation.
 
 - **Course:** ML4B (Machine Learning for Business), SoSe 2026
 - **Methodology:** CRISP-DM (Business Understanding → … → Deployment)
-- **Dataset:** Kaggle Gym Workout IMU (Apple Watch) — ADR-016; RecoFit and MM-Fit
+- **Dataset:** Kaggle Gym Workout IMU (Apple Watch) — DECISIONS.md; RecoFit and MM-Fit
   were evaluated and abandoned for device-domain mismatch
 - **Deliverable:** Streamlit web application + presentation

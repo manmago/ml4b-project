@@ -12,7 +12,7 @@ ml4b-project/
 │
 ├── app/                    ← Streamlit web application
 ├── data/                   ← All data (mostly NOT in git — except feature_names.txt)
-├── docs/                   ← Project documentation (incl. ADRs 001–022)
+├── docs/                   ← Project documentation (incl. DECISIONS.md)
 ├── models/                 ← Trained model + metrics (committed so the app runs)
 ├── notebooks/              ← Jupyter notebooks (one per CRISP-DM phase)
 ├── reports/                ← Generated figures and result summaries (NOT in git)
@@ -65,15 +65,15 @@ small text files noted below.**
 data/
 ├── raw/
 │   ├── kaggle_gym_imu/     ← CURRENT training source — Kaggle Gym Workout IMU
-│   │                          (Apple Watch, 100 Hz, single subject; ADR-016). NOT in git.
+│   │                          (Apple Watch, 100 Hz, single subject; DECISIONS.md). NOT in git.
 │   ├── apple_watch/        ← Real Apple Watch test samples for the sanity check (NOT in git)
-│   ├── recofit/            ← ABANDONED original source (forearm-worn, ADR-013). NOT in git.
-│   └── mm-fit/             ← ABANDONED interim source (non-Apple smartwatch, ADR-013/016). NOT in git.
+│   ├── recofit/            ← ABANDONED original source (forearm-worn, DECISIONS.md). NOT in git.
+│   └── mm-fit/             ← ABANDONED interim source (non-Apple smartwatch, DECISIONS.md). NOT in git.
 └── processed/
     ├── .gitkeep
     ├── README.md
     └── feature_names.txt   ← IN git (exception) — ordered list of the 39 invariant
-                               feature names the app/model need (ADR-018)
+                               feature names the app/model need (DECISIONS.md)
 ```
 
 - Never edit files in `raw/` — treat them as immutable originals.
@@ -89,7 +89,7 @@ docs/
 ├── business_understanding/business_understanding.md ← CRISP-DM Phase 1
 ├── data/data_dictionary.md               ← Sensor columns + the 39 invariant features
 ├── data_understanding/dataset_evaluation.md ← CRISP-DM Phase 2: dataset choice (Kaggle)
-├── decisions/                            ← ADR-001 … ADR-023 (every major decision)
+├── DECISIONS.md                           ← Consolidated decision log (every major decision)
 ├── project/
 │   ├── crisp_dm_log.md                   ← CRISP-DM phase progress tracker
 │   ├── project_overview.md               ← Plain-language overview — read this first
@@ -101,7 +101,7 @@ docs/
     └── Setup_WSL_Windows.md
 ```
 
-- Add a new `ADR-NNN-<topic>.md` for every major technical choice.
+- Record every major technical choice as a new entry in `docs/DECISIONS.md`.
 - Update `data_dictionary.md` when features change, `crisp_dm_log.md` as phases
   progress.
 
@@ -115,19 +115,19 @@ models/
 └── saved/
     ├── best_model.joblib       ← IN git (exception) — Random Forest used by the app (compressed)
     ├── random_forest.joblib    ← IN git (exception) — archive copy of the same model
-    ├── novelty_detector.joblib ← IN git (exception) — open-set novelty detector (ADR-024)
+    ├── novelty_detector.joblib ← IN git (exception) — open-set novelty detector (DECISIONS.md)
     └── model_metrics.json      ← IN git (exception) — honest leave-one-set-out metrics
                                 shown on the Model Performance page
 ```
 
 Committed on purpose so the app runs after a fresh clone with no dataset
-(ADR-011). Other `*.joblib` files stay ignored.
+(DECISIONS.md). Other `*.joblib` files stay ignored.
 
 ---
 
 ### `notebooks/`
 CRISP-DM phase notebooks, all aligned to the current 3-class Apple-Watch pipeline
-(ADR-023) and runnable top-to-bottom against `data/raw/kaggle_gym_imu/`:
+(DECISIONS.md) and runnable top-to-bottom against `data/raw/kaggle_gym_imu/`:
 
 ```
 notebooks/
@@ -154,23 +154,23 @@ src/ml4b/
 │   ├── __init__.py
 │   ├── canonical.py          ← Shared pipeline constants + CoreMotion canonicalization
 │   │                            (units, 100 Hz resample, window size) — training & app
-│   ├── kaggle_loader.py      ← Load 3-class Kaggle data → long-format DataFrame (ADR-016)
-│   ├── windowing.py          ← Sliding-window segmentation (200 @ 100 Hz, 50% overlap; ADR-006);
+│   ├── kaggle_loader.py      ← Load 3-class Kaggle data → long-format DataFrame (DECISIONS.md)
+│   ├── windowing.py          ← Sliding-window segmentation (200 @ 100 Hz, 50% overlap; DECISIONS.md);
 │   │                            carries recording_id for set-grouped evaluation
-│   ├── features_invariant.py ← CURRENT features: 39 device-invariant features (ADR-018)
-│   ├── activity_gate.py      ← Energy-threshold rest detection — not a class (ADR-017)
-│   ├── novelty.py            ← Open-set novelty detection — unseen exercise → unknown (ADR-024)
-│   ├── session.py            ← Bout segmentation — fold windows into per-set summary (ADR-025)
-│   ├── augmentation.py       ← Rotation+time-warp+mirror+jitter augmentation (ADR-019)
+│   ├── features_invariant.py ← CURRENT features: 39 device-invariant features (DECISIONS.md)
+│   ├── activity_gate.py      ← Energy-threshold rest detection — not a class (DECISIONS.md)
+│   ├── novelty.py            ← Open-set novelty detection — unseen exercise → unknown (DECISIONS.md)
+│   ├── session.py            ← Bout segmentation — fold windows into per-set summary (DECISIONS.md)
+│   ├── augmentation.py       ← Rotation+time-warp+mirror+jitter augmentation (DECISIONS.md)
 │   ├── apple_watch_loader.py ← Sensor Logger CSV/ZIP loader + predict_from_sensor_logger()
 │   │                            (resample → window → gate → features → novelty → predict)
 │   ├── features.py           ← LEGACY per-axis features (47) — abandoned MM-Fit pipeline
-│   ├── loader.py             ← LEGACY RecoFit .mat loader — abandoned (ADR-013/016)
-│   ├── mmfit_loader.py       ← LEGACY MM-Fit loader — abandoned (ADR-016)
-│   └── splitting.py          ← LEGACY subject split + undersampling (ADR-007/008)
+│   ├── loader.py             ← LEGACY RecoFit .mat loader — abandoned (DECISIONS.md)
+│   ├── mmfit_loader.py       ← LEGACY MM-Fit loader — abandoned (DECISIONS.md)
+│   └── splitting.py          ← LEGACY subject split + undersampling (DECISIONS.md)
 ├── models/
 │   ├── __init__.py
-│   ├── train.py              ← train_random_forest(), train_xgboost(), train_svm() (ADR-009)
+│   ├── train.py              ← train_random_forest(), train_xgboost(), train_svm() (DECISIONS.md)
 │   └── evaluate.py           ← evaluate_model(), compare_models(), save_model()
 └── utils/
     ├── __init__.py
@@ -192,10 +192,10 @@ scripts/
 │                                CV; saves best_model.joblib + model_metrics.json + feature_names.txt.
 │                                Run: uv run python scripts/train_model.py
 ├── fit_novelty_detector.py  ← Fit the open-set novelty detector on Kaggle invariant features;
-│                                saves novelty_detector.joblib (ADR-024). Run: uv run python scripts/fit_novelty_detector.py
+│                                saves novelty_detector.joblib (DECISIONS.md). Run: uv run python scripts/fit_novelty_detector.py
 ├── inspect_kaggle_dataset.py ← Read-only audit of the Kaggle dataset (columns, labels,
 │                                sets per exercise, sampling rate). Run: uv run python scripts/inspect_kaggle_dataset.py
-├── build_mmfit_dataset.py    ← LEGACY MM-Fit feature builder — abandoned (ADR-016)
+├── build_mmfit_dataset.py    ← LEGACY MM-Fit feature builder — abandoned (DECISIONS.md)
 └── test_apple_watch_prediction.py ← Helper: per-file predictions on real WristMotion.csv samples
 ```
 
@@ -219,8 +219,8 @@ tests/
 ├── __init__.py
 ├── test_features_invariant.py ← 39 features, identifier carry-through, rotation invariance
 ├── test_activity_gate.py      ← rest vs active gating, index-aligned mask
-├── test_novelty.py            ← known vs novel detection, thresholds, serialization (ADR-024)
-├── test_session.py            ← bout segmentation, majority vote, unknown bouts (ADR-025)
+├── test_novelty.py            ← known vs novel detection, thresholds, serialization (DECISIONS.md)
+├── test_session.py            ← bout segmentation, majority vote, unknown bouts (DECISIONS.md)
 ├── test_augmentation.py       ← rotation + composed augmentation: size, determinism, recording_id
 ├── test_apple_watch_loader.py ← column auto-detect, ZIP, predict pipeline, error guards
 ├── test_features.py           ← LEGACY per-axis feature tests

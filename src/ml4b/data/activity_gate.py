@@ -6,7 +6,7 @@ badly across devices and people: a new user's idle behaviour (fidgeting,
 adjusting the watch, drinking) looks nothing like the training set's rest, so
 rest gets massively over-predicted on real Apple-Watch uploads.
 
-This module takes a more robust approach (ADR-017): rest is a *low-energy*
+This module takes a more robust approach (DECISIONS.md): rest is a *low-energy*
 physical state, so we detect it with a simple, device-agnostic energy threshold
 instead of a classifier. A window is "active" (a real exercise) when either:
 

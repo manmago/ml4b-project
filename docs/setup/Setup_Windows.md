@@ -31,7 +31,7 @@ Open **http://localhost:8501** (Streamlit usually opens it for you). That's it.
 **You do NOT need to:** install Python, create a venv, run `uv sync`, run `pip`,
 use conda, or download any dataset. The first `uv run` automatically provisions
 the right Python and all pinned dependencies from `uv.lock`; the trained model is
-committed, so the app works immediately after cloning (see ADR-022, ADR-011).
+committed, so the app works immediately after cloning (see DECISIONS.md).
 
 > `make` is not standard on Windows — use `.\run_app.bat` or the `uv run`
 > command directly.
@@ -59,7 +59,7 @@ The app ships with a trained model, so this is only for reproducing it.
 2. Unzip the CSV files into `data\raw\kaggle_gym_imu\`.
 3. Run `uv run python scripts/train_model.py`. This rewrites
    `models\saved\best_model.joblib`, `model_metrics.json` and
-   `data\processed\feature_names.txt`. Uses `random_state=42`. See ADR-016.
+   `data\processed\feature_names.txt`. Uses `random_state=42`. See DECISIONS.md.
 </details>
 
 <details>

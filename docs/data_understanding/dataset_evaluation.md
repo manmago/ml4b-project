@@ -2,15 +2,15 @@
 
 > CRISP-DM Phase 2 — Data Understanding | Completed: 2026-05-15
 
-> ✅ **FINAL decision: Kaggle Gym Workout IMU dataset (ADR-016, 2026-05-31).**
+> ✅ **FINAL decision: Kaggle Gym Workout IMU dataset (DECISIONS.md, 2026-05-31).**
 > The training anchor changed twice. (1) Phase 2 chose **RecoFit** (forearm-worn,
-> 50 Hz). (2) ADR-013 switched to **MM-Fit** (wrist, but a non-Apple smartwatch).
+> 50 Hz). (2) DECISIONS.md switched to **MM-Fit** (wrist, but a non-Apple smartwatch).
 > Both scored well in-sample yet failed on real Apple-Watch uploads — a
-> **device-domain mismatch**. (3) ADR-016 adopts the **Kaggle Gym Workout IMU
+> **device-domain mismatch**. (3) DECISIONS.md adopts the **Kaggle Gym Workout IMU
 > dataset, recorded *on an Apple Watch*** (100 Hz, left wrist), removing that
 > mismatch, with **3** classes: bicep_curl, tricep_extension, row. The RecoFit
 > and MM-Fit evaluations below are retained for history; the final-state summary
-> is in §6. See [`ADR-016`](../decisions/ADR-016-final-target-classes-apple-watch.md).
+> is in §6. See [`DECISIONS.md`](../DECISIONS.md).
 
 ---
 
@@ -174,11 +174,11 @@ The RecoFit dataset contains **75 exercise classes** in total. The following cri
 - **Bench Press** (Chest Press rack, ~20 participants) — insufficient data, below 50% threshold
 - **Deadlift** (Dumbbell Deadlift Row, ~20 participants) — insufficient data, below 50% threshold
 
-**Rationale:** This data-driven selection approach is methodologically stronger than an arbitrary upfront selection. By anchoring class selection on actual subject coverage in the dataset, the model is guaranteed sufficient training samples for each class. See `docs/decisions/ADR-005-exercise-class-selection.md` for the full decision rationale.
+**Rationale:** This data-driven selection approach is methodologically stronger than an arbitrary upfront selection. By anchoring class selection on actual subject coverage in the dataset, the model is guaranteed sufficient training samples for each class. See `docs/DECISIONS.md` for the full decision rationale.
 
 ---
 
-## 6. Final State (Iteration 3 — Kaggle Apple-Watch anchor, ADR-016)
+## 6. Final State (Iteration 3 — Kaggle Apple-Watch anchor, DECISIONS.md)
 
 After RecoFit (Iteration 1) and MM-Fit (Iteration 2) both failed to transfer to
 real Apple-Watch uploads, the decisive factor was identified as **device-domain
@@ -194,10 +194,10 @@ Watch. The fix is to train on data recorded *on* an Apple Watch.
 | Sensors | CoreMotion: user acceleration (g) + gravity (g) + rotation rate (rad/s) |
 | Sampling rate | **100 Hz** |
 | Size | 164 single-set CSV files; **75** map to our 3 classes |
-| Subjects | **1** (single subject — the key limitation, see ADR-021) |
+| Subjects | **1** (single subject — the key limitation, see DECISIONS.md) |
 | Source | https://www.kaggle.com/datasets/shakthisairam123/gym-workout-imu-dataset |
 
-### Final 3-class selection (ADR-016)
+### Final 3-class selection (DECISIONS.md)
 
 Chosen to maximise per-class coverage **and** biomechanical distinctness across
 different movement axes:
@@ -211,11 +211,11 @@ different movement axes:
 Rejected alternatives: `lateral_raise` (overlaps with the start of a curl) and
 `shoulder_press` (confusable with overhead triceps, fewer sets). `push_up` is
 **absent** from this dataset (its `APULL` is an assisted *pull*-up), so it was
-dropped from the original plan. Full rationale: ADR-016.
+dropped from the original plan. Full rationale: DECISIONS.md.
 
 ### Honest limitation
 
-Single-subject data means we evaluate with **leave-one-set-out** CV (ADR-021),
+Single-subject data means we evaluate with **leave-one-set-out** CV (DECISIONS.md),
 which measures generalisation to an unseen *set*, not a new *person*.
-Augmentation (ADR-019) synthesises the missing subject diversity. Real-world
+Augmentation (DECISIONS.md) synthesises the missing subject diversity. Real-world
 cross-person accuracy will be below the reported macro F1 of 0.776.
