@@ -45,7 +45,7 @@ trained model is committed to the repo (DECISIONS.md). OS-specific guides:
 | Page | Purpose |
 |------|---------|
 | 🏠 **Home** | Project overview, honest metrics, Sensor Logger instructions |
-| 🔮 **Predict Exercise** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window timeline, distribution, results table, CSV download, detected sampling rate |
+| 🔮 **Predict Exercise** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window timeline, **detected sets** (e.g. "2 sets of Bicep Curl"), distribution, results table, CSV download, plus ✏️ correct & improve |
 | 📊 **Model Performance** | Leave-one-set-out metrics, per-class F1, confusion matrix, model details, honest limitations |
 
 **Recognized exercises (3 classes):** Bicep Curl · Tricep Extension · Row.
@@ -127,6 +127,19 @@ uv run python scripts/update_model.py
 
 to rebuild the model on the base data **plus** your corrections, using the same
 pipeline as initial training. New labels become new classes automatically.
+
+**Add your own recordings (recommended).** The base model is trained on a single
+person, so the most effective improvement is a few of *your own* labelled sets.
+Record one exercise per file with Sensor Logger (see
+[`docs/project/apple_watch_data_collection_guide.md`](docs/project/apple_watch_data_collection_guide.md)),
+then add each set straight to the training data with its label:
+
+```bash
+uv run python scripts/add_labelled_recording.py my_set.csv --label bicep_curl
+uv run python scripts/update_model.py        # retrain on base + your sets
+```
+
+A new label (e.g. `--label squat`) becomes a new class on the next retrain.
 
 The originally-shipped model is backed up to `models/saved/best_model_base.joblib`
 (restore with `uv run python scripts/update_model.py --restore-base`). Retraining

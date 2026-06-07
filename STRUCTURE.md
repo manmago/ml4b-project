@@ -203,7 +203,10 @@ scripts/
 │                                Run: uv run python scripts/train_model.py
 ├── fit_novelty_detector.py  ← Fit the open-set novelty detector on Kaggle invariant features;
 │                                saves novelty_detector.joblib (DECISIONS.md). Run: uv run python scripts/fit_novelty_detector.py
-├── update_model.py          ← Continual learning: retrain on base data + user corrections (DECISIONS.md).
+├── add_labelled_recording.py ← Add a clean, labelled recording (one set) straight to
+│                                the feedback store (DECISIONS.md §8). Run: uv run python
+│                                scripts/add_labelled_recording.py REC.csv --label bicep_curl
+├── update_model.py          ← Continual learning: retrain on base data + user corrections (DECISIONS.md §8).
 │                                Run: uv run python scripts/update_model.py  (--restore-base to undo)
 ├── inspect_kaggle_dataset.py ← Read-only audit of the Kaggle dataset (columns, labels,
 │                                sets per exercise, sampling rate). Run: uv run python scripts/inspect_kaggle_dataset.py

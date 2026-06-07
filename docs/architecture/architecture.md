@@ -119,7 +119,8 @@ src/ml4b/
 | `scripts/train_model.py` | End-to-end training with leave-one-set-out CV; writes model + metrics + feature names. |
 | `feedback/store.py` | Persist the user's per-window label corrections (raw windows + label) to `data/feedback/feedback.jsonl`; read them back as a windowing-compatible frame (DECISIONS.md §8). |
 | `feedback/retrain.py` | Rebuild the model from base data + corrections through the *same* pipeline; backs up the shipped model; writes a manifest (DECISIONS.md §8). |
-| `scripts/update_model.py` | CLI for the retrain (and `--restore-base` to undo). |
+| `scripts/update_model.py` | CLI for the offline retrain (and `--restore-base` to undo). |
+| `scripts/add_labelled_recording.py` | Add a clean, labelled recording (one set) straight to the feedback store (DECISIONS.md §8). |
 | `app/pages/*.py` | `render()` for Home, Predict (incl. ✏️ Correct & Improve), Model Performance. |
 
 ---
@@ -189,12 +190,15 @@ never duplicated, so predictions in the app match training exactly.
   mitigation. This is stated in the README, project overview, and the app.
 
 ### Continual learning (human-in-the-loop)
-The app captures the user's per-window label corrections (`feedback/store.py`)
-and can rebuild the model from the base data **plus** those corrections through
-the *same* pipeline (`feedback/retrain.py`) — the direct attack on the
-single-subject limitation. Capture is decoupled from training (corrections are
-always saved); retraining is explicit and reuses windowing/augmentation/features
-so the model contract is unchanged. New labels become new classes (DECISIONS.md §8).
+The app captures the user's per-window label corrections (`feedback/store.py`);
+clean labelled sets can also be added directly via
+`scripts/add_labelled_recording.py`. The model is rebuilt from the base data
+**plus** those corrections through the *same* pipeline (`feedback/retrain.py`) —
+the direct attack on the single-subject limitation. Capture is decoupled from
+training (corrections are always saved); **retraining is an explicit offline step**
+(`scripts/update_model.py`, never live in the app) and reuses
+windowing/augmentation/features so the model contract is unchanged. New labels
+become new classes (DECISIONS.md §8).
 
 ### Reproducibility
 - `uv.lock` pins every dependency; `uv run` provisions and runs in one step
