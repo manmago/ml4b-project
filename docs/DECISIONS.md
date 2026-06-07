@@ -183,6 +183,38 @@ with the code they document.
 **Reproducibility.** `random_state=42` everywhere; `uv.lock` committed; the model
 is regenerated deterministically by `scripts/train_model.py`.
 
+## 8. Continual Learning — Correction & Retraining
+
+The single-subject limitation (§6) means the model transfers imperfectly to a new
+person; the robust fix is a few of the user's *own* labelled recordings. The app
+therefore has a **human-in-the-loop feedback loop** (`src/ml4b/feedback/`):
+
+- **Capture (app).** On the Predict page an "✏️ Correct & Improve" editor lets the
+  user fix the label of any window — pick a known class, `rest`, or type a **new**
+  exercise. Corrections are saved immediately.
+- **Store.** Each correction persists the **raw window samples** (six canonical
+  channels) + corrected label + light metadata to `data/feedback/feedback.jsonl`
+  (append-only, git-ignored — it is the user's own data). Raw windows, not
+  features, are stored so corrections survive a feature-set change and are
+  re-featurised through the shared pipeline at retrain time.
+- **Retrain (offline).** `scripts/update_model.py` rebuilds the model from the
+  **base Kaggle data + accumulated corrections** through the *identical* windowing
+  → augmentation → invariant-feature → Random Forest pipeline. Corrections are
+  repeated and augmented so a handful of examples carry weight; new labels become
+  new classes automatically. The shipped model is backed up to
+  `best_model_base.joblib` (restorable via `--restore-base`) and a
+  `model_manifest.json` records what went into each retrain.
+
+**Why this design.** True online learning (`partial_fit`) would mean discarding
+the tuned Random Forest and risks catastrophic forgetting from a few samples; a
+feedback-augmented full retrain reuses the exact, tested pipeline and stays
+reproducible. Capture is **decoupled** from retraining: corrections are always
+collected, and on a fresh handover clone without the base dataset the app still
+records feedback for a later offline retrain. Retraining is an explicit,
+user-triggered offline step — never automatic or live during a demo. *Caveat: the
+novelty detector (§5) is not refit by this loop, so a newly added class may read
+as `unknown` until `scripts/fit_novelty_detector.py` is re-run.*
+
 ---
 
 ## Traceability — former ADRs → sections
@@ -213,3 +245,5 @@ is regenerated deterministically by `scripts/train_model.py`.
 | ADR-023 | Notebooks aligned to 3-class pipeline | §7 |
 | ADR-024 | Novelty detection → unknown | §5 |
 | ADR-025 | Bout/session summary | §5 |
+| ADR-026 | `uncertain`/`unknown` can be the overall/per-set result | §5 |
+| ADR-027 | Human-in-the-loop correction & continual learning | §8 |

@@ -95,6 +95,9 @@ src/ml4b/
 ├── models/
 │   ├── train.py              # train_random_forest() / xgboost / svm (DECISIONS.md)
 │   └── evaluate.py           # evaluate_model(), compare_models(), save_model()
+├── feedback/                 # CONTINUAL LEARNING (DECISIONS.md §8)
+│   ├── store.py              # persist/load user label corrections (data/feedback/)
+│   └── retrain.py            # rebuild model from base data + corrections (same pipeline)
 └── utils/
     ├── config.py             # env-based path resolution (find_project_root, …)
     └── metrics.py            # load_model_metrics() — reads committed model_metrics.json
@@ -114,7 +117,10 @@ src/ml4b/
 | `models/evaluate.py` | Accuracy, macro F1, per-class F1, confusion matrix; saves plots. |
 | `utils/metrics.py` | Load committed `model_metrics.json` for the app's Model Performance page. |
 | `scripts/train_model.py` | End-to-end training with leave-one-set-out CV; writes model + metrics + feature names. |
-| `app/pages/*.py` | `render()` for Home, Predict, Model Performance. |
+| `feedback/store.py` | Persist the user's per-window label corrections (raw windows + label) to `data/feedback/feedback.jsonl`; read them back as a windowing-compatible frame (DECISIONS.md §8). |
+| `feedback/retrain.py` | Rebuild the model from base data + corrections through the *same* pipeline; backs up the shipped model; writes a manifest (DECISIONS.md §8). |
+| `scripts/update_model.py` | CLI for the retrain (and `--restore-base` to undo). |
+| `app/pages/*.py` | `render()` for Home, Predict (incl. ✏️ Correct & Improve), Model Performance. |
 
 ---
 
@@ -181,6 +187,14 @@ never duplicated, so predictions in the app match training exactly.
 - **Single-subject anchor:** cross-*person* performance cannot be measured and
   will be below the reported macro F1; augmentation (DECISIONS.md) is the documented
   mitigation. This is stated in the README, project overview, and the app.
+
+### Continual learning (human-in-the-loop)
+The app captures the user's per-window label corrections (`feedback/store.py`)
+and can rebuild the model from the base data **plus** those corrections through
+the *same* pipeline (`feedback/retrain.py`) — the direct attack on the
+single-subject limitation. Capture is decoupled from training (corrections are
+always saved); retraining is explicit and reuses windowing/augmentation/features
+so the model contract is unchanged. New labels become new classes (DECISIONS.md §8).
 
 ### Reproducibility
 - `uv.lock` pins every dependency; `uv run` provisions and runs in one step

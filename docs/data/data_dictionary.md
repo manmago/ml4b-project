@@ -120,6 +120,26 @@ cross-validation aggregate (macro F1 0.776), stored in
 
 ---
 
+## Feedback store — user corrections (ADR-027)
+`data/feedback/feedback.jsonl` (NOT in git) holds the user's label corrections
+for continual learning. One JSON record per corrected window:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts` | string | UTC timestamp of the correction |
+| `source` | string | the uploaded recording's file name |
+| `window_id` | int | window index within that recording |
+| `corrected_label` | string | the user-supplied correct label (the training target) |
+| `predicted_label` | string | what the model had predicted |
+| `confidence` | float \| null | model confidence (null for gated/abstained windows) |
+| `raw_ax…raw_gz` | list[float] | the window's six canonical-unit channels (accel g, gyro rad/s) |
+
+Raw windows (not features) are stored so corrections are re-featurised through the
+current pipeline at retrain time. `src/ml4b/feedback/retrain.py` folds them into a
+new model; the manifest is written to `models/saved/model_manifest.json`.
+
+---
+
 ## Legacy pipeline (abandoned, kept for history)
 `src/ml4b/data/features.py` produced **47 per-axis features** for the MM-Fit/
 RecoFit pipeline (accel m/s² including gravity, gyro rad/s, 100-sample windows at
