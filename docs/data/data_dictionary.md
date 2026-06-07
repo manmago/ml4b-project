@@ -120,7 +120,7 @@ cross-validation aggregate (macro F1 0.776), stored in
 
 ---
 
-## Feedback store — user corrections (ADR-027)
+## Feedback store — user corrections (DECISIONS.md §8)
 `data/feedback/feedback.jsonl` (NOT in git) holds the user's label corrections
 for continual learning. One JSON record per corrected window:
 

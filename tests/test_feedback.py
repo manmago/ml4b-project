@@ -179,3 +179,32 @@ def test_confidence_serialises(tmp_path, conf):
         assert loaded.iloc[0]["confidence"] is None
     else:
         assert loaded.iloc[0]["confidence"] == conf
+
+
+def test_build_labelled_records_labels_selected_windows(tmp_path):
+    """A labelled recording stores the same label on every selected window."""
+    win = _window_df(4)
+    records = store.build_labelled_records(
+        win, "squat", source="set1.csv", window_ids=[0, 2, 3]
+    )
+    assert len(records) == 3
+    assert {r["corrected_label"] for r in records} == {"squat"}
+    assert all(r["predicted_label"] == "(labelled import)" for r in records)
+    # Raw channels are carried at full length, like corrections.
+    assert len(records[0]["raw_ax"]) == WINDOW_SIZE
+
+    # Round-trips through the store and is consumable by the same pipeline.
+    path = tmp_path / "feedback.jsonl"
+    assert store.append(records, path=path) == 3
+    loaded = store.load(path=path)
+    win_df = store.to_window_df(loaded)
+    feats = extract_invariant_features(augment_windows(win_df, n_augment=1))
+    assert len(feats) > 0
+    assert set(feats["exercise_name"]) == {"squat"}
+
+
+def test_build_labelled_records_defaults_to_all_windows():
+    """window_ids=None labels every window in the frame."""
+    win = _window_df(3)
+    records = store.build_labelled_records(win, "row", source="r.csv")
+    assert len(records) == 3

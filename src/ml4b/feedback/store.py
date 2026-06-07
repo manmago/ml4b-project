@@ -94,6 +94,54 @@ def build_records(
     return records
 
 
+def build_labelled_records(
+    window_df: pd.DataFrame,
+    label: str,
+    *,
+    source: str,
+    window_ids: list[int] | None = None,
+) -> list[dict[str, Any]]:
+    """Build feedback records labelling whole windows of a clean recording.
+
+    Where :func:`build_records` captures *corrections* of the model's
+    predictions, this labels a recording whose exercise the user already knows
+    (e.g. one clean set), so it can be folded straight into training via
+    ``scripts/update_model.py``. This is the recommended way to add your own data
+    to the single-subject base dataset (DECISIONS.md §6, §8). There is no model
+    prediction here, so ``predicted_label`` is recorded as ``"(labelled import)"``.
+
+    Args:
+        window_df: A windowed frame from
+            :func:`ml4b.data.apple_watch_loader.load_and_window_recording`
+            (carries the six ``raw_*`` channels per row).
+        label: The exercise label that applies to every selected window.
+        source: Identifier of the recording (e.g. the file name).
+        window_ids: Row positions to keep. ``None`` (default) labels every row;
+            pass only the active rows to drop rest windows.
+
+    Returns:
+        A list of JSON-serialisable record dicts, one per selected window.
+    """
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ids = range(len(window_df)) if window_ids is None else window_ids
+    records: list[dict[str, Any]] = []
+    for wid in ids:
+        win = window_df.iloc[wid]
+        record: dict[str, Any] = {
+            "ts": ts,
+            "source": source,
+            "window_id": int(wid),
+            "corrected_label": str(label),
+            "predicted_label": "(labelled import)",
+            "confidence": None,
+        }
+        # Store each channel as a plain list of floats (same schema as corrections).
+        for ch in RAW_CHANNELS:
+            record[ch] = [float(v) for v in win[ch]]
+        records.append(record)
+    return records
+
+
 def append(records: list[dict[str, Any]], path: Path | None = None) -> int:
     """Append correction records to the feedback log, creating it if needed.
 
