@@ -16,7 +16,7 @@ import plotly.express as px
 import streamlit as st
 
 from ml4b.data.apple_watch_loader import predict_from_sensor_logger
-from ml4b.data.session import summarize_session
+from ml4b.data.session import dominant_label, summarize_session
 from ml4b.feedback import store
 
 # Post-hoc outputs that are not meaningful as a human correction target.
@@ -32,9 +32,6 @@ NON_EXERCISE_COLORS = {
     "Uncertain": "#8a8f98",
     "Unknown": "#e06c75",  # reddish: an exercise the model was not trained on
 }
-
-# Display labels that are not trained exercise classes.
-NON_EXERCISE_LABELS = {"Rest", "Uncertain", "Unknown"}
 
 
 def _humanize(label: str) -> str:
@@ -151,11 +148,13 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     # --- Summary metrics ---------------------------------------------------
     total_seconds = float(results["time_start_seconds"].max()) + 2.0
     detected_hz = results.attrs.get("detected_hz", "n/a")
-    # "Most common" should reflect a real EXERCISE, not rest/uncertain.
-    exercises_only = results[~results["exercise"].isin(NON_EXERCISE_LABELS)]
-    most_common = (
-        exercises_only["exercise"].mode().iloc[0] if not exercises_only.empty else "—"
-    )
+    # Overall result = the single most common label across the recording, with
+    # rest (a pause, not a result) excluded. Critically, "uncertain"/"unknown"
+    # ARE in the running: if the model was mostly unsure we say so here instead of
+    # surfacing a minority exercise as if it were the verdict (shared rule with
+    # the per-set bout label, so the two views never contradict each other).
+    overall_raw = dominant_label(results["predicted_class"])
+    overall_result = _humanize(overall_raw) if overall_raw else "—"
     # Confidence is NaN for gated rest windows; mean() skips them automatically.
     avg_conf = (
         float(results["confidence"].mean())
@@ -167,7 +166,7 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Windows", len(results))
     c2.metric("Duration", f"{total_seconds:.0f} s")
-    c3.metric("Top Exercise", most_common)
+    c3.metric("Overall Result", overall_result)
     c4.metric("Detected rate", f"{detected_hz} Hz")
 
     c5, c6 = st.columns(2)

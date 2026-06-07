@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from ml4b.data.canonical import OVERLAP, TARGET_HZ, WINDOW_SIZE
-from ml4b.data.session import summarize_session
+from ml4b.data.session import dominant_label, summarize_session
 
 # Per-window time step in seconds, matching the prediction pipeline.
 _STEP = WINDOW_SIZE * (1 - OVERLAP) / TARGET_HZ
@@ -82,6 +82,44 @@ def test_trailing_bout_is_closed():
     out = summarize_session(_results(labels, conf))
     assert len(out) == 1
     assert out.loc[0, "label"] == "tricep_extension"
+
+
+def test_uncertain_plurality_beats_minority_exercise():
+    """A bout the model was mostly unsure about is reported as uncertain.
+
+    This is the core fix: previously a single confident exercise window would win
+    the bout even when the model was uncertain for the majority of windows.
+    """
+    labels = ["bicep_curl", "uncertain", "uncertain", "uncertain"]
+    conf = [0.9, np.nan, np.nan, np.nan]
+    out = summarize_session(_results(labels, conf))
+    assert len(out) == 1
+    assert out.loc[0, "label"] == "uncertain"
+
+
+def test_exercise_plurality_still_wins():
+    """A genuine exercise plurality is still reported as that exercise."""
+    labels = ["row", "row", "row", "uncertain"]
+    conf = [0.7, 0.8, 0.75, np.nan]
+    out = summarize_session(_results(labels, conf))
+    assert out.loc[0, "label"] == "row"
+
+
+def test_dominant_label_ignores_rest_only():
+    """The overall-result rule drops rest but keeps uncertain/unknown in the vote."""
+    # Rest is the literal majority but must be ignored as a pause...
+    assert dominant_label(["rest", "rest", "rest", "uncertain"]) == "uncertain"
+    # ...while uncertain outvoting a lone exercise yields uncertain.
+    assert dominant_label(["bicep_curl", "uncertain", "uncertain"]) == "uncertain"
+    # A clear exercise plurality wins.
+    assert dominant_label(["row", "row", "uncertain", "rest"]) == "row"
+    # All-rest leaves nothing to report.
+    assert dominant_label(["rest", "rest"]) is None
+
+
+def test_dominant_label_tie_prefers_non_exercise():
+    """On an exact tie, the honest non-exercise label wins over an exercise."""
+    assert dominant_label(["bicep_curl", "uncertain"]) == "uncertain"
 
 
 def test_durations_and_confidence_are_reasonable():
