@@ -1,34 +1,27 @@
 # Architecture Documentation — ML4B Gym Exercise Recognition
-> arc42 lightweight format — mandatory sections: 1, 2, 3, 5, 6, 8
+> Lightweight architecture overview. Full goal/scope rationale lives in
+> [`business_understanding.md`](../business_understanding/business_understanding.md);
+> every design decision is captured in [`docs/DECISIONS.md`](../DECISIONS.md).
+> This document focuses on the parts that are *architectural*: context, building
+> blocks, runtime pipelines, and the cross-cutting rules that hold them together.
 
 ---
 
-## 1. Goals and Requirements
+## 1. Goals and Constraints
 
-### Primary Research Question
-> "Can a machine-learning model trained on Apple-Watch sensor data accurately
-> classify gym exercises from a new recording, and what are the honest limits of
-> that performance given the available data?"
+**Primary goal.** Classify gym exercises from **Apple Watch** sensor streams
+(accelerometer + gyroscope) using supervised ML. The model distinguishes
+**3 exercise classes** — `bicep_curl`, `tricep_extension`, `row` (DECISIONS.md).
+Three further outputs are produced **outside** the model: `rest` (energy gate,
+DECISIONS.md), `unknown` (novelty detector, DECISIONS.md) and `uncertain` (confidence
+threshold, DECISIONS.md).
 
-### Primary Goal
-Classify gym exercises from **Apple Watch** sensor streams (accelerometer +
-gyroscope) using supervised ML. The model distinguishes **3 exercise classes** —
-`bicep_curl`, `tricep_extension`, `row` — chosen for biomechanical distinctness
-and coverage on the Apple-Watch training anchor (ADR-016). Two further outputs
-are produced **outside** the model: `rest` (energy gate, ADR-017), `unknown`
-(novelty detector, ADR-024) and `uncertain` (confidence threshold, ADR-020).
+**Dataset anchor.** Training data is the Kaggle *Gym Workout IMU* dataset
+(Apple Watch SE, left wrist, 100 Hz). Two earlier datasets (RecoFit, MM-Fit)
+were dropped because of device-domain shift on real Apple-Watch uploads — see
+DECISIONS.md for the full journey. Only **Wrist Motion** (accel + gyro) is used.
 
-### Dataset Journey (three iterations)
-| Iteration | Source | Outcome |
-|-----------|--------|---------|
-| 1 | RecoFit (forearm, 50 Hz) | Failed on wrist-worn Apple Watch (ADR-013) |
-| 2 | MM-Fit (non-Apple smartwatch) | High test F1 but failed on real Apple-Watch uploads |
-| 3 (final) | **Kaggle Gym Workout IMU (Apple Watch, 100 Hz)** | Removes device-domain shift (ADR-016) |
-
-Only **Wrist Motion** (accelerometer + gyroscope) is used. All other Sensor
-Logger channels are discarded.
-
-### Quality Goals
+**Quality goals (architecturally relevant):**
 | Priority | Quality Goal | Scenario |
 |----------|-------------|----------|
 | 1 | Reproducibility | Any team member runs the app with one command on a new machine (`uv run streamlit run …`) |
@@ -36,40 +29,18 @@ Logger channels are discarded.
 | 3 | Modularity / shared pipeline | Training and inference import the *same* preprocessing modules |
 | 4 | Explainability | Predictions and confidence are shown per window in the app |
 
-### Performance Target
-| Criterion | Target | Achieved |
-|-----------|--------|----------|
-| Macro F1 (leave-one-set-out CV) | ≥ 0.80 | 0.776 (single-subject ceiling, ADR-021) |
+**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80 — achieved 0.776
+(single-subject ceiling, DECISIONS.md).
 
-### Stakeholders
-| Role | Concern |
-|------|---------|
-| FAU ML4B Course | Correct CRISP-DM application; honest reporting |
-| Development team | Clear structure, reproducible environment |
-| Demo audience | Usable Streamlit UI for live predictions |
+**Key constraints:** Python 3.11 + `uv` (one-command run, DECISIONS.md); Streamlit UI
+(Python-native, no frontend work); scikit-learn (interpretable tabular models);
+runs locally only (WSL/macOS/Windows), no cloud. No multi-subject Apple-Watch
+data is collectable, which forces the single-subject anchor + augmentation
+(DECISIONS.md). Stakeholders and full scope: see `business_understanding.md`.
 
 ---
 
-## 2. Constraints
-
-### Technical
-| Constraint | Rationale |
-|-----------|-----------|
-| Python 3.11 | Course requirement |
-| `uv` package manager | Reproducible lockfile, one-command run (ADR-022) |
-| Streamlit UI | Python-native, no frontend work |
-| scikit-learn | Suited to tabular sensor features, interpretable |
-
-### Organisational
-| Constraint | Rationale |
-|-----------|-----------|
-| University project (SoSe 2026) | Semester timeline |
-| No cloud infrastructure | Runs locally (WSL/macOS/Windows) |
-| **No multi-subject Apple-Watch data collectable** | Forces single-subject anchor + augmentation (ADR-019/021) |
-
----
-
-## 3. System Context
+## 2. System Context
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -83,7 +54,7 @@ Logger channels are discarded.
 │    Live app input (same CoreMotion format as the training data)  │
 │    Loaded via: src/ml4b/data/apple_watch_loader.py               │
 └──────────────────────┬───────────────────────────────────────────┘
-                       │ data/raw/kaggle_gym_imu/   (training — ADR-016)
+                       │ data/raw/kaggle_gym_imu/   (training — DECISIONS.md)
                        │ upload                       (inference)
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
@@ -101,29 +72,32 @@ Logger channels are discarded.
 Both the Kaggle training data and Sensor Logger uploads are Apple CoreMotion
 streams, so `src/ml4b/data/canonical.py` canonicalizes both identically (total
 acceleration in g, gyro in rad/s). This device-domain match is the architectural
-reason the Kaggle dataset was chosen (ADR-016).
+reason the Kaggle dataset was chosen (DECISIONS.md).
 
 ---
 
-## 5. Building Block View
+## 3. Building Block View
 
 ```
 src/ml4b/
 ├── data/
 │   ├── canonical.py          # SHARED constants + CoreMotion canonicalization + 100 Hz resample
-│   ├── kaggle_loader.py      # TRAIN: Kaggle CSV → long-format DataFrame (3 classes, ADR-016)
+│   ├── kaggle_loader.py      # TRAIN: Kaggle CSV → long-format DataFrame (3 classes, DECISIONS.md)
 │   ├── apple_watch_loader.py # INFER: Sensor Logger CSV/ZIP → predict_from_sensor_logger()
 │   ├── windowing.py          # Sliding window (200 @ 100 Hz, 50% overlap; carries recording_id)
-│   ├── activity_gate.py      # Energy-threshold rest detection (ADR-017)
-│   ├── novelty.py            # Open-set novelty detection → unknown (ADR-024)
-│   ├── session.py            # Bout segmentation → per-set summary (ADR-025)
-│   ├── features_invariant.py # 39 device-invariant features (ADR-018)
-│   ├── augmentation.py       # rotation+time-warp+mirror+jitter (ADR-019)
+│   ├── activity_gate.py      # Energy-threshold rest detection (DECISIONS.md)
+│   ├── novelty.py            # Open-set novelty detection → unknown (DECISIONS.md)
+│   ├── session.py            # Bout segmentation → per-set summary (DECISIONS.md)
+│   ├── features_invariant.py # 39 device-invariant features (DECISIONS.md)
+│   ├── augmentation.py       # rotation+time-warp+mirror+jitter (DECISIONS.md)
 │   ├── features.py           # LEGACY 47 per-axis features (abandoned)
 │   ├── loader.py / mmfit_loader.py / splitting.py  # LEGACY (abandoned)
 ├── models/
-│   ├── train.py              # train_random_forest() / xgboost / svm (ADR-009)
+│   ├── train.py              # train_random_forest() / xgboost / svm (DECISIONS.md)
 │   └── evaluate.py           # evaluate_model(), compare_models(), save_model()
+├── feedback/                 # CONTINUAL LEARNING (DECISIONS.md §8)
+│   ├── store.py              # persist/load user label corrections (data/feedback/)
+│   └── retrain.py            # rebuild model from base data + corrections (same pipeline)
 └── utils/
     ├── config.py             # env-based path resolution (find_project_root, …)
     └── metrics.py            # load_model_metrics() — reads committed model_metrics.json
@@ -133,21 +107,25 @@ src/ml4b/
 | Module | Responsibility |
 |--------|---------------|
 | `canonical.py` | Single source of truth for pipeline constants (100 Hz, window 200, overlap 0.5, confidence 0.50) and CoreMotion canonicalization (total accel in g, gyro rad/s) + uniform resampling. Imported by both loaders so training and inference cannot drift. |
-| `kaggle_loader.py` | Read the Kaggle Apple-Watch CSVs, keep the 3 target classes, drop sensor-lag, emit the long-format schema with one `recording_id` per set (ADR-016). |
+| `kaggle_loader.py` | Read the Kaggle Apple-Watch CSVs, keep the 3 target classes, drop sensor-lag, emit the long-format schema with one `recording_id` per set (DECISIONS.md). |
 | `apple_watch_loader.py` | Load Sensor Logger CSV/ZIP, auto-detect 5 column formats, run the full inference pipeline `predict_from_sensor_logger()` (resample → window → gate → invariant features → predict → confidence threshold). |
-| `windowing.py` | Segment into 200-sample (2 s) windows, 50% overlap, never crossing a set; carries `recording_id` for leave-one-set-out grouping (ADR-006). |
-| `activity_gate.py` | Energy-threshold rest detection (accel-std OR gyro-mean) so rest is not a learned class (ADR-017). |
-| `features_invariant.py` | 39 orientation-/offset-robust features: magnitude stats + spectral, per-window z-normalized shape, axis-pair correlations, gyro/accel ratio (ADR-018). |
-| `augmentation.py` | 6× synthetic variability (random rotation + time-warp + mirror + jitter) as a subject-diversity substitute (ADR-019). |
-| `models/train.py` | Random Forest (`class_weight='balanced'`, seed 42) + XGBoost/SVM for comparison (ADR-009). |
+| `windowing.py` | Segment into 200-sample (2 s) windows, 50% overlap, never crossing a set; carries `recording_id` for leave-one-set-out grouping (DECISIONS.md). |
+| `activity_gate.py` | Energy-threshold rest detection (accel-std OR gyro-mean) so rest is not a learned class (DECISIONS.md). |
+| `features_invariant.py` | 39 orientation-/offset-robust features: magnitude stats + spectral, per-window z-normalized shape, axis-pair correlations, gyro/accel ratio (DECISIONS.md). |
+| `augmentation.py` | 6× synthetic variability (random rotation + time-warp + mirror + jitter) as a subject-diversity substitute (DECISIONS.md). |
+| `models/train.py` | Random Forest (`class_weight='balanced'`, seed 42) + XGBoost/SVM for comparison (DECISIONS.md). |
 | `models/evaluate.py` | Accuracy, macro F1, per-class F1, confusion matrix; saves plots. |
 | `utils/metrics.py` | Load committed `model_metrics.json` for the app's Model Performance page. |
 | `scripts/train_model.py` | End-to-end training with leave-one-set-out CV; writes model + metrics + feature names. |
-| `app/pages/*.py` | `render()` for Home, Predict, Model Performance. |
+| `feedback/store.py` | Persist the user's per-window label corrections (raw windows + label) to `data/feedback/feedback.jsonl`; read them back as a windowing-compatible frame (DECISIONS.md §8). |
+| `feedback/retrain.py` | Rebuild the model from base data + corrections through the *same* pipeline; backs up the shipped model; writes a manifest (DECISIONS.md §8). |
+| `scripts/update_model.py` | CLI for the offline retrain (and `--restore-base` to undo). |
+| `scripts/add_labelled_recording.py` | Add a clean, labelled recording (one set) straight to the feedback store (DECISIONS.md §8). |
+| `app/pages/*.py` | `render()` for Home, Predict (incl. ✏️ Correct & Improve), Model Performance. |
 
 ---
 
-## 6. Runtime View
+## 4. Runtime View
 
 ### Training Pipeline (`scripts/train_model.py`)
 ```
@@ -159,11 +137,11 @@ Long DataFrame: subject_id, exercise_name, recording_id, timestamp, ax..gz
     │
     ▼ windowing.apply_sliding_window(size=200, overlap=0.5)   — carries recording_id
     │
-    ▼ augmentation.augment_windows(n_augment=5)   — rotation+time-warp+mirror+jitter (ADR-019)
+    ▼ augmentation.augment_windows(n_augment=5)   — rotation+time-warp+mirror+jitter (DECISIONS.md)
     │
-    ▼ features_invariant.extract_invariant_features()         — 39 features (ADR-018)
+    ▼ features_invariant.extract_invariant_features()         — 39 features (DECISIONS.md)
     │
-    ▼ Leave-one-set-out CV (LeaveOneGroupOut on recording_id, ADR-021):
+    ▼ Leave-one-set-out CV (LeaveOneGroupOut on recording_id, DECISIONS.md):
     │   train on other sets (+aug), test on held-out set's ORIGINAL windows only
     │   → aggregate macro F1 0.776 / acc 0.782, confusion matrix
     │
@@ -183,12 +161,12 @@ User uploads WristMotion.csv OR a Sensor Logger ZIP
     │   windowing.apply_sliding_window(200, 0.5)        (SAME as training)
     │   activity_gate.gate_window_df()         — low-energy windows → rest
     │   features_invariant.extract_invariant_features() (SAME as training)
-    │   novelty.NoveltyDetector.is_known()    — out-of-distribution → unknown (ADR-024)
+    │   novelty.NoveltyDetector.is_known()    — out-of-distribution → unknown (DECISIONS.md)
     │   model.predict_proba() on KNOWN ACTIVE windows
-    │   confidence < 0.50 → "uncertain" (ADR-020)
+    │   confidence < 0.50 → "uncertain" (DECISIONS.md)
 Per-window: predicted_class ∈ {3 exercises, rest, unknown, uncertain}, confidence, time
     │
-    ▼ session.summarize_session()             — fold windows into per-set bouts (ADR-025)
+    ▼ session.summarize_session()             — fold windows into per-set bouts (DECISIONS.md)
     ▼ app/pages/prediction.py — detected rate, timeline, detected sets, pie, table, CSV
 ```
 
@@ -197,7 +175,7 @@ Per-window: predicted_class ∈ {3 exercises, rest, unknown, uncertain}, confide
 
 ---
 
-## 8. Cross-Cutting Concepts
+## 5. Cross-Cutting Concepts
 
 ### Shared training/inference pipeline (the core rule)
 Training (`kaggle_loader`) and inference (`apple_watch_loader`) both import
@@ -205,15 +183,26 @@ Training (`kaggle_loader`) and inference (`apple_watch_loader`) both import
 never duplicated, so predictions in the app match training exactly.
 
 ### Honest evaluation & limitations
-- **Leave-one-set-out CV** (ADR-021): no same-set or augmented windows leak into
+- **Leave-one-set-out CV** (DECISIONS.md): no same-set or augmented windows leak into
   the test fold.
 - **Single-subject anchor:** cross-*person* performance cannot be measured and
-  will be below the reported macro F1; augmentation (ADR-019) is the documented
+  will be below the reported macro F1; augmentation (DECISIONS.md) is the documented
   mitigation. This is stated in the README, project overview, and the app.
+
+### Continual learning (human-in-the-loop)
+The app captures the user's per-window label corrections (`feedback/store.py`);
+clean labelled sets can also be added directly via
+`scripts/add_labelled_recording.py`. The model is rebuilt from the base data
+**plus** those corrections through the *same* pipeline (`feedback/retrain.py`) —
+the direct attack on the single-subject limitation. Capture is decoupled from
+training (corrections are always saved); **retraining is an explicit offline step**
+(`scripts/update_model.py`, never live in the app) and reuses
+windowing/augmentation/features so the model contract is unchanged. New labels
+become new classes (DECISIONS.md §8).
 
 ### Reproducibility
 - `uv.lock` pins every dependency; `uv run` provisions and runs in one step
-  (ADR-022). Random seeds fixed at 42 everywhere.
+  (DECISIONS.md). Random seeds fixed at 42 everywhere.
 
 ### Path Handling
 - All paths are `pathlib.Path` resolved via `src/ml4b/utils/config.py`

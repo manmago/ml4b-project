@@ -2,14 +2,14 @@
 
 > CRISP-DM Phase 1 | Status: **Done** | Completed: 2026-05-15
 
-> 🔁 **Final-iteration update (ADR-016, 2026-05-31).** After two dataset
+> 🔁 **Final-iteration update (DECISIONS.md, 2026-05-31).** After two dataset
 > iterations (RecoFit → MM-Fit) failed to transfer to real Apple-Watch uploads,
 > the project settled on the **Kaggle Gym Workout IMU dataset** (recorded *on*
 > an Apple Watch) and **three** biomechanically distinct classes: **bicep_curl,
 > tricep_extension, row**. The original 6-/7-class, RecoFit/MM-Fit framing below
 > is kept for history; where it says "6 classes" or names RecoFit/MM-Fit as the
 > source, the current truth is 3 classes on the Kaggle Apple-Watch anchor. See
-> `docs/data_understanding/dataset_evaluation.md` and ADR-016.
+> `docs/data_understanding/dataset_evaluation.md` and DECISIONS.md.
 
 ---
 
@@ -57,7 +57,7 @@ This question deliberately separates two concerns:
 
 ## 3. Business Goals
 
-### Classification Target (current — ADR-016)
+### Classification Target (current — DECISIONS.md)
 
 The model classifies sensor-data windows into **3 exercise classes**, each
 grouped from biomechanically equivalent Kaggle abbreviations:
@@ -69,15 +69,15 @@ grouped from biomechanically equivalent Kaggle abbreviations:
 | 3 | row | CGCR, NGCR, MGTBR | horizontal pull | 21 |
 
 Two further outputs are produced **outside** the model: **rest** (low-motion
-pauses, detected by an energy gate — ADR-017) and **uncertain** (active windows
-below the confidence threshold — ADR-020). Detecting rest is critical — without
+pauses, detected by an energy gate — DECISIONS.md) and **uncertain** (active windows
+below the confidence threshold — DECISIONS.md). Detecting rest is critical — without
 it a classifier would label idle periods as exercise — but it is gated by signal
 energy rather than learned, which transfers far better across devices/users.
 
 > **History:** Iteration 1 selected 6 classes from RecoFit (forearm-worn, 50 Hz),
 > Iteration 2 switched to MM-Fit (non-Apple smartwatch) adding `push_up` (7
 > classes). Both failed to transfer to a real Apple Watch (device-domain
-> mismatch). Iteration 3 (ADR-016) moved to the Kaggle Apple-Watch dataset and
+> mismatch). Iteration 3 (DECISIONS.md) moved to the Kaggle Apple-Watch dataset and
 > the 3 distinct classes above; `push_up` is **not** present in that dataset.
 
 ### Performance Target
@@ -117,21 +117,21 @@ The project uses a deliberate two-phase data strategy to rigorously test model g
 **Dataset evaluation completed in Phase 2 — Data Understanding**, then revised
 twice. The final choice is the **Kaggle Gym Workout IMU dataset** — see
 [`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md)
-and **ADR-016**.
+and **DECISIONS.md**.
 
 | Dataset | Verdict | Reason |
 |---------|---------|--------|
-| **Kaggle Gym Workout IMU** | ✅ **Primary (final — ADR-016)** | Recorded **on an Apple Watch** (100 Hz, left wrist) — exact device-domain match with deployment; covers bicep curl, triceps extension, row |
+| **Kaggle Gym Workout IMU** | ✅ **Primary (final — DECISIONS.md)** | Recorded **on an Apple Watch** (100 Hz, left wrist) — exact device-domain match with deployment; covers bicep curl, triceps extension, row |
 | MM-Fit | ⚠️ Abandoned | Non-Apple smartwatch; strong test scores but failed to transfer to real Apple-Watch uploads (device-domain mismatch) |
 | RecoFit (Microsoft) | ⚠️ Abandoned | 200+ participants but **forearm-worn**, 50 Hz — placement/rate gap vs the wrist-worn Apple Watch |
 | IEEE Gym Gesture | ❌ Rejected | Only 5 participants; exercise overlap minimal |
 | WEAR / Kaggle Fitness | ❌ Rejected | No gyroscope / no peer review / undocumented placement |
 
-> **Why Kaggle won (ADR-016):** the prior failures were **device-domain shift** —
+> **Why Kaggle won (DECISIONS.md):** the prior failures were **device-domain shift** —
 > training on a non-Apple sensor never generalised to a real Apple Watch. The
 > Kaggle dataset removes that shift by being recorded on the Apple Watch itself.
-> Its weakness is being single-subject, mitigated by augmentation (ADR-019) and
-> documented honestly (ADR-021).
+> Its weakness is being single-subject, mitigated by augmentation (DECISIONS.md) and
+> documented honestly (DECISIONS.md).
 
 #### Phase B — Generalization Test: Self-Recorded Apple Watch Data
 
@@ -157,16 +157,16 @@ Apple Watch via Sensor Logger delivers Wrist Motion data at approximately **50�
 
 | Criterion | Target | How to Measure |
 |-----------|--------|----------------|
-| Classification (macro F1) | ≥ 0.80 | Leave-one-set-out CV on the Kaggle Apple-Watch data (achieved 0.776 — ADR-021) |
+| Classification (macro F1) | ≥ 0.80 | Leave-one-set-out CV on the Kaggle Apple-Watch data (achieved 0.776 — DECISIONS.md) |
 | Honest evaluation | Leakage-free | No same-set windows across train/test; single-subject limitation documented |
 | App Usability | Functional demo | Streamlit app runs without errors, predictions render correctly |
-| Reproducibility | One command | `uv run streamlit run app/streamlit_app.py` runs the app; `make train` retrains (ADR-022) |
-| Documentation | Complete | arc42 + CRISP-DM log + ADRs 001–022 up to date at project end |
+| Reproducibility | One command | `uv run streamlit run app/streamlit_app.py` runs the app; `make train` retrains (DECISIONS.md) |
+| Documentation | Complete | arc42 + CRISP-DM log + DECISIONS.md up to date at project end |
 
 > The original ≥ 65% Apple-Watch generalization target assumed self-recorded
 > multi-subject test data, which could not be collected. The single-subject
 > anchor means cross-person performance cannot be measured; this is documented
-> as the project's central limitation (ADR-021), not hidden.
+> as the project's central limitation (DECISIONS.md), not hidden.
 
 ---
 
@@ -186,7 +186,7 @@ Apple Watch via Sensor Logger delivers Wrist Motion data at approximately **50�
 
 ### Assumptions
 
-- An Apple-Watch dataset exists with sufficient labeled data for the 3 target exercise classes (satisfied by the Kaggle Gym Workout IMU dataset — ADR-016)
+- An Apple-Watch dataset exists with sufficient labeled data for the 3 target exercise classes (satisfied by the Kaggle Gym Workout IMU dataset — DECISIONS.md)
 - The Sensor Logger app records IMU data at a consistent and documentable sampling rate
 - scikit-learn with classical ML algorithms (Random Forest, SVM) is sufficient — deep learning approaches (CNNs on raw signal) are out of scope for this project
 

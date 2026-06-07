@@ -13,9 +13,9 @@ Both the Kaggle training data and Sensor Logger uploads are Apple CoreMotion
 ``DeviceMotion`` streams, so the canonicalization is the same on both sides:
 total acceleration (userAcceleration + gravity) in **g** and rotation rate in
 **rad/s** — no cross-device unit conversion (the device-domain match that
-motivated ADR-016).
+motivated DECISIONS.md).
 
-Pipeline (see ADR-016..ADR-024):
+Pipeline (see DECISIONS.md):
     load (CSV/ZIP) -> normalize columns -> resample to 100 Hz
         -> sliding window (200, 50% overlap)
         -> activity gate (rest is NOT a model class)
@@ -56,7 +56,7 @@ UNCERTAIN_LABEL = "uncertain"
 
 # Label used for active windows the (optional) novelty detector rejects as
 # out-of-distribution — an exercise the closed-set model was never trained on
-# (ADR-024). Distinct from UNCERTAIN_LABEL: novelty is "not one of our classes",
+# (DECISIONS.md). Distinct from UNCERTAIN_LABEL: novelty is "not one of our classes",
 # uncertainty is "one of our classes, but the model is not confident".
 NOVEL_LABEL = "unknown"
 
@@ -154,7 +154,7 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             # Reconstruct TOTAL acceleration in g (userAccel + gravity) when the
             # mapping read CoreMotion user acceleration and a gravity vector is
             # available — this matches the Kaggle training canonicalization
-            # exactly (total accel in g, no m/s² conversion). See ADR-016.
+            # exactly (total accel in g, no m/s² conversion). See DECISIONS.md.
             mapped_from_acceleration = any(
                 key.lower().startswith("acceleration") for key in mapping
             )
@@ -240,39 +240,28 @@ def detect_sampling_rate(df: pd.DataFrame, timestamp_col: str = "timestamp") -> 
     return round(1.0 / median_diff)
 
 
-def predict_from_sensor_logger(
+def load_and_window_recording(
     csv_file: Path,
-    model: Any,
-    feature_names: list[str],
     window_size: int = WINDOW_SIZE,
     overlap: float = OVERLAP,
-    novelty_detector: Any | None = None,
-) -> pd.DataFrame:
-    """Run the full 3-class prediction pipeline on a Sensor Logger export.
+) -> tuple[pd.DataFrame, float, int]:
+    """Load a Sensor Logger export and fold it into raw signal windows.
 
-    Pipeline: load (CSV/ZIP) -> normalize -> resample to 100 Hz -> sliding
-    window -> activity gate (rest) -> invariant features -> novelty gate
-    (unknown) -> model predict -> confidence threshold (uncertain). Uses the same
-    preprocessing modules as training so predictions are consistent.
+    Shared front half of the prediction pipeline: load (CSV/ZIP) -> normalize
+    columns -> resample to 100 Hz -> sliding window. Defined once and reused by
+    both :func:`predict_from_sensor_logger` and the labelled-recording importer
+    (``scripts/add_labelled_recording.py``), so windowing never diverges between
+    prediction and feedback ingestion (the project's single-pipeline rule).
 
     Args:
         csv_file: Path to ``WristMotion.csv`` or a Sensor Logger ZIP.
-        model: Trained classifier (``best_model.joblib``).
-        feature_names: Ordered feature names from ``feature_names.txt``.
         window_size: Samples per window. Default 200 = 2 s at 100 Hz.
         overlap: Overlap fraction. Default 0.5.
-        novelty_detector: Optional fitted
-            :class:`ml4b.data.novelty.NoveltyDetector`. When provided, active
-            windows it rejects as out-of-distribution are labelled ``unknown``
-            and never reach the model. When ``None``, behaviour is unchanged.
 
     Returns:
-        DataFrame with one row per window and columns
-        ``[window_id, predicted_class, confidence, time_start_seconds]``. The
-        ``predicted_class`` is one of the three exercises, ``rest`` (gated),
-        ``unknown`` (novelty-rejected), or ``uncertain`` (low confidence).
-        ``DataFrame.attrs`` carries ``detected_hz`` and
-        ``n_samples_after_resample``.
+        ``(window_df, detected_hz, n_resampled)`` — the per-window raw-channel
+        frame (row position == ``window_id``), the recording's detected sampling
+        rate, and the sample count after resampling to 100 Hz.
 
     Raises:
         ValueError: If the recording is too short to form a single window.
@@ -303,6 +292,56 @@ def predict_from_sensor_logger(
             f"Recording too short: need at least {window_size} samples "
             f"(~{window_size / TARGET_HZ:.0f} s at {TARGET_HZ} Hz) to form one window."
         )
+    return window_df, detected_hz, len(raw_df)
+
+
+def predict_from_sensor_logger(
+    csv_file: Path,
+    model: Any,
+    feature_names: list[str],
+    window_size: int = WINDOW_SIZE,
+    overlap: float = OVERLAP,
+    novelty_detector: Any | None = None,
+    return_windows: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
+    """Run the full 3-class prediction pipeline on a Sensor Logger export.
+
+    Pipeline: load (CSV/ZIP) -> normalize -> resample to 100 Hz -> sliding
+    window -> activity gate (rest) -> invariant features -> novelty gate
+    (unknown) -> model predict -> confidence threshold (uncertain). Uses the same
+    preprocessing modules as training so predictions are consistent.
+
+    Args:
+        csv_file: Path to ``WristMotion.csv`` or a Sensor Logger ZIP.
+        model: Trained classifier (``best_model.joblib``).
+        feature_names: Ordered feature names from ``feature_names.txt``.
+        window_size: Samples per window. Default 200 = 2 s at 100 Hz.
+        overlap: Overlap fraction. Default 0.5.
+        novelty_detector: Optional fitted
+            :class:`ml4b.data.novelty.NoveltyDetector`. When provided, active
+            windows it rejects as out-of-distribution are labelled ``unknown``
+            and never reach the model. When ``None``, behaviour is unchanged.
+        return_windows: When True, also return the raw windowed DataFrame so the
+            caller can capture user corrections for continual learning (DECISIONS.md §8).
+            Its row order matches ``results`` (row position == ``window_id``).
+
+    Returns:
+        DataFrame with one row per window and columns
+        ``[window_id, predicted_class, confidence, time_start_seconds]``. The
+        ``predicted_class`` is one of the three exercises, ``rest`` (gated),
+        ``unknown`` (novelty-rejected), or ``uncertain`` (low confidence).
+        ``DataFrame.attrs`` carries ``detected_hz`` and
+        ``n_samples_after_resample``. If ``return_windows`` is True, returns a
+        ``(results, window_df)`` tuple instead, where ``window_df`` holds the
+        per-window raw signal channels (``raw_a*`` / ``raw_g*``).
+
+    Raises:
+        ValueError: If the recording is too short to form a single window.
+    """
+    # Shared load -> normalize -> resample -> window front half of the pipeline.
+    window_df, detected_hz, n_resampled = load_and_window_recording(
+        csv_file, window_size=window_size, overlap=overlap
+    )
 
     # Energy-threshold activity gate: rest windows never reach the model.
     active_mask = gate_window_df(window_df).to_numpy()
@@ -322,7 +361,7 @@ def predict_from_sensor_logger(
         # Novelty gate (optional): reject out-of-distribution windows as
         # "unknown" so an unseen exercise is not forced into one of the three
         # trained classes. Only the windows the detector accepts as known reach
-        # the model. See ADR-024.
+        # the model. See DECISIONS.md.
         if novelty_detector is not None:
             known = novelty_detector.is_known(X[active_idx])
             predicted[active_idx[~known]] = NOVEL_LABEL  # confidence stays NaN
@@ -352,5 +391,7 @@ def predict_from_sensor_logger(
         }
     )
     results.attrs["detected_hz"] = detected_hz
-    results.attrs["n_samples_after_resample"] = len(raw_df)
+    results.attrs["n_samples_after_resample"] = n_resampled
+    if return_windows:
+        return results, window_df
     return results

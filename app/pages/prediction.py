@@ -11,11 +11,16 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from ml4b.data.apple_watch_loader import predict_from_sensor_logger
-from ml4b.data.session import summarize_session
+from ml4b.data.session import dominant_label, format_set_summary, summarize_session
+from ml4b.feedback import store
+
+# Post-hoc outputs that are not meaningful as a human correction target.
+_NOT_A_CORRECTION = {"uncertain", "unknown"}
 
 # Below this many windows the recording is likely too short to be meaningful.
 MIN_WINDOWS_WARNING = 5
@@ -27,9 +32,6 @@ NON_EXERCISE_COLORS = {
     "Uncertain": "#8a8f98",
     "Unknown": "#e06c75",  # reddish: an exercise the model was not trained on
 }
-
-# Display labels that are not trained exercise classes.
-NON_EXERCISE_LABELS = {"Rest", "Uncertain", "Unknown"}
 
 
 def _humanize(label: str) -> str:
@@ -71,7 +73,7 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
         model: Trained classifier loaded by the app entry point.
         feature_names: Ordered feature names the model expects.
         novelty_detector: Optional fitted novelty detector that flags exercises
-            the model was not trained on as ``unknown`` (ADR-024). When ``None``,
+            the model was not trained on as ``unknown`` (DECISIONS.md). When ``None``,
             no out-of-distribution rejection is applied.
     """
     st.title("🔮 Predict Exercise")
@@ -104,8 +106,12 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     tmp_path = _save_upload_to_tempfile(uploaded_file)
     try:
         with st.spinner("Running prediction pipeline..."):
-            results = predict_from_sensor_logger(
-                tmp_path, model, feature_names, novelty_detector=novelty_detector
+            results, window_df = predict_from_sensor_logger(
+                tmp_path,
+                model,
+                feature_names,
+                novelty_detector=novelty_detector,
+                return_windows=True,
             )
     except ValueError as exc:
         # Raised for unknown columns or a too-short recording.
@@ -142,11 +148,13 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     # --- Summary metrics ---------------------------------------------------
     total_seconds = float(results["time_start_seconds"].max()) + 2.0
     detected_hz = results.attrs.get("detected_hz", "n/a")
-    # "Most common" should reflect a real EXERCISE, not rest/uncertain.
-    exercises_only = results[~results["exercise"].isin(NON_EXERCISE_LABELS)]
-    most_common = (
-        exercises_only["exercise"].mode().iloc[0] if not exercises_only.empty else "—"
-    )
+    # Overall result = the single most common label across the recording, with
+    # rest (a pause, not a result) excluded. Critically, "uncertain"/"unknown"
+    # ARE in the running: if the model was mostly unsure we say so here instead of
+    # surfacing a minority exercise as if it were the verdict (shared rule with
+    # the per-set bout label, so the two views never contradict each other).
+    overall_raw = dominant_label(results["predicted_class"])
+    overall_result = _humanize(overall_raw) if overall_raw else "—"
     # Confidence is NaN for gated rest windows; mean() skips them automatically.
     avg_conf = (
         float(results["confidence"].mean())
@@ -158,7 +166,7 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Windows", len(results))
     c2.metric("Duration", f"{total_seconds:.0f} s")
-    c3.metric("Top Exercise", most_common)
+    c3.metric("Overall Result", overall_result)
     c4.metric("Detected rate", f"{detected_hz} Hz")
 
     c5, c6 = st.columns(2)
@@ -207,6 +215,11 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
     if sets.empty:
         st.info("No active sets detected — the recording looks like rest only.")
     else:
+        # Headline count, e.g. "2 sets of Bicep Curl · 1 set of Row" — the plain
+        # answer to "what did I just do?" before the per-set detail table.
+        summary_line = format_set_summary(sets)
+        if summary_line:
+            st.markdown(f"#### 🧮 {summary_line}")
         sets_display = sets.copy()
         sets_display["Exercise"] = sets_display["label"].map(_humanize)
         sets_display = sets_display[
@@ -284,4 +297,125 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
         data=csv_bytes,
         file_name="ml4b_predictions.csv",
         mime="text/csv",
+    )
+
+    # --- Correct & improve (continual learning, DECISIONS.md §8) -----------
+    _render_correction_ui(results, window_df, model, uploaded_file.name)
+
+
+def _render_correction_ui(
+    results: pd.DataFrame,
+    window_df: pd.DataFrame,
+    model: Any,
+    source: str,
+) -> None:
+    """Let the user correct per-window labels and store them for later retraining.
+
+    Corrections are persisted to the feedback store immediately. Retraining is a
+    separate **offline** step (``scripts/update_model.py``) that rebuilds the
+    model from the base dataset plus all accumulated corrections — see
+    :mod:`ml4b.feedback` and DECISIONS.md §8. It is intentionally not triggered
+    from the app so a live demo never stalls.
+
+    Args:
+        results: Per-window prediction frame (row position == ``window_id``).
+        window_df: Raw windowed frame aligned to ``results`` (carries ``raw_*``).
+        model: The loaded classifier (its ``classes_`` seed the label choices).
+        source: Identifier of the uploaded recording (stored with corrections).
+    """
+    st.divider()
+    st.markdown("### ✏️ Correct & Improve the Model")
+    st.caption(
+        "Got a window wrong? Set the correct exercise below and **save** — your "
+        "corrections are stored locally. An offline retrain step then teaches the "
+        "model from them (and from any new exercise you introduce)."
+    )
+
+    with st.expander("Review and correct per-window labels", expanded=False):
+        # Selectable labels: the model's classes, rest, plus whatever the model
+        # already predicted (so every default is valid), plus an optional new one.
+        new_label = st.text_input(
+            "Add a new exercise label (optional)",
+            value="",
+            help="Type a new exercise name to teach the model a class it doesn't know yet.",
+        ).strip()
+        label_options = set(map(str, getattr(model, "classes_", [])))
+        label_options |= {"rest"}
+        label_options |= set(results["predicted_class"].astype(str))
+        if new_label:
+            label_options.add(new_label)
+        options = sorted(label_options)
+
+        edit_df = pd.DataFrame(
+            {
+                "window_id": results["window_id"].astype(int),
+                "time_s": results["time_start_seconds"].round(1),
+                "predicted": results["predicted_class"].astype(str),
+                "confidence": results["confidence"],
+                "correct_label": results["predicted_class"].astype(str),
+            }
+        )
+        edited = st.data_editor(
+            edit_df,
+            hide_index=True,
+            width="stretch",
+            height=320,
+            key="correction_editor",
+            column_config={
+                "window_id": st.column_config.NumberColumn("Window", disabled=True),
+                "time_s": st.column_config.NumberColumn("Start (s)", disabled=True),
+                "predicted": st.column_config.TextColumn("Predicted", disabled=True),
+                "confidence": st.column_config.NumberColumn(
+                    "Conf", format="%.2f", disabled=True
+                ),
+                "correct_label": st.column_config.SelectboxColumn(
+                    "Correct label", options=options, required=True
+                ),
+            },
+        )
+
+        if st.button("💾 Save corrections"):
+            # Keep only rows the user actually changed to a real exercise label.
+            changed = edited[
+                edited["correct_label"].astype(str) != edited["predicted"].astype(str)
+            ]
+            valid = changed[~changed["correct_label"].isin(_NOT_A_CORRECTION)]
+            if valid.empty:
+                st.info("No changes to save.")
+            else:
+                corrected = {
+                    int(row.window_id): str(row.correct_label)
+                    for row in valid.itertuples()
+                }
+                records = store.build_records(
+                    window_df,
+                    results,
+                    list(corrected),
+                    corrected,
+                    source=source,
+                )
+                n = store.append(records)
+                st.success(
+                    f"Saved {n} correction(s). Thank you — they'll improve the model."
+                )
+
+    # --- Retrain hint (offline only) ---------------------------------------
+    # Retraining is deliberately NOT triggered from the app: it takes a few
+    # minutes and must never stall a live demo. The app only *collects*
+    # corrections; the actual retrain is an explicit offline step run from a
+    # terminal (see DECISIONS.md §8).
+    fb = store.stats()
+    st.caption(
+        f"📚 Stored corrections: **{fb['total']}** "
+        f"({fb['n_changed']} changed a prediction) across {fb['n_sources']} recording(s)."
+    )
+    if fb["total"] == 0:
+        return
+    st.info(
+        "To fold these corrections into the model, run this once in a terminal "
+        "(offline, takes a few minutes):\n\n"
+        "```bash\nuv run python scripts/update_model.py\n```\n\n"
+        "It rebuilds the model from the base dataset **plus** your corrections "
+        "and backs up the shipped model first (restore with `--restore-base`). "
+        "Needs the base Kaggle dataset; otherwise corrections are kept for later."
     )

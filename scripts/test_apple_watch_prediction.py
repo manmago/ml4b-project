@@ -7,7 +7,7 @@ distribution, the dominant *exercise* (excluding the gated ``rest`` and the
 
 The filename hints at the true label. Files whose true label is **not** one of
 the three trained classes (e.g. ``push_up``, which is absent from the Kaggle
-dataset — ADR-016) are reported as *out of scope*: the script shows what the
+dataset — DECISIONS.md) are reported as *out of scope*: the script shows what the
 model outputs without calling it right or wrong.
 
 This is a read-only sanity check — it does NOT tune anything. Results are

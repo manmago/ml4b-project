@@ -39,6 +39,9 @@ data/processed/*
 !data/processed/.gitkeep
 !data/processed/README.md
 data/external/
+# User-correction feedback for continual learning (DECISIONS.md §8) — the end
+# user's own labelled data, kept local and never committed.
+data/feedback/
 *.parquet
 *.h5
 *.hdf5
@@ -153,3 +156,11 @@ tmp/
 # Local-only developer tooling — kept on disk, intentionally not tracked.
 CLAUDE.md
 agents/
+TEAM_PRAESENTATION.md
+
+# Sailboat-Retrospektiven — lokale Team-Reflexionen, nicht ins Repo
+Sailboats/
+
+# Autonome Nacht-Arbeitsprotokolle — lokale Notizen, nicht ins Repo
+Nightsession_LOG.md
+Night_log.md

@@ -5,18 +5,21 @@ emits one label per 2-second window over a whole continuous recording. For a rea
 gym session — where the user records once and performs several exercises with rest
 pauses between sets — a flat per-window list is hard to read. This module folds
 that timeline into **bouts**: maximal runs of consecutive *active* windows, split
-by the ``rest`` windows the activity gate detected (ADR-017, ADR-025).
+by the ``rest`` windows the activity gate detected (DECISIONS.md).
 
 Each bout is the natural unit of a gym "set". It is summarised by a single label
-chosen by majority vote over the genuine-exercise windows in the bout, which also
-smooths out isolated per-window misclassifications. A bout that contains no
-confident exercise window is labelled ``unknown`` (an unrecognised exercise) or
-``uncertain`` (active but below the confidence threshold), whichever dominates.
+chosen by **plurality vote over all of its windows** (``rest`` excluded): the
+single most frequent label wins. This deliberately lets ``uncertain`` or
+``unknown`` win a bout when they are the most common output — we must NOT report a
+confident-looking exercise for a set the model was, window-for-window, mostly
+unsure about. Only when a genuine exercise is the actual plurality is that
+exercise reported. The same rule smooths isolated per-window misclassifications.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 
 import pandas as pd
 
@@ -24,8 +27,50 @@ from ml4b.data.activity_gate import REST_LABEL
 from ml4b.data.apple_watch_loader import NOVEL_LABEL, UNCERTAIN_LABEL
 from ml4b.data.canonical import OVERLAP, TARGET_HZ, WINDOW_SIZE
 
-# Labels that are NOT a recognised exercise; excluded from the majority vote.
+# Post-hoc outputs that are NOT a trained exercise class. Used only for the
+# conservative tie-break below — they are still counted in the plurality vote.
 _NON_EXERCISE = {REST_LABEL, NOVEL_LABEL, UNCERTAIN_LABEL}
+
+
+def dominant_label(
+    labels: Iterable[str],
+    ignore: frozenset[str] = frozenset({REST_LABEL}),
+) -> str | None:
+    """Return the single most frequent label (the plurality), ``rest`` excluded.
+
+    This is the shared "overall result" rule used both for the per-bout label and
+    for the app's whole-recording summary, so the two never disagree. ``rest`` is
+    ignored by default because it is a pause, not a result; **``uncertain`` and
+    ``unknown`` ARE counted** — if the model was unsure (or saw an untrained
+    movement) for the plurality of windows, that is the honest answer and we do
+    not promote a minority exercise over it.
+
+    Ties are broken conservatively: if a non-exercise output (``uncertain`` /
+    ``unknown``) ties with an exercise, the non-exercise label wins so we never
+    over-report an exercise the model did not clearly predict. Remaining ties fall
+    back to alphabetical order for determinism.
+
+    Args:
+        labels: Per-window class labels, in any order.
+        ignore: Labels excluded from the vote entirely. Defaults to ``{rest}``.
+
+    Returns:
+        The winning label, or ``None`` if every label was ignored (e.g. a
+        recording that is entirely ``rest``).
+    """
+    counts = Counter(lbl for lbl in labels if lbl not in ignore)
+    if not counts:
+        return None
+    top_count = max(counts.values())
+    tied = [lbl for lbl, c in counts.items() if c == top_count]
+    if len(tied) == 1:
+        return tied[0]
+    # Conservative tie-break: a non-exercise output beats an exercise so an
+    # uncertain/unknown plurality is never overruled by an equally-frequent class.
+    non_exercise_tied = sorted(lbl for lbl in tied if lbl in _NON_EXERCISE)
+    if non_exercise_tied:
+        return non_exercise_tied[0]
+    return sorted(tied)[0]
 
 
 def summarize_session(
@@ -82,14 +127,12 @@ def summarize_session(
             return
         bout = pd.DataFrame(current)
         labels = bout["predicted_class"].tolist()
-        # Majority vote over genuine-exercise windows only.
-        exercise_labels = [lbl for lbl in labels if lbl not in _NON_EXERCISE]
-        if exercise_labels:
-            label = Counter(exercise_labels).most_common(1)[0][0]
-        else:
-            # No recognised exercise: report whichever non-exercise label
-            # dominates (unknown vs uncertain).
-            label = Counter(labels).most_common(1)[0][0]
+        # Plurality vote over ALL of the bout's windows (they are all non-rest by
+        # construction, so nothing extra is ignored here). Counting uncertain /
+        # unknown alongside the exercises means a set the model was mostly unsure
+        # about is reported as "uncertain", never as a minority exercise. Falls
+        # back to a deterministic label if somehow empty.
+        label = dominant_label(labels, ignore=frozenset()) or UNCERTAIN_LABEL
 
         start_s = float(bout["time_start_seconds"].iloc[0])
         # The bout ends one window-length after the last window starts.
@@ -123,3 +166,56 @@ def summarize_session(
     _flush()  # close the final bout if the recording ended mid-exercise
 
     return pd.DataFrame(bouts, columns=columns)
+
+
+def count_sets(
+    sets: pd.DataFrame,
+    include_non_exercise: bool = False,
+) -> list[tuple[str, int]]:
+    """Count how many sets were detected per exercise label.
+
+    Folds the per-bout table from :func:`summarize_session` into a per-label set
+    count — the answer to "how many sets of each exercise did I do?". A recording
+    of *bicep curl → rest → bicep curl* yields ``[("bicep_curl", 2)]`` (two sets,
+    one exercise), which is exactly the "2 sets of bicep curl" headline the app
+    shows.
+
+    Args:
+        sets: The per-bout DataFrame returned by :func:`summarize_session`
+            (one row per set, carrying a ``label`` column).
+        include_non_exercise: If ``False`` (default), drop ``rest`` / ``uncertain``
+            / ``unknown`` sets so only genuine exercises are counted. If ``True``,
+            keep them (e.g. to also report "1 uncertain set").
+
+    Returns:
+        A list of ``(label, count)`` pairs ordered by each label's first
+        appearance in time. Empty if there are no qualifying sets.
+    """
+    if sets.empty:
+        return []
+    # dict preserves insertion order (3.7+); bouts are time-ordered, so the
+    # result is ordered by when each exercise was first performed.
+    counts: dict[str, int] = {}
+    for label in sets["label"]:
+        if not include_non_exercise and label in _NON_EXERCISE:
+            continue
+        counts[label] = counts.get(label, 0) + 1
+    return list(counts.items())
+
+
+def format_set_summary(sets: pd.DataFrame) -> str:
+    """Render a one-line, human-readable set summary of a recording.
+
+    Args:
+        sets: The per-bout DataFrame from :func:`summarize_session`.
+
+    Returns:
+        A display string like ``"2 sets of Bicep Curl · 1 set of Row"``, or an
+        empty string if no genuine-exercise sets were detected.
+    """
+    parts = []
+    for label, n in count_sets(sets):
+        nice = label.replace("_", " ").title()
+        unit = "set" if n == 1 else "sets"
+        parts.append(f"{n} {unit} of {nice}")
+    return " · ".join(parts)

@@ -3,7 +3,7 @@
 The shipped Random Forest is closed-set: it labels every active window as one of
 its three exercises, even when the user performs an exercise it was never trained
 on. This script fits a :class:`ml4b.data.novelty.NoveltyDetector` that flags such
-out-of-distribution windows as ``unknown`` (ADR-024).
+out-of-distribution windows as ``unknown`` (DECISIONS.md).
 
 It regenerates the SAME device-invariant features the model is trained on, from
 the SAME Kaggle 3-class source (``data/raw/kaggle_gym_imu``), but WITHOUT
@@ -11,7 +11,7 @@ augmentation — the detector must be calibrated on the real motion distribution
 not synthetic copies. The feature column order is read from
 ``data/processed/feature_names.txt`` so it matches the model exactly.
 
-Output (committed so the app runs with no dataset — same rationale as ADR-011):
+Output (committed so the app runs with no dataset — same rationale as DECISIONS.md):
     models/saved/novelty_detector.joblib
 
 Run with:
@@ -33,7 +33,7 @@ from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR
 def main() -> None:
     """Fit the novelty detector on the invariant Kaggle features and save it."""
     print("=" * 64)
-    print("ML4B — Fitting open-set novelty detector (ADR-024)")
+    print("ML4B — Fitting open-set novelty detector (DECISIONS.md)")
     print("=" * 64)
 
     # Read the model's feature order so the detector lives in the SAME space the

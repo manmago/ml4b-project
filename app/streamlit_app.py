@@ -60,7 +60,7 @@ def load_novelty_detector():
     """Load the open-set novelty detector — cached for the session lifetime.
 
     The detector flags exercises the model was never trained on as ``unknown``
-    (ADR-024). It is optional: if the artifact is missing the app still runs,
+    (DECISIONS.md). It is optional: if the artifact is missing the app still runs,
     just without out-of-distribution rejection.
 
     Returns:

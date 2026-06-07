@@ -2,7 +2,7 @@
 
 > Documents every column produced by the **current** data pipeline
 > (`src/ml4b/data/`). Single source of truth for the 3-class Apple-Watch model
-> (ADR-016). The legacy MM-Fit/RecoFit per-axis pipeline is noted at the end.
+> (DECISIONS.md). The legacy MM-Fit/RecoFit per-axis pipeline is noted at the end.
 
 ---
 
@@ -10,14 +10,14 @@
 
 | Field | Value |
 |-------|-------|
-| Training source | **Kaggle Gym Workout IMU dataset** — Apple Watch SE, left wrist, `data/raw/kaggle_gym_imu/` (ADR-016) |
-| Abandoned sources | MM-Fit (non-Apple smartwatch) and RecoFit (forearm) — device-domain mismatch (ADR-013/016) |
+| Training source | **Kaggle Gym Workout IMU dataset** — Apple Watch SE, left wrist, `data/raw/kaggle_gym_imu/` (DECISIONS.md) |
+| Abandoned sources | MM-Fit (non-Apple smartwatch) and RecoFit (forearm) — device-domain mismatch (DECISIONS.md) |
 | Inference source | Apple Watch via **Sensor Logger** (`WristMotion.csv` / ZIP) |
 | Sensor modalities | Accelerometer (ax, ay, az), Gyroscope (gx, gy, gz) |
 | Sampling rate | **100 Hz** (native; the app resamples any rate to 100 Hz) |
 | Raw file format | CSV (both Kaggle and Sensor Logger — Apple CoreMotion) |
-| Target classes | **3** — `bicep_curl`, `tricep_extension`, `row` (ADR-016) |
-| Non-model outputs | `rest` (energy gate, ADR-017), `unknown` (novelty detector, ADR-024), `uncertain` (confidence threshold, ADR-020) |
+| Target classes | **3** — `bicep_curl`, `tricep_extension`, `row` (DECISIONS.md) |
+| Non-model outputs | `rest` (energy gate, DECISIONS.md), `unknown` (novelty detector, DECISIONS.md), `uncertain` (confidence threshold, DECISIONS.md) |
 | Units (canonical) | Accel **total acceleration in g** (userAccel + gravity); gyro **rad/s** |
 
 Canonicalization is defined once in `src/ml4b/data/canonical.py` and shared by
@@ -34,7 +34,7 @@ Produced by `src/ml4b/data/kaggle_loader.py::load_kaggle_3class()` (training) an
 |--------|------|------|-------------|
 | `subject_id` | int | — | Always 0 (single-subject Kaggle anchor) |
 | `exercise_name` | str | — | Target class: `bicep_curl`, `tricep_extension`, or `row` |
-| `recording_id` | str | — | Per-set id (Kaggle filename stem) — windows never cross a set; used for leave-one-set-out CV (ADR-021) |
+| `recording_id` | str | — | Per-set id (Kaggle filename stem) — windows never cross a set; used for leave-one-set-out CV (DECISIONS.md) |
 | `timestamp` | float | s | Sample time relative to recording start |
 | `ax`, `ay`, `az` | float | g | Total acceleration (userAccel + gravity) x / y / z |
 | `gx`, `gy`, `gz` | float | rad/s | Gyroscope (rotation rate) x / y / z |
@@ -43,7 +43,7 @@ Produced by `src/ml4b/data/kaggle_loader.py::load_kaggle_3class()` (training) an
 
 ## Windowed DataFrame
 Produced by `src/ml4b/data/windowing.py::apply_sliding_window()`. One row per
-**200-sample (2 s @ 100 Hz)** window, 50% overlap (ADR-006).
+**200-sample (2 s @ 100 Hz)** window, 50% overlap (DECISIONS.md).
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -58,7 +58,7 @@ Produced by `src/ml4b/data/windowing.py::apply_sliding_window()`. One row per
 
 ## Engineered Features (39 device-invariant columns)
 Produced by `src/ml4b/data/features_invariant.py::extract_invariant_features()`
-(ADR-018). One row per window; identifier columns are carried through. The
+(DECISIONS.md). One row per window; identifier columns are carried through. The
 ordered list is written to `data/processed/feature_names.txt` (committed).
 
 ### Magnitude features (rotation-invariant) — 20 columns
@@ -91,11 +91,11 @@ Scale/offset-invariant coordination structure:
 **Why invariant?** Magnitudes are unchanged by device rotation; per-window
 z-normalization removes per-device offset/gain; correlations are offset/scale
 invariant. This is what lets a single-subject model transfer across watches and
-users (ADR-018), complemented by augmentation (ADR-019).
+users (DECISIONS.md), complemented by augmentation (DECISIONS.md).
 
 ---
 
-## Label Definition (ADR-016)
+## Label Definition (DECISIONS.md)
 Mapping from Kaggle exercise abbreviations (`ABBREV_TO_CLASS` in
 `kaggle_loader.py`):
 
@@ -110,7 +110,7 @@ produced at inference, not trained.
 
 ---
 
-## Evaluation Split (ADR-021)
+## Evaluation Split (DECISIONS.md)
 **Leave-one-set-out** cross-validation grouped by `recording_id` (one Kaggle file
 = one set). Each set is held out once; its augmented copies are excluded from
 training. True leave-one-*subject*-out is impossible (single subject). The
@@ -120,8 +120,28 @@ cross-validation aggregate (macro F1 0.776), stored in
 
 ---
 
+## Feedback store — user corrections (DECISIONS.md §8)
+`data/feedback/feedback.jsonl` (NOT in git) holds the user's label corrections
+for continual learning. One JSON record per corrected window:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts` | string | UTC timestamp of the correction |
+| `source` | string | the uploaded recording's file name |
+| `window_id` | int | window index within that recording |
+| `corrected_label` | string | the user-supplied correct label (the training target) |
+| `predicted_label` | string | what the model had predicted |
+| `confidence` | float \| null | model confidence (null for gated/abstained windows) |
+| `raw_ax…raw_gz` | list[float] | the window's six canonical-unit channels (accel g, gyro rad/s) |
+
+Raw windows (not features) are stored so corrections are re-featurised through the
+current pipeline at retrain time. `src/ml4b/feedback/retrain.py` folds them into a
+new model; the manifest is written to `models/saved/model_manifest.json`.
+
+---
+
 ## Legacy pipeline (abandoned, kept for history)
 `src/ml4b/data/features.py` produced **47 per-axis features** for the MM-Fit/
 RecoFit pipeline (accel m/s² including gravity, gyro rad/s, 100-sample windows at
-50 Hz). It is superseded by the invariant features above (ADR-018) and is no
+50 Hz). It is superseded by the invariant features above (DECISIONS.md) and is no
 longer used by the app or the final model.

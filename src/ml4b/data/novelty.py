@@ -6,10 +6,10 @@ for every active window. In a real gym recording the user also performs exercise
 the model was never trained on (squats, shoulder press, …). Those windows clear
 the activity gate (they are full of motion) and the model then labels them — often
 *confidently* — as one of the three known classes. The confidence threshold that
-produces ``uncertain`` (ADR-020) only catches the low-confidence cases, not the
+produces ``uncertain`` (DECISIONS.md) only catches the low-confidence cases, not the
 confident mistakes.
 
-This module adds genuine out-of-distribution rejection (ADR-024). The three
+This module adds genuine out-of-distribution rejection (DECISIONS.md). The three
 exercises form three well-separated clusters in the device-invariant feature space
 (:mod:`ml4b.data.features_invariant`). For each class we fit a Gaussian model
 (mean + Ledoit-Wolf shrinkage covariance) and measure how far a new window sits
@@ -25,7 +25,7 @@ covariance well-conditioned even though the feature space has ~38 dimensions.
 The detector is fit once by ``scripts/fit_novelty_detector.py`` on the same
 invariant features the model is trained on, and saved next to the model as
 ``models/saved/novelty_detector.joblib`` so the app runs without the dataset
-(same rationale as ADR-011).
+(same rationale as DECISIONS.md).
 """
 
 from __future__ import annotations

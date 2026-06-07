@@ -25,7 +25,7 @@ app's inference pipeline (Sensor Logger uploads):
 Because the Kaggle dataset (Apple Watch SE) and Sensor Logger (any Apple Watch)
 use the *same* CoreMotion conventions, no cross-device unit conversion is needed
 — this device-domain match is the whole reason the Kaggle dataset was chosen as
-the training anchor (see ADR-016).
+the training anchor (see DECISIONS.md).
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ import pandas as pd
 # Native sampling rate of both the Kaggle dataset and Apple Watch DeviceMotion.
 TARGET_HZ: int = 100
 # Window length in samples. 200 samples @ 100 Hz = 2.0 s, long enough to contain
-# at least one full repetition of the target exercises — see ADR-006.
+# at least one full repetition of the target exercises — see DECISIONS.md.
 WINDOW_SIZE: int = 200
 # Fraction of overlap between consecutive windows.
 OVERLAP: float = 0.5
@@ -45,7 +45,7 @@ OVERLAP: float = 0.5
 # leading rows of every Kaggle file are NaN. We trim this lag — see Phase 1.
 LAG_SECONDS: float = 0.24
 # Below this maximum class probability the prediction is reported as
-# "uncertain" rather than forcing one of the three classes — see ADR-020.
+# "uncertain" rather than forcing one of the three classes — see DECISIONS.md.
 CONFIDENCE_THRESHOLD: float = 0.50
 
 # The canonical six-channel schema every loader must output (plus a timestamp).
