@@ -4,7 +4,7 @@
 # These wrap the canonical `uv run ...` commands so contributors don't have to
 # remember them. See README.md for the full workflow.
 
-.PHONY: help run train test lint format check setup
+.PHONY: help run train update test lint format check setup
 
 help:  ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -16,8 +16,11 @@ setup:  ## Install all dependencies (incl. dev tools) into .venv.
 run:  ## Launch the Streamlit app at http://localhost:8501.
 	uv run streamlit run app/streamlit_app.py
 
-train:  ## Retrain the model (needs the Kaggle dataset in data/raw/kaggle_gym_imu/).
+train:  ## Train from scratch on the Kaggle anchor only (needs data/raw/kaggle_gym_imu/).
 	uv run python scripts/train_model.py
+
+update:  ## Rebuild model+novelty+metrics from Kaggle + committed Testdaten/ (continual learning).
+	uv run python scripts/rebuild_from_testdaten.py
 
 test:  ## Run the unit test suite.
 	uv run pytest

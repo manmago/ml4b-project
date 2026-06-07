@@ -183,37 +183,54 @@ with the code they document.
 **Reproducibility.** `random_state=42` everywhere; `uv.lock` committed; the model
 is regenerated deterministically by `scripts/train_model.py`.
 
-## 8. Continual Learning — Correction & Retraining
+## 8. Continual Learning — Folder-Based Retraining
 
-The single-subject limitation (§6) means the model transfers imperfectly to a new
-person; the robust fix is a few of the user's *own* labelled recordings. The app
-therefore has a **human-in-the-loop feedback loop** (`src/ml4b/feedback/`):
+The single-subject limitation (§6) means the base model transfers imperfectly to a
+new person; the robust fix is more of our **own** labelled Apple-Watch recordings.
+Crucially, the Kaggle anchor is itself Apple Watch SE / CoreMotion data (§3), so our
+Sensor Logger recordings are the **same device domain** — they extend the anchor
+rather than mixing in a foreign source.
 
-- **Capture (app).** On the Predict page an "✏️ Correct & Improve" editor lets the
-  user fix the label of any window — pick a known class, `rest`, or type a **new**
-  exercise. Corrections are saved immediately.
-- **Store.** Each correction persists the **raw window samples** (six canonical
-  channels) + corrected label + light metadata to `data/feedback/feedback.jsonl`
-  (append-only, git-ignored — it is the user's own data). Raw windows, not
-  features, are stored so corrections survive a feature-set change and are
-  re-featurised through the shared pipeline at retrain time.
-- **Retrain (offline).** `scripts/update_model.py` rebuilds the model from the
-  **base Kaggle data + accumulated corrections** through the *identical* windowing
-  → augmentation → invariant-feature → Random Forest pipeline. Corrections are
-  repeated and augmented so a handful of examples carry weight; new labels become
-  new classes automatically. The shipped model is backed up to
-  `best_model_base.joblib` (restorable via `--restore-base`) and a
-  `model_manifest.json` records what went into each retrain.
+**Contribution model — commit data, not models.** Everyone commits *recordings*; the
+model is a **build artifact** regenerated from them. This is the cure for the "every
+laptop has a different model" divergence: with one deterministic build over committed
+data, the whole team converges on one model state. Only the build output
+(`models/saved/`) is committed back — by one person or CI, never hand-edited.
 
-**Why this design.** True online learning (`partial_fit`) would mean discarding
-the tuned Random Forest and risks catastrophic forgetting from a few samples; a
-feedback-augmented full retrain reuses the exact, tested pipeline and stays
-reproducible. Capture is **decoupled** from retraining: corrections are always
-collected, and on a fresh handover clone without the base dataset the app still
-records feedback for a later offline retrain. Retraining is an explicit,
-user-triggered offline step — never automatic or live during a demo. *Caveat: the
-novelty detector (§5) is not refit by this loop, so a newly added class may read
-as `unknown` until `scripts/fit_novelty_detector.py` is re-run.*
+- **Collect.** Record one exercise per file (one clean set) and commit it under
+  `Testdaten/<Exercise>/`. The **folder name** sets the label (`Biceps_Curls*` →
+  `bicep_curl`, `Rows*` → `row`, `Triceps_Extensions*` → `tricep_extension`), so
+  filenames are free-form.
+- **Rebuild.** `scripts/rebuild_from_testdaten.py` (`make update`) windows + gates
+  every committed recording, concatenates it with the Kaggle anchor, and runs the
+  *identical* windowing → augmentation → invariant-feature → Random Forest pipeline
+  as initial training. It also **refits the novelty detector** on base + Testdaten
+  (so our own exercises read as `known`, not `unknown`) and recomputes the honest
+  leave-one-set-out metrics in `model_metrics.json`.
+
+**This is retraining, not incremental "further training".** The Random Forest has no
+`partial_fit`; every update rebuilds the model from scratch on the current data. That
+is deliberate — incremental updates from a few samples risk catastrophic forgetting,
+whereas a full rebuild reuses the tested pipeline and is fully reproducible (same
+commit → same model). See `docs/project/continual_training.md`.
+
+**Rest and Uncertain are not training classes.**
+- `Rest/` recordings validate the energy activity gate (§5): rest is detected by a
+  device-agnostic threshold, not a learned class, which transfers far better across
+  people (a learned rest class over-predicts on real uploads).
+- `Uncertain/` holds recordings of *other* exercises. They validate open-set
+  rejection — the novelty detector (§5) should flag them `unknown`. We deliberately
+  do **not** train an "everything-else" class: it can only memorise the few foreign
+  exercises recorded and generalises badly, whereas the novelty detector rejects
+  unseen foreign motion too.
+
+**Superseded.** The earlier in-app "✏️ Correct & Improve" editor and the
+correction-driven `feedback.jsonl` loop are removed: they produced per-laptop local
+state (git-ignored) — exactly the divergence above. `add_labelled_recording.py` and
+`update_model.py` remain as lower-level building blocks, but
+`rebuild_from_testdaten.py` is the canonical full rebuild. Retraining stays an
+explicit **offline** step, never live during a demo; roll back any rebuild with
+`git checkout HEAD~1 -- models/saved/`.
 
 ---
 

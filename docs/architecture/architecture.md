@@ -119,9 +119,10 @@ src/ml4b/
 | `scripts/train_model.py` | End-to-end training with leave-one-set-out CV; writes model + metrics + feature names. |
 | `feedback/store.py` | Persist the user's per-window label corrections (raw windows + label) to `data/feedback/feedback.jsonl`; read them back as a windowing-compatible frame (DECISIONS.md §8). |
 | `feedback/retrain.py` | Rebuild the model from base data + corrections through the *same* pipeline; backs up the shipped model; writes a manifest (DECISIONS.md §8). |
-| `scripts/update_model.py` | CLI for the offline retrain (and `--restore-base` to undo). |
-| `scripts/add_labelled_recording.py` | Add a clean, labelled recording (one set) straight to the feedback store (DECISIONS.md §8). |
-| `app/pages/*.py` | `render()` for Home, Predict (incl. ✏️ Correct & Improve), Model Performance. |
+| `scripts/rebuild_from_testdaten.py` | **Canonical** continual-learning rebuild (`make update`): retrain model + refit novelty + refresh metrics from the Kaggle anchor + committed `Testdaten/` folders (DECISIONS.md §8). |
+| `scripts/update_model.py` | Lower-level CLI for the offline feedback-store retrain (and `--restore-base` to undo). |
+| `scripts/add_labelled_recording.py` | Lower-level building block: add one labelled recording to the feedback store (DECISIONS.md §8). |
+| `app/pages/*.py` | `render()` for Home, Predict, Model Performance. |
 
 ---
 

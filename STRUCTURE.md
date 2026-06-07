@@ -23,7 +23,7 @@ ml4b-project/
 ├── .streamlit/             ← Streamlit config (single sidebar navigation)
 ├── .env.example            ← Template showing all available env variables
 ├── .gitignore              ← What git ignores (with model/metrics exceptions)
-├── Makefile                ← Shortcuts: make run / train / test / lint / format
+├── Makefile                ← Shortcuts: make run / train / update / test / lint / format
 ├── run_app.sh              ← One-click app launcher (macOS/Linux/WSL)
 ├── run_app.bat             ← One-click app launcher (Windows)
 ├── STRUCTURE.md            ← This file
@@ -74,8 +74,9 @@ data/
 │   ├── README.md
 │   └── feature_names.txt   ← IN git (exception) — ordered list of the 39 invariant
 │                              feature names the app/model need (DECISIONS.md)
-└── feedback/              ← User label corrections for continual learning
-                              (feedback.jsonl; DECISIONS.md). NOT in git — the user's own data.
+└── feedback/              ← Feedback store used by the lower-level retrain scripts
+                              (feedback.jsonl; DECISIONS.md §8). NOT in git. The canonical
+                              `make update` rebuild reads Testdaten/ folders directly.
 ```
 
 - Never edit files in `raw/` — treat them as immutable originals.
@@ -178,10 +179,11 @@ src/ml4b/
 │   ├── __init__.py
 │   ├── train.py              ← train_random_forest(), train_xgboost(), train_svm() (DECISIONS.md)
 │   └── evaluate.py           ← evaluate_model(), compare_models(), save_model()
-├── feedback/                 ← Human-in-the-loop continual learning (DECISIONS.md)
+├── feedback/                 ← Continual-learning building blocks (DECISIONS.md §8). The
+│   │                            canonical entry point is scripts/rebuild_from_testdaten.py.
 │   ├── __init__.py
-│   ├── store.py              ← persist/load user label corrections (data/feedback/feedback.jsonl)
-│   └── retrain.py            ← rebuild model from base data + corrections (same pipeline)
+│   ├── store.py              ← persist/load labelled windows (data/feedback/feedback.jsonl)
+│   └── retrain.py            ← rebuild model from base data + feedback store (same pipeline)
 └── utils/
     ├── __init__.py
     ├── config.py             ← Path configuration (PROJECT_ROOT, DATA_RAW, …, find_project_root)
@@ -198,15 +200,20 @@ Stand-alone, runnable scripts (not part of the importable package).
 
 ```
 scripts/
-├── train_model.py            ← Train the 3-class model on Kaggle data with leave-one-set-out
+├── rebuild_from_testdaten.py ← CANONICAL continual-learning rebuild (`make update`): retrain
+│                                model + refit novelty + refresh metrics from Kaggle anchor +
+│                                committed Testdaten/<Exercise>/ folders (DECISIONS.md §8,
+│                                docs/project/continual_training.md). Run: uv run python
+│                                scripts/rebuild_from_testdaten.py  (--no-cv to skip CV)
+├── train_model.py            ← Train the 3-class model on Kaggle data ONLY, with leave-one-set-out
 │                                CV; saves best_model.joblib + model_metrics.json + feature_names.txt.
 │                                Run: uv run python scripts/train_model.py
 ├── fit_novelty_detector.py  ← Fit the open-set novelty detector on Kaggle invariant features;
 │                                saves novelty_detector.joblib (DECISIONS.md). Run: uv run python scripts/fit_novelty_detector.py
-├── add_labelled_recording.py ← Add a clean, labelled recording (one set) straight to
+├── add_labelled_recording.py ← Lower-level building block: add one labelled recording to
 │                                the feedback store (DECISIONS.md §8). Run: uv run python
 │                                scripts/add_labelled_recording.py REC.csv --label bicep_curl
-├── update_model.py          ← Continual learning: retrain on base data + user corrections (DECISIONS.md §8).
+├── update_model.py          ← Lower-level building block: retrain on base data + feedback store (DECISIONS.md §8).
 │                                Run: uv run python scripts/update_model.py  (--restore-base to undo)
 ├── inspect_kaggle_dataset.py ← Read-only audit of the Kaggle dataset (columns, labels,
 │                                sets per exercise, sampling rate). Run: uv run python scripts/inspect_kaggle_dataset.py

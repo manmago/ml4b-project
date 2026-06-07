@@ -11,16 +11,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from ml4b.data.apple_watch_loader import predict_from_sensor_logger
 from ml4b.data.session import dominant_label, format_set_summary, summarize_session
-from ml4b.feedback import store
-
-# Post-hoc outputs that are not meaningful as a human correction target.
-_NOT_A_CORRECTION = {"uncertain", "unknown"}
 
 # Below this many windows the recording is likely too short to be meaningful.
 MIN_WINDOWS_WARNING = 5
@@ -297,125 +292,4 @@ def render(model: Any, feature_names: list[str], novelty_detector: Any = None) -
         data=csv_bytes,
         file_name="ml4b_predictions.csv",
         mime="text/csv",
-    )
-
-    # --- Correct & improve (continual learning, DECISIONS.md §8) -----------
-    _render_correction_ui(results, window_df, model, uploaded_file.name)
-
-
-def _render_correction_ui(
-    results: pd.DataFrame,
-    window_df: pd.DataFrame,
-    model: Any,
-    source: str,
-) -> None:
-    """Let the user correct per-window labels and store them for later retraining.
-
-    Corrections are persisted to the feedback store immediately. Retraining is a
-    separate **offline** step (``scripts/update_model.py``) that rebuilds the
-    model from the base dataset plus all accumulated corrections — see
-    :mod:`ml4b.feedback` and DECISIONS.md §8. It is intentionally not triggered
-    from the app so a live demo never stalls.
-
-    Args:
-        results: Per-window prediction frame (row position == ``window_id``).
-        window_df: Raw windowed frame aligned to ``results`` (carries ``raw_*``).
-        model: The loaded classifier (its ``classes_`` seed the label choices).
-        source: Identifier of the uploaded recording (stored with corrections).
-    """
-    st.divider()
-    st.markdown("### ✏️ Correct & Improve the Model")
-    st.caption(
-        "Got a window wrong? Set the correct exercise below and **save** — your "
-        "corrections are stored locally. An offline retrain step then teaches the "
-        "model from them (and from any new exercise you introduce)."
-    )
-
-    with st.expander("Review and correct per-window labels", expanded=False):
-        # Selectable labels: the model's classes, rest, plus whatever the model
-        # already predicted (so every default is valid), plus an optional new one.
-        new_label = st.text_input(
-            "Add a new exercise label (optional)",
-            value="",
-            help="Type a new exercise name to teach the model a class it doesn't know yet.",
-        ).strip()
-        label_options = set(map(str, getattr(model, "classes_", [])))
-        label_options |= {"rest"}
-        label_options |= set(results["predicted_class"].astype(str))
-        if new_label:
-            label_options.add(new_label)
-        options = sorted(label_options)
-
-        edit_df = pd.DataFrame(
-            {
-                "window_id": results["window_id"].astype(int),
-                "time_s": results["time_start_seconds"].round(1),
-                "predicted": results["predicted_class"].astype(str),
-                "confidence": results["confidence"],
-                "correct_label": results["predicted_class"].astype(str),
-            }
-        )
-        edited = st.data_editor(
-            edit_df,
-            hide_index=True,
-            width="stretch",
-            height=320,
-            key="correction_editor",
-            column_config={
-                "window_id": st.column_config.NumberColumn("Window", disabled=True),
-                "time_s": st.column_config.NumberColumn("Start (s)", disabled=True),
-                "predicted": st.column_config.TextColumn("Predicted", disabled=True),
-                "confidence": st.column_config.NumberColumn(
-                    "Conf", format="%.2f", disabled=True
-                ),
-                "correct_label": st.column_config.SelectboxColumn(
-                    "Correct label", options=options, required=True
-                ),
-            },
-        )
-
-        if st.button("💾 Save corrections"):
-            # Keep only rows the user actually changed to a real exercise label.
-            changed = edited[
-                edited["correct_label"].astype(str) != edited["predicted"].astype(str)
-            ]
-            valid = changed[~changed["correct_label"].isin(_NOT_A_CORRECTION)]
-            if valid.empty:
-                st.info("No changes to save.")
-            else:
-                corrected = {
-                    int(row.window_id): str(row.correct_label)
-                    for row in valid.itertuples()
-                }
-                records = store.build_records(
-                    window_df,
-                    results,
-                    list(corrected),
-                    corrected,
-                    source=source,
-                )
-                n = store.append(records)
-                st.success(
-                    f"Saved {n} correction(s). Thank you — they'll improve the model."
-                )
-
-    # --- Retrain hint (offline only) ---------------------------------------
-    # Retraining is deliberately NOT triggered from the app: it takes a few
-    # minutes and must never stall a live demo. The app only *collects*
-    # corrections; the actual retrain is an explicit offline step run from a
-    # terminal (see DECISIONS.md §8).
-    fb = store.stats()
-    st.caption(
-        f"📚 Stored corrections: **{fb['total']}** "
-        f"({fb['n_changed']} changed a prediction) across {fb['n_sources']} recording(s)."
-    )
-    if fb["total"] == 0:
-        return
-    st.info(
-        "To fold these corrections into the model, run this once in a terminal "
-        "(offline, takes a few minutes):\n\n"
-        "```bash\nuv run python scripts/update_model.py\n```\n\n"
-        "It rebuilds the model from the base dataset **plus** your corrections "
-        "and backs up the shipped model first (restore with `--restore-base`). "
-        "Needs the base Kaggle dataset; otherwise corrections are kept for later."
     )
