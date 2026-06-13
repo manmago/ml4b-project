@@ -12,7 +12,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from ml4b.utils.metrics import load_model_metrics
+from ml4b.utils.metrics import load_baseline_metrics, load_model_metrics
 
 TARGET_F1 = 0.80
 
@@ -27,6 +27,84 @@ def _humanize(label: str) -> str:
         Display string, e.g. ``"Bicep Curl"``.
     """
     return label.replace("_", " ").title()
+
+
+def _render_model_comparison(metrics: dict, classes: list[str]) -> None:
+    """Show Model 1 (Kaggle only) vs Model 2 (current) — the effect of our data.
+
+    Reads the optional committed ``baseline_metrics.json``. When it is missing
+    (older checkout, or never rebuilt) the comparison is silently skipped.
+
+    Args:
+        metrics: Current model (Model 2) metrics dict.
+        classes: Fixed class order.
+    """
+    baseline = load_baseline_metrics()
+    if baseline is None:
+        return
+
+    st.divider()
+    st.markdown("### 🆚 Effect of our own training data")
+    n_td = metrics.get("n_testdaten_sets", 0)
+    st.caption(
+        f"**Model 1** is trained on the Kaggle anchor only; **Model 2** adds our "
+        f"own {n_td} uploaded recording set(s). Same pipeline and augmentation — "
+        "the difference is purely the effect of our data (leave-one-set-out CV)."
+    )
+
+    def _delta(now: float, before: float) -> str:
+        return f"{(now - before):+.3f}"
+
+    m1, m2 = st.columns(2)
+    m1.metric(
+        "Model 1 · Macro F1 (Kaggle only)",
+        f"{baseline['cv_macro_f1']:.3f}",
+        help=f"{baseline['n_sets']} held-out Kaggle sets",
+    )
+    m2.metric(
+        "Model 2 · Macro F1 (+ our data)",
+        f"{metrics['cv_macro_f1']:.3f}",
+        _delta(metrics["cv_macro_f1"], baseline["cv_macro_f1"]),
+        help=f"{metrics['n_sets']} held-out sets (Kaggle + our own)",
+    )
+    st.caption(
+        "⚠️ These two CV scores are **not** a clean apples-to-apples improvement: "
+        "each is evaluated over its own held-out sets, and Model 2's held-out pool "
+        "additionally contains our own (cross-person, harder) recordings. The clean, "
+        "same-recording comparison lives on the **Predict Exercise** page, where both "
+        "models score the exact same upload."
+    )
+
+    # Per-class F1 grouped bars so per-exercise gains/losses are visible.
+    rows = []
+    for c in classes:
+        rows.append(
+            {
+                "Exercise": _humanize(c),
+                "Model": "1 · Kaggle only",
+                "F1": baseline["cv_per_class_f1"][c],
+            }
+        )
+        rows.append(
+            {
+                "Exercise": _humanize(c),
+                "Model": "2 · + our data",
+                "F1": metrics["cv_per_class_f1"][c],
+            }
+        )
+    cmp_df = pd.DataFrame(rows)
+    bar = px.bar(
+        cmp_df,
+        x="Exercise",
+        y="F1",
+        color="Model",
+        barmode="group",
+        text="F1",
+        color_discrete_sequence=["#7f8fa6", "#2ec28a"],
+    )
+    bar.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    bar.update_layout(yaxis_range=[0, 1.05], height=380)
+    st.plotly_chart(bar, width="stretch")
 
 
 def render() -> None:
@@ -56,6 +134,9 @@ def render() -> None:
     c2.metric("Accuracy", f"{metrics['cv_accuracy']:.1%}")
     c3.metric("Classes", str(len(classes)))
     c4.metric("Training sets", str(metrics["n_sets"]))
+
+    # --- Model 1 vs Model 2 comparison (effect of our own data) -----------
+    _render_model_comparison(metrics, classes)
 
     st.divider()
 

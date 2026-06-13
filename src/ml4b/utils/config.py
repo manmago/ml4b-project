@@ -73,3 +73,17 @@ DATA_PROCESSED: Path = _resolve("ML4B_DATA_PROCESSED", "data/processed")
 DATA_FEEDBACK: Path = _resolve("ML4B_DATA_FEEDBACK", "data/feedback")
 MODELS_DIR: Path = _resolve("ML4B_MODELS_DIR", "models/saved")
 REPORTS_DIR: Path = _resolve("ML4B_REPORTS_DIR", "reports/figures")
+
+# --- Committed model artifacts -------------------------------------------------
+# Two models are shipped so the app can show the EFFECT of our own uploaded
+# training data side by side (DECISIONS.md §"Two-model comparison"):
+#   * Model 1 (baseline) — trained on the Kaggle anchor ONLY.
+#   * Model 2 (current)  — trained on Kaggle + committed Testdaten.
+# Both go through identical augmentation/feature/RF code; only the data differs.
+# Model 2 keeps the original filenames so nothing downstream breaks.
+BEST_MODEL_FILE = "best_model.joblib"
+NOVELTY_FILE = "novelty_detector.joblib"
+METRICS_FILE = "model_metrics.json"
+BASELINE_MODEL_FILE = "baseline_model.joblib"
+BASELINE_NOVELTY_FILE = "baseline_novelty_detector.joblib"
+BASELINE_METRICS_FILE = "baseline_metrics.json"

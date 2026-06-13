@@ -27,7 +27,14 @@ if str(_PROJECT_ROOT) not in sys.path:
 import joblib  # noqa: E402 — imported after the sys.path bootstrap above
 import streamlit as st  # noqa: E402
 
-from ml4b.utils.config import DATA_PROCESSED, MODELS_DIR  # noqa: E402
+from ml4b.utils.config import (  # noqa: E402
+    BASELINE_MODEL_FILE,
+    BASELINE_NOVELTY_FILE,
+    BEST_MODEL_FILE,
+    DATA_PROCESSED,
+    MODELS_DIR,
+    NOVELTY_FILE,
+)
 
 st.set_page_config(
     page_title="ML4B — Gym Exercise Recognition",
@@ -39,12 +46,12 @@ st.set_page_config(
 
 @st.cache_resource
 def load_model():
-    """Load the trained Random Forest model — cached for the session lifetime.
+    """Load the current model (Model 2 — Kaggle + Testdaten) for the session.
 
     Returns:
         The deserialized scikit-learn classifier from best_model.joblib.
     """
-    path = MODELS_DIR / "best_model.joblib"
+    path = MODELS_DIR / BEST_MODEL_FILE
     if not path.exists():
         st.error(
             f"❌ Model not found at `{path}`.\n\n"
@@ -57,7 +64,7 @@ def load_model():
 
 @st.cache_resource
 def load_novelty_detector():
-    """Load the open-set novelty detector — cached for the session lifetime.
+    """Load the open-set novelty detector for Model 2 — cached for the session.
 
     The detector flags exercises the model was never trained on as ``unknown``
     (DECISIONS.md). It is optional: if the artifact is missing the app still runs,
@@ -66,7 +73,37 @@ def load_novelty_detector():
     Returns:
         The deserialized ``NoveltyDetector``, or ``None`` if not available.
     """
-    path = MODELS_DIR / "novelty_detector.joblib"
+    path = MODELS_DIR / NOVELTY_FILE
+    if not path.exists():
+        return None
+    return joblib.load(path)
+
+
+@st.cache_resource
+def load_baseline_model():
+    """Load Model 1 (baseline — Kaggle only) for the two-model comparison.
+
+    Optional: when present, the Predict page runs BOTH models so the user can see
+    the effect of our own uploaded training data. When absent (older checkout),
+    the page falls back to showing the current model only.
+
+    Returns:
+        The deserialized baseline classifier, or ``None`` if not available.
+    """
+    path = MODELS_DIR / BASELINE_MODEL_FILE
+    if not path.exists():
+        return None
+    return joblib.load(path)
+
+
+@st.cache_resource
+def load_baseline_novelty_detector():
+    """Load the novelty detector for Model 1 (baseline) — cached for the session.
+
+    Returns:
+        The deserialized baseline ``NoveltyDetector``, or ``None`` if not available.
+    """
+    path = MODELS_DIR / BASELINE_NOVELTY_FILE
     if not path.exists():
         return None
     return joblib.load(path)
@@ -89,10 +126,13 @@ def load_feature_names() -> list[str]:
     return path.read_text().strip().split("\n")
 
 
-# Load model, features and (optional) novelty detector once at startup.
+# Load both models, features and (optional) novelty detectors once at startup.
+# Model 2 = current (Kaggle + Testdaten); Model 1 = baseline (Kaggle only).
 model = load_model()
 feature_names = load_feature_names()
 novelty_detector = load_novelty_detector()
+baseline_model = load_baseline_model()
+baseline_novelty_detector = load_baseline_novelty_detector()
 
 # Sidebar branding + navigation.
 st.sidebar.title("🏋️ ML4B Exercise Recognition")
@@ -106,9 +146,9 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.divider()
+_compare_note = " · 2-model compare on Predict" if baseline_model is not None else ""
 st.sidebar.caption(
-    "Model: Random Forest · Kaggle Apple-Watch · 3 classes · "
-    "leave-one-set-out Macro F1: 0.776"
+    "Model: Random Forest · Kaggle Apple-Watch · 3 classes" + _compare_note
 )
 
 # Route to the selected page's render function.
@@ -119,7 +159,13 @@ if page == "🏠 Home":
 elif page == "🔮 Predict Exercise":
     from app.pages.prediction import render
 
-    render(model, feature_names, novelty_detector)
+    render(
+        model,
+        feature_names,
+        novelty_detector,
+        baseline_model=baseline_model,
+        baseline_novelty_detector=baseline_novelty_detector,
+    )
 elif page == "📊 Model Performance":
     from app.pages.model_performance import render
 

@@ -1,0 +1,54 @@
+{
+  "classes": [
+    "bicep_curl",
+    "row",
+    "tricep_extension"
+  ],
+  "n_sets": 75,
+  "n_original_windows": 5510,
+  "n_features": 39,
+  "n_augment": 5,
+  "evaluation": "leave-one-set-out (Kaggle anchor only; single subject)",
+  "cv_macro_f1": 0.7757,
+  "cv_accuracy": 0.7822,
+  "cv_per_class_f1": {
+    "bicep_curl": 0.7604,
+    "row": 0.7566,
+    "tricep_extension": 0.8103
+  },
+  "confusion_matrix": [
+    [
+      1263,
+      159,
+      307
+    ],
+    [
+      87,
+      1010,
+      122
+    ],
+    [
+      243,
+      282,
+      2037
+    ]
+  ],
+  "confusion_matrix_labels": [
+    "bicep_curl",
+    "row",
+    "tricep_extension"
+  ],
+  "activity_gate_calibration": {
+    "accel_std_p01": 2.220446049250313e-16,
+    "accel_std_p05": 0.019454760461382992,
+    "accel_std_median": 0.08656226034693773,
+    "gyro_mean_p01": 0.047001771649074785,
+    "gyro_mean_p05": 0.1489415320912812,
+    "gyro_mean_median": 0.8327539056574933,
+    "fraction_kept_active": 0.8980036297640653
+  },
+  "activity_gate_thresholds": {
+    "accel_mag_std": 0.08,
+    "gyro_mag_mean": 0.3
+  }
+}

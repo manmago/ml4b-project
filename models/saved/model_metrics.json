@@ -5,16 +5,9 @@
     "tricep_extension"
   ],
   "n_sets": 89,
-  "n_testdaten_sets": 14,
-  "testdaten_sets_per_class": {
-    "bicep_curl": 3,
-    "row": 10,
-    "tricep_extension": 1
-  },
   "n_original_windows": 6286,
   "n_features": 39,
   "n_augment": 5,
-  "data_sources": "Kaggle 3-class anchor + committed Testdaten",
   "evaluation": "leave-one-set-out (base + Testdaten; single subject base)",
   "cv_macro_f1": 0.767,
   "cv_accuracy": 0.7685,
@@ -57,5 +50,12 @@
   "activity_gate_thresholds": {
     "accel_mag_std": 0.08,
     "gyro_mag_mean": 0.3
-  }
+  },
+  "n_testdaten_sets": 14,
+  "testdaten_sets_per_class": {
+    "bicep_curl": 3,
+    "row": 10,
+    "tricep_extension": 1
+  },
+  "data_sources": "Kaggle 3-class anchor + committed Testdaten"
 }

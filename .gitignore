@@ -151,6 +151,11 @@ tmp/
 !models/saved/random_forest.joblib
 !models/saved/novelty_detector.joblib
 !models/saved/model_metrics.json
+# Model 1 (baseline, Kaggle only) — shipped alongside Model 2 so the app can show
+# the effect of our own uploaded training data side by side (DECISIONS.md).
+!models/saved/baseline_model.joblib
+!models/saved/baseline_novelty_detector.joblib
+!models/saved/baseline_metrics.json
 !data/processed/feature_names.txt
 
 # Local-only developer tooling — kept on disk, intentionally not tracked.

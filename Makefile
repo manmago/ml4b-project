@@ -16,10 +16,10 @@ setup:  ## Install all dependencies (incl. dev tools) into .venv.
 run:  ## Launch the Streamlit app at http://localhost:8501.
 	uv run streamlit run app/streamlit_app.py
 
-train:  ## Train from scratch on the Kaggle anchor only (needs data/raw/kaggle_gym_imu/).
+train:  ## Train baseline + current models on the Kaggle anchor (needs data/raw/kaggle_gym_imu/).
 	uv run python scripts/train_model.py
 
-update:  ## Rebuild model+novelty+metrics from Kaggle + committed Testdaten/ (continual learning).
+update:  ## Rebuild BOTH models (baseline Kaggle-only + current Kaggle+Testdaten) for the app comparison.
 	uv run python scripts/rebuild_from_testdaten.py
 
 calibrate:  ## Analyse the activity-gate thresholds against rest + exercise energy (read-only).

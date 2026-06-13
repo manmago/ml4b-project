@@ -71,12 +71,19 @@ Whoever has the Kaggle anchor in `data/raw/kaggle_gym_imu/` runs:
 make update          # = uv run python scripts/rebuild_from_testdaten.py
 ```
 
-This regenerates **everything** from committed data:
-- `models/saved/best_model.joblib` (+ `random_forest.joblib`)
-- `models/saved/novelty_detector.joblib` — refit on base + Testdaten so **our own**
-  exercises count as `known`
-- `models/saved/model_metrics.json` — fresh honest leave-one-set-out metrics
-- `data/processed/feature_names.txt`
+This regenerates **everything** from committed data — **both models** so the app can
+show the effect of our own data side by side (see DECISIONS.md §9):
+- **Model 2 (current — Kaggle + Testdaten):** `models/saved/best_model.joblib`
+  (+ `random_forest.joblib`), `novelty_detector.joblib` (refit on base + Testdaten so
+  **our own** exercises count as `known`), `model_metrics.json`
+- **Model 1 (baseline — Kaggle only):** `models/saved/baseline_model.joblib`,
+  `baseline_novelty_detector.joblib`, `baseline_metrics.json`
+- `data/processed/feature_names.txt` (shared — the invariant feature set is identical)
+
+Both models are built by the **same** shared pipeline (`src/ml4b/models/pipeline.py`)
+with identical 6× augmentation; the only difference is that Model 1 never sees the
+Testdaten. The Predict page runs both on each upload and highlights where our own data
+changed the prediction.
 
 It also prints a **validation block**: for each `Uncertain/` recording, what fraction
 the novelty detector flags as `unknown` (want high); for each `Rest/` recording, what
@@ -84,7 +91,7 @@ fraction is gated out as rest (want high). Neither is used for training.
 
 ### 4. Commit the rebuilt model
 ```bash
-git add models/saved/ data/processed/feature_names.txt
+git add models/saved/ data/processed/feature_names.txt   # both models + metrics
 git commit -m "model: retrain on latest Testdaten" && git push
 ```
 Now everyone `git pull`s and runs the **same** model. **Only the rebuild output is
