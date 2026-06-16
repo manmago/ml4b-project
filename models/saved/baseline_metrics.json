@@ -9,28 +9,28 @@
   "n_features": 39,
   "n_augment": 5,
   "evaluation": "leave-one-set-out (Kaggle anchor only; single subject)",
-  "cv_macro_f1": 0.7757,
-  "cv_accuracy": 0.7822,
+  "cv_macro_f1": 0.7755,
+  "cv_accuracy": 0.782,
   "cv_per_class_f1": {
-    "bicep_curl": 0.7604,
-    "row": 0.7566,
-    "tricep_extension": 0.8103
+    "bicep_curl": 0.7607,
+    "row": 0.7558,
+    "tricep_extension": 0.8101
   },
   "confusion_matrix": [
     [
-      1263,
+      1265,
       159,
-      307
+      305
     ],
     [
-      87,
-      1010,
+      88,
+      1009,
       122
     ],
     [
-      243,
-      282,
-      2037
+      244,
+      283,
+      2035
     ]
   ],
   "confusion_matrix_labels": [

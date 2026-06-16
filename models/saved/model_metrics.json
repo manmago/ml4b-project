@@ -4,33 +4,33 @@
     "row",
     "tricep_extension"
   ],
-  "n_sets": 89,
-  "n_original_windows": 6286,
+  "n_sets": 110,
+  "n_original_windows": 7157,
   "n_features": 39,
   "n_augment": 5,
   "evaluation": "leave-one-set-out (base + Testdaten; single subject base)",
-  "cv_macro_f1": 0.767,
-  "cv_accuracy": 0.7685,
+  "cv_macro_f1": 0.7916,
+  "cv_accuracy": 0.7918,
   "cv_per_class_f1": {
-    "bicep_curl": 0.7527,
-    "row": 0.7647,
-    "tricep_extension": 0.7835
+    "bicep_curl": 0.7988,
+    "row": 0.784,
+    "tricep_extension": 0.792
   },
   "confusion_matrix": [
     [
-      1467,
-      238,
-      315
+      1852,
+      247,
+      309
     ],
     [
-      125,
-      1388,
-      154
+      112,
+      1662,
+      163
     ],
     [
-      286,
-      337,
-      1976
+      265,
+      394,
+      2153
     ]
   ],
   "confusion_matrix_labels": [
@@ -39,23 +39,23 @@
     "tricep_extension"
   ],
   "activity_gate_calibration": {
-    "accel_std_p01": 2.220446049250313e-16,
-    "accel_std_p05": 0.020832657410521975,
-    "accel_std_median": 0.08943558308463631,
-    "gyro_mean_p01": 0.05063815106323609,
-    "gyro_mean_p05": 0.17005944404114437,
-    "gyro_mean_median": 0.871671143858589,
-    "fraction_kept_active": 0.9105949729557747
+    "accel_std_p01": 0.002471062881452616,
+    "accel_std_p05": 0.022326824133491335,
+    "accel_std_median": 0.09183871533546167,
+    "gyro_mean_p01": 0.05615660153099402,
+    "gyro_mean_p05": 0.19409426577399078,
+    "gyro_mean_median": 0.9220511529258159,
+    "fraction_kept_active": 0.9214754785524661
   },
   "activity_gate_thresholds": {
     "accel_mag_std": 0.08,
     "gyro_mag_mean": 0.3
   },
-  "n_testdaten_sets": 14,
+  "n_testdaten_sets": 35,
   "testdaten_sets_per_class": {
-    "bicep_curl": 3,
-    "row": 10,
-    "tricep_extension": 1
+    "bicep_curl": 11,
+    "row": 17,
+    "tricep_extension": 7
   },
   "data_sources": "Kaggle 3-class anchor + committed Testdaten"
 }
