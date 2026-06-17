@@ -1,6 +1,6 @@
 # Continual Training — How We Keep Improving the Model
 
-> Short version: drop one clean set per file into `Testdaten/<Exercise>/`, commit it,
+> Short version: drop one clean set per file into `data/Testdaten/<Exercise>/`, commit it,
 > run `make update`, commit the rebuilt `models/saved/`. Everyone then pulls the same
 > model. See [DECISIONS.md §8](../DECISIONS.md) for the rationale.
 
@@ -49,19 +49,19 @@ The **folder name** is the label (filenames can be anything):
 
 | Put the recording in… | Trains the class |
 |---|---|
-| `Testdaten/Biceps_Curls/` | `bicep_curl` |
-| `Testdaten/Rows/` | `row` |
-| `Testdaten/Triceps_Extensions/` | `tricep_extension` |
-| `Testdaten/Rest/` | *(not a class — validates the rest gate)* |
-| `Testdaten/Uncertain/` | *(not a class — validates `unknown` rejection)* |
+| `data/Testdaten/Biceps_Curls/` | `bicep_curl` |
+| `data/Testdaten/Rows/` | `row` |
+| `data/Testdaten/Triceps_Extensions/` | `tricep_extension` |
+| `data/Testdaten/Rest/` | *(not a class — validates the rest gate)* |
+| `data/Testdaten/Uncertain/` | *(not a class — validates `unknown` rejection)* |
 
 A Sensor Logger export is a folder containing `WristMotion.csv` (the rebuild reads
 that file); a `.zip` export dropped directly in the folder also works.
 
 ```bash
 git pull                      # always start from the team's latest data
-# copy your export folder into Testdaten/<Exercise>/
-git add Testdaten/ && git commit -m "data: add <exercise> set(s)" && git push
+# copy your export folder into data/Testdaten/<Exercise>/
+git add data/Testdaten/ && git commit -m "data: add <exercise> set(s)" && git push
 ```
 
 ### 3. Rebuild the model (one person, or CI)
@@ -110,7 +110,7 @@ committed by one person** — nobody hand-edits the model, which keeps merges cl
   (`scripts/calibrate_gate.py`) measures both distributions, reports the margin to
   each side, and recommends a threshold in the gap — apply one by editing the two
   constants in `src/ml4b/data/activity_gate.py`. Record a few pauses (watch still,
-  fidgeting, drinking) into `Testdaten/Rest/` to verify/tune the lower bound.
+  fidgeting, drinking) into `data/Testdaten/Rest/` to verify/tune the lower bound.
 - **Uncertain** holds *other* exercises (squats, presses, …). Instead of an
   "everything-else" class (which only memorises the few foreign exercises we happened
   to record), the **novelty detector** rejects anything far from the known classes —
@@ -131,7 +131,7 @@ committed by one person** — nobody hand-edits the model, which keeps merges cl
 
 ## Optional: GitHub Actions (future)
 Because the rebuild is a pure function of committed data, it can later be wrapped in a
-GitHub Action that runs `make update` on every push to `Testdaten/**` and commits the
+GitHub Action that runs `make update` on every push to `data/Testdaten/**` and commits the
 new `models/saved/`. The one prerequisite is making the Kaggle anchor reachable in CI
 (it is git-ignored today). Until then, the "one person runs `make update`" workflow
 above gives the same single-model guarantee.

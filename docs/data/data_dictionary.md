@@ -2,7 +2,8 @@
 
 > Documents every column produced by the **current** data pipeline
 > (`src/ml4b/data/`). Single source of truth for the 3-class Apple-Watch model
-> (DECISIONS.md). The legacy MM-Fit/RecoFit per-axis pipeline is noted at the end.
+> (DECISIONS.md). Dataset selection & rationale: [`dataset_evaluation.md`](dataset_evaluation.md).
+> The legacy MM-Fit/RecoFit per-axis pipeline is noted at the end.
 
 ---
 
@@ -10,8 +11,8 @@
 
 | Field | Value |
 |-------|-------|
-| Training source | **Kaggle Gym Workout IMU dataset** — Apple Watch SE, left wrist, `data/raw/kaggle_gym_imu/` (DECISIONS.md) |
-| Abandoned sources | MM-Fit (non-Apple smartwatch) and RecoFit (forearm) — device-domain mismatch (DECISIONS.md) |
+| Training source | **Kaggle Gym Workout IMU dataset** — Apple Watch SE, left wrist, `data/raw/kaggle_gym_imu/` — **plus our own Apple-Watch recordings** in `data/Testdaten/` (DECISIONS.md) |
+| Abandoned sources | MM-Fit (non-Apple smartwatch) and RecoFit (forearm) — device-domain mismatch (DECISIONS.md, dataset_evaluation.md) |
 | Inference source | Apple Watch via **Sensor Logger** (`WristMotion.csv` / ZIP) |
 | Sensor modalities | Accelerometer (ax, ay, az), Gyroscope (gx, gy, gz) |
 | Sampling rate | **100 Hz** (native; the app resamples any rate to 100 Hz) |
@@ -114,15 +115,21 @@ produced at inference, not trained.
 **Leave-one-set-out** cross-validation grouped by `recording_id` (one Kaggle file
 = one set). Each set is held out once; its augmented copies are excluded from
 training. True leave-one-*subject*-out is impossible (single subject). The
-shipped model is trained on all sets + augmentation; the honest metric is the
-cross-validation aggregate (macro F1 0.776), stored in
-`models/saved/model_metrics.json`.
+shipped model (Kaggle + Testdaten) is trained on all sets + augmentation; the
+honest metric is the cross-validation aggregate (macro F1 0.792; the Kaggle-only
+baseline is 0.776), stored in `models/saved/model_metrics.json`.
 
 ---
 
-## Feedback store — user corrections (DECISIONS.md §8)
-`data/feedback/feedback.jsonl` (NOT in git) holds the user's label corrections
-for continual learning. One JSON record per corrected window:
+## Feedback store — lower-level building block (DECISIONS.md §8)
+> **Not the canonical path.** Continual learning is now **folder-based**: commit
+> recordings under `data/Testdaten/<Exercise>/` and rebuild with `make update`
+> (DECISIONS.md §8). The in-app correction loop was removed. The `feedback.jsonl`
+> store below remains only for the lower-level `add_labelled_recording.py` /
+> `update_model.py` scripts and is documented here for completeness.
+
+`data/feedback/feedback.jsonl` (NOT in git) holds label corrections for continual
+learning. One JSON record per corrected window:
 
 | Field | Type | Description |
 |-------|------|-------------|

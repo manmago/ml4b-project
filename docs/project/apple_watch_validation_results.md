@@ -9,7 +9,9 @@
 > Reproduce: `uv run python scripts/test_apple_watch_prediction.py` or upload each
 > file on the app's Predict page.
 
-Date: 2026-06-01 · Model: `best_model.joblib` (leave-one-set-out macro F1 0.776).
+Date: 2026-06-01 · Model: `best_model.joblib` as committed at that date (the
+Kaggle-only baseline, leave-one-set-out macro F1 0.776; the current shipped model
+adds our Testdaten → 0.792).
 
 ---
 

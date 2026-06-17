@@ -1,4 +1,4 @@
-"""Discover and label the committed Apple-Watch recordings under ``Testdaten/``.
+"""Discover and label the committed Apple-Watch recordings under ``data/Testdaten/``.
 
 Single source of truth for the Testdaten folder convention, shared by
 ``scripts/rebuild_from_testdaten.py`` (training) and ``scripts/calibrate_gate.py``
@@ -25,7 +25,7 @@ from ml4b.data.apple_watch_loader import load_and_window_recording
 from ml4b.utils.config import PROJECT_ROOT
 
 # Root holding the committed recordings, one subfolder per category.
-TESTDATEN_DIR: Path = PROJECT_ROOT / "Testdaten"
+TESTDATEN_DIR: Path = PROJECT_ROOT / "data" / "Testdaten"
 
 # Folder-name prefix (lower-cased) -> training label. Prefix match keeps us robust
 # to per-recording suffixes; only the folder sets the label.

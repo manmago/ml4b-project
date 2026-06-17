@@ -9,7 +9,7 @@
 > tricep_extension, row**. The original 6-/7-class, RecoFit/MM-Fit framing below
 > is kept for history; where it says "6 classes" or names RecoFit/MM-Fit as the
 > source, the current truth is 3 classes on the Kaggle Apple-Watch anchor. See
-> `docs/data_understanding/dataset_evaluation.md` and DECISIONS.md.
+> `docs/data/dataset_evaluation.md` and DECISIONS.md.
 
 ---
 
@@ -116,7 +116,7 @@ The project uses a deliberate two-phase data strategy to rigorously test model g
 
 **Dataset evaluation completed in Phase 2 — Data Understanding**, then revised
 twice. The final choice is the **Kaggle Gym Workout IMU dataset** — see
-[`docs/data_understanding/dataset_evaluation.md`](../data_understanding/dataset_evaluation.md)
+[`docs/data/dataset_evaluation.md`](../data/dataset_evaluation.md)
 and **DECISIONS.md**.
 
 | Dataset | Verdict | Reason |
@@ -157,7 +157,7 @@ Apple Watch via Sensor Logger delivers Wrist Motion data at approximately **50�
 
 | Criterion | Target | How to Measure |
 |-----------|--------|----------------|
-| Classification (macro F1) | ≥ 0.80 | Leave-one-set-out CV on the Kaggle Apple-Watch data (achieved 0.776 — DECISIONS.md) |
+| Classification (macro F1) | ≥ 0.80 | Leave-one-set-out CV on the Apple-Watch data (achieved 0.792 current, Kaggle + Testdaten; 0.776 Kaggle-only baseline — DECISIONS.md) |
 | Honest evaluation | Leakage-free | No same-set windows across train/test; single-subject limitation documented |
 | App Usability | Functional demo | Streamlit app runs without errors, predictions render correctly |
 | Reproducibility | One command | `uv run streamlit run app/streamlit_app.py` runs the app; `make train` retrains (DECISIONS.md) |

@@ -29,8 +29,9 @@ DECISIONS.md for the full journey. Only **Wrist Motion** (accel + gyro) is used.
 | 3 | Modularity / shared pipeline | Training and inference import the *same* preprocessing modules |
 | 4 | Explainability | Predictions and confidence are shown per window in the app |
 
-**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80 — achieved 0.776
-(single-subject ceiling, DECISIONS.md).
+**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80 — achieved 0.792
+(current model, Kaggle + Testdaten; 0.776 for the Kaggle-only baseline;
+single-subject ceiling, DECISIONS.md).
 
 **Key constraints:** Python 3.11 + `uv` (one-command run, DECISIONS.md); Streamlit UI
 (Python-native, no frontend work); scikit-learn (interpretable tabular models);
@@ -119,7 +120,7 @@ src/ml4b/
 | `scripts/train_model.py` | End-to-end training with leave-one-set-out CV; writes model + metrics + feature names. |
 | `feedback/store.py` | Persist the user's per-window label corrections (raw windows + label) to `data/feedback/feedback.jsonl`; read them back as a windowing-compatible frame (DECISIONS.md §8). |
 | `feedback/retrain.py` | Rebuild the model from base data + corrections through the *same* pipeline; backs up the shipped model; writes a manifest (DECISIONS.md §8). |
-| `scripts/rebuild_from_testdaten.py` | **Canonical** continual-learning rebuild (`make update`): retrain model + refit novelty + refresh metrics from the Kaggle anchor + committed `Testdaten/` folders (DECISIONS.md §8). |
+| `scripts/rebuild_from_testdaten.py` | **Canonical** continual-learning rebuild (`make update`): retrain model + refit novelty + refresh metrics from the Kaggle anchor + committed `data/Testdaten/` folders (DECISIONS.md §8). |
 | `scripts/update_model.py` | Lower-level CLI for the offline feedback-store retrain (and `--restore-base` to undo). |
 | `scripts/add_labelled_recording.py` | Lower-level building block: add one labelled recording to the feedback store (DECISIONS.md §8). |
 | `app/pages/*.py` | `render()` for Home, Predict, Model Performance. |
@@ -144,7 +145,8 @@ Long DataFrame: subject_id, exercise_name, recording_id, timestamp, ax..gz
     │
     ▼ Leave-one-set-out CV (LeaveOneGroupOut on recording_id, DECISIONS.md):
     │   train on other sets (+aug), test on held-out set's ORIGINAL windows only
-    │   → aggregate macro F1 0.776 / acc 0.782, confusion matrix
+    │   → aggregate macro F1 0.792 / acc 0.792 (current, Kaggle + Testdaten;
+    │     baseline Kaggle-only 0.776 / 0.782), confusion matrix
     │
     ▼ Final model: RandomForest on ALL sets + augmentation (seed 42, balanced)
     │

@@ -1,11 +1,9 @@
 # Project Decisions — ML4B Gym Exercise Recognition
 
-**Status:** Living document · **Last updated:** 2026-06-05
+**Status:** Living document · **Last updated:** 2026-06-17
 
 This is the single, consolidated record of the project's important decisions —
-*what* was decided and *why*. It replaces the former fine-grained per-decision
-ADR files (`docs/decisions/ADR-001…025`), which are summarised here grouped by
-theme. A traceability table at the end maps every old ADR number to its section.
+*what* was decided and *why*, grouped by theme.
 
 When a new significant decision is made, **add or update an entry below** — do
 not create separate decision files. Keep entries concise: decision + rationale +
@@ -132,10 +130,10 @@ confidently emitting a wrong label on real, open-ended recordings:
   the model. The same gate is used in training exploration and the app.
   *Calibration:* the thresholds are bounded from two sides — they must stay **below**
   real exercise energy (upper bound, from Kaggle) **and above** genuine rest energy
-  (lower bound, from committed `Testdaten/Rest/`). `scripts/calibrate_gate.py`
+  (lower bound, from committed `data/Testdaten/Rest/`). `scripts/calibrate_gate.py`
   (`make calibrate`) measures both distributions and recommends a threshold in the
   gap; rest recordings thus *calibrate the gate* rather than becoming a class. With
-  no `Testdaten/Rest/` data the lower bound is unverified (currently ~90% of Kaggle
+  no `data/Testdaten/Rest/` data the lower bound is unverified (currently ~90% of Kaggle
   exercise windows clear the gate; the rest are low-energy pauses).
 - **Confidence threshold → `uncertain`.** If the model's top class probability is
   below `0.50`, the window is reported `uncertain` instead of a forced class —
@@ -205,7 +203,7 @@ data, the whole team converges on one model state. Only the build output
 (`models/saved/`) is committed back — by one person or CI, never hand-edited.
 
 - **Collect.** Record one exercise per file (one clean set) and commit it under
-  `Testdaten/<Exercise>/`. The **folder name** sets the label (`Biceps_Curls*` →
+  `data/Testdaten/<Exercise>/`. The **folder name** sets the label (`Biceps_Curls*` →
   `bicep_curl`, `Rows*` → `row`, `Triceps_Extensions*` → `tricep_extension`), so
   filenames are free-form.
 - **Rebuild.** `scripts/rebuild_from_testdaten.py` (`make update`) windows + gates
@@ -277,36 +275,3 @@ aggregate score can even dip slightly. The clean, like-for-like comparison is th
 **Alternative rejected.** Showing only the current model (simpler) hides whether the
 extra data helped or hurt — the whole point of collecting it. A single blended metric
 was rejected as misleading for the reason above.
-
----
-
-## Traceability — former ADRs → sections
-
-| Former ADR | Topic | Section |
-|------------|-------|---------|
-| ADR-001 | Package manager (uv) | §1 |
-| ADR-002 | ML framework (scikit-learn) | §2 |
-| ADR-004 | Code/doc standard | §7 |
-| ADR-005 | Exercise class selection (RecoFit 6) | §3 (superseded) |
-| ADR-006 | Sliding window params | §4 |
-| ADR-007 | Subject-based split | §6 (superseded) |
-| ADR-008 | Undersampling strategy | §6 (superseded) |
-| ADR-009 | Model selection (3 candidates) | §2 |
-| ADR-010 | Random Forest as final model | §2 |
-| ADR-011 | Commit model to git | §3 |
-| ADR-012 | Apple-Watch mapping + resampling | §4 |
-| ADR-013 | Switch dataset RecoFit → MM-Fit | §3 (superseded) |
-| ADR-014 | Rotation augmentation rejected (MM-Fit) | §4 (superseded by ADR-019) |
-| ADR-015 | RF regularisation + rest rebalancing | §2 |
-| ADR-016 | Final 3 classes (Kaggle Apple-Watch) | §3 |
-| ADR-017 | Activity-gate rest detection | §5 |
-| ADR-018 | Device-invariant features | §4 |
-| ADR-019 | Augmentation as subject-diversity substitute | §4 |
-| ADR-020 | Confidence threshold → uncertain | §5 |
-| ADR-021 | Leave-one-set-out evaluation | §6 |
-| ADR-022 | One-command launch | §1 |
-| ADR-023 | Notebooks aligned to 3-class pipeline | §7 |
-| ADR-024 | Novelty detection → unknown | §5 |
-| ADR-025 | Bout/session summary | §5 |
-| ADR-026 | `uncertain`/`unknown` can be the overall/per-set result | §5 |
-| ADR-027 | Human-in-the-loop correction & continual learning | §8 |

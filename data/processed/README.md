@@ -1,29 +1,33 @@
 # Processed Data
 
-This folder holds the **output of the Phase 3 data preparation pipeline** (`notebooks/03_data_preparation.ipynb`).
+This folder holds the **output of the Phase 3 data-preparation pipeline**
+(`notebooks/03_data_preparation.ipynb` / `src/ml4b/data/`).
 
-It is in `.gitignore` — nothing here is ever committed. The `.gitkeep` file is the only tracked entry so the directory exists on a fresh clone.
+Everything here is in `.gitignore` **except `feature_names.txt`**, which is
+committed (it is the single source of truth for the model's feature order — the
+app needs it without the dataset). `.gitkeep` keeps the directory on a fresh clone.
 
-## Expected Contents (after running notebook 03)
+## Contents
 
-| File | Purpose | Approx. size |
-|------|---------|--------------|
-| `train_features.csv` | ~70% of subjects, feature matrix + labels | a few MB |
-| `val_features.csv`   | ~10% of subjects, feature matrix + labels | <1 MB |
-| `test_features.csv`  | ~20% of subjects, feature matrix + labels | a few MB |
-| `feature_names.txt`  | Newline-separated names of the 47 numeric feature columns — single source of truth for downstream notebooks | <1 KB |
+| File | Tracked? | Purpose |
+|------|:--------:|---------|
+| `feature_names.txt` | ✅ in git | Newline-separated names of the **39 device-invariant** feature columns, in order (DECISIONS.md; see `docs/data/data_dictionary.md`). |
+| `train_features.csv` / `val_features.csv` / `test_features.csv` | ❌ ignored | Optional local feature dumps from exploration — regenerated from the dataset, never committed. |
 
-Every CSV row corresponds to one 2 s sensor window (100 samples at 50 Hz) with the columns:
+The current pipeline windows each recording into **200-sample (2 s @ 100 Hz)**
+windows with 50 % overlap and extracts **39 device-invariant features**
+(`src/ml4b/data/features_invariant.py`). The model is evaluated with
+**leave-one-set-out** cross-validation grouped by recording — not a subject split.
+Full column reference: `docs/data/data_dictionary.md`.
 
-* `subject_id`, `exercise_name`, `window_id` — identifiers / label
-* 42 per-axis statistical features (7 stats × 6 axes: ax, ay, az, gx, gy, gz)
-* 3 magnitude features (`accel_magnitude_mean`, `accel_magnitude_std`, `gyro_magnitude_mean`)
-* 2 frequency-domain features (`dominant_frequency`, `spectral_energy`)
+## Reproducing the model
+The shipped model is rebuilt deterministically from the committed artifacts:
 
-## Reproducing These Files
-1. Place the RecoFit `.mat` file at `data/raw/recofit/exercise_data.50.0000_singleonly.mat` (see `data/raw/recofit/README.md`).
-2. Open and run `notebooks/03_data_preparation.ipynb` top-to-bottom.
-3. The notebook ends with a sanity-check cell that asserts no subject overlap and no NaN/inf values.
+1. Place the Kaggle dataset under `data/raw/kaggle_gym_imu/` (bootstrap) and/or
+   commit recordings under `data/Testdaten/<Exercise>/` (continual learning).
+2. Run `make train` (Kaggle-only baseline) or `make update`
+   (Kaggle + Testdaten — the canonical rebuild). See `docs/DECISIONS.md` §8.
 
-## Naming Convention
-Lowercase snake_case, `<split>_features.csv` for split feature matrices. Do not commit any file from this folder.
+## Naming convention
+Lowercase snake_case. Do not commit any file from this folder except
+`feature_names.txt`.

@@ -162,11 +162,12 @@ All six CRISP-DM phases are complete across **three iterations** (RecoFit →
 MM-Fit → **Kaggle Apple-Watch**, DECISIONS.md). The deliverable is a working
 Streamlit app that runs with **one command**
 (`uv run streamlit run app/streamlit_app.py`, or `make run`) and needs no dataset
-download. The final model (Random Forest on the Kaggle Apple-Watch anchor,
+download. The model at this date (Random Forest on the Kaggle Apple-Watch anchor,
 3 classes, **leave-one-set-out Macro F1 = 0.776**) is committed alongside its
-metrics, the feature list, and a reproducible training script. Sensor Logger
+metrics, the feature list, and a reproducible training script. *(Later extended
+with our own Testdaten to macro F1 0.792 — see the continual-learning note below.)* Sensor Logger
 exports are accepted as either `WristMotion.csv` or a full ZIP. The project is
-handover-ready: every decision is documented in `docs/DECISIONS.md` (DECISIONS.md–025),
+handover-ready: every decision is documented in `docs/DECISIONS.md`,
 the single-subject limitation is documented honestly, and OS-specific setup
 guides cover WSL, macOS, and Windows.
 
@@ -185,15 +186,25 @@ committed as `models/saved/novelty_detector.joblib`; the Random Forest is unchan
 (`02_data_understanding` … `06_streamlit_demo`) were migrated from the old
 6-class RecoFit pipeline to the current 3-class Apple-Watch pipeline. They now
 import from `src/ml4b/`, run top-to-bottom against `data/raw/kaggle_gym_imu/`,
-and `04_modeling` reproduces the committed leave-one-set-out macro F1 of 0.776.
+and `04_modeling` reproduces the Kaggle-only baseline leave-one-set-out macro F1
+of 0.776 (the current shipped model adds our Testdaten → 0.792).
 There is no `01_business_understanding.ipynb` or `06_deployment.ipynb` in the
 repo; those phases are documented under `docs/` instead.
 
-**Continual learning / human-in-the-loop (2026-06-05, DECISIONS.md §8):** the app now
-captures the user's per-window label corrections and can rebuild the model from
-the base data **plus** those corrections through the same windowing → augmentation
-→ invariant-feature → Random Forest pipeline (`src/ml4b/feedback/`,
-`scripts/update_model.py`). Corrections persist to `data/feedback/feedback.jsonl`
-(raw windows + label); new labels become new classes. This is a deployment-phase
-loop back into Data Preparation/Modeling — the direct, documented attack on the
-single-subject limitation (DECISIONS.md §6).
+**Continual learning — folder-based retraining (2026-06-05 → 2026-06-17, DECISIONS.md §8):**
+the direct attack on the single-subject limitation (DECISIONS.md §6) is to add more
+of our **own** Apple-Watch data. Rather than per-window corrections inside the app
+(the earlier in-app "Correct & Improve" loop, now **removed** because it produced
+per-laptop local state), we commit whole labelled recordings under
+`data/Testdaten/<Exercise>/` — the folder name sets the label. `make update`
+(`scripts/rebuild_from_testdaten.py`) rebuilds the model deterministically from the
+Kaggle anchor **plus** those recordings through the identical windowing → augmentation
+→ invariant-feature → Random Forest pipeline, refits the novelty detector, and
+recomputes the leave-one-set-out metrics. Data is committed, the model is a build
+artifact (DECISIONS.md §8).
+
+**Two-model comparison (2026-06-17, DECISIONS.md §9):** the app ships **two** models —
+a frozen **baseline** (Kaggle only, leave-one-set-out macro F1 **0.776**) and the
+**current** model (Kaggle + our Testdaten, macro F1 **0.792**, the shipped
+`best_model.joblib`) — and runs both on every upload so the effect of our own data is
+visible and honest rather than asserted.

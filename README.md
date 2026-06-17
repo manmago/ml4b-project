@@ -59,11 +59,11 @@ gate) and **uncertain** (low confidence).
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest (300 trees, `class_weight='balanced'`, seed 42) |
-| Training anchor | **Kaggle Gym Workout IMU** — Apple Watch, 100 Hz, single subject (DECISIONS.md) |
+| Training data | **Kaggle Gym Workout IMU** (Apple Watch, 100 Hz, single subject) **+ our own Testdaten** (DECISIONS.md) |
 | Evaluation | **Leave-one-set-out** cross-validation (leakage-free; DECISIONS.md) |
-| Macro F1 | **0.776** (target ≥ 0.80) |
-| Accuracy | 78.2% |
-| Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
+| Macro F1 | **0.792** (current, Kaggle + Testdaten) · 0.776 (Kaggle-only baseline) · target ≥ 0.80 |
+| Accuracy | 79.2% (current) · 78.2% (baseline) |
+| Per-class F1 (current) | bicep curl 0.80 · row 0.78 · tricep extension 0.79 |
 
 > ⚠️ **Honest limitation.** The training anchor is a **single subject**, so true
 > cross-*person* performance cannot be measured and will be **below** these
@@ -109,7 +109,7 @@ make train        # or: uv run python scripts/train_model.py
 This rewrites `models/saved/best_model.joblib`, `models/saved/model_metrics.json`
 and `data/processed/feature_names.txt`. Uses `random_state=42` throughout. The
 dataset choice (Kaggle over the abandoned RecoFit / MM-Fit) is documented in
-DECISIONS.md and [`docs/data_understanding/dataset_evaluation.md`](docs/data_understanding/dataset_evaluation.md).
+DECISIONS.md and [`docs/data/dataset_evaluation.md`](docs/data/dataset_evaluation.md).
 
 ---
 
@@ -124,7 +124,7 @@ state (see [DECISIONS.md §8](docs/DECISIONS.md) and
 1. **Record** one exercise per file (one clean set) with Sensor Logger — see
    [`docs/project/apple_watch_data_collection_guide.md`](docs/project/apple_watch_data_collection_guide.md).
 2. **Commit** it into the folder for that exercise — the **folder name** is the
-   label: `Testdaten/Biceps_Curls/`, `Testdaten/Rows/`, `Testdaten/Triceps_Extensions/`.
+   label: `data/Testdaten/Biceps_Curls/`, `data/Testdaten/Rows/`, `data/Testdaten/Triceps_Extensions/`.
 3. **Rebuild** (one person with the Kaggle dataset, or CI):
 
    ```bash

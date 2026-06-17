@@ -10,7 +10,7 @@ the effect of our own uploaded training data side by side (DECISIONS.md):
 
   * **Model 1 (baseline)** — Kaggle 3-class anchor ONLY.
         -> baseline_model.joblib / baseline_novelty_detector.joblib / baseline_metrics.json
-  * **Model 2 (current)**  — Kaggle anchor + every labelled set under Testdaten/.
+  * **Model 2 (current)**  — Kaggle anchor + every labelled set under data/Testdaten/.
         -> best_model.joblib / random_forest.joblib / novelty_detector.joblib / model_metrics.json
 
 Both models go through byte-for-byte the SAME windowing/augmentation (6x)/feature/RF

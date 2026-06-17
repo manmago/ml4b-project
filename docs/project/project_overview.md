@@ -93,12 +93,12 @@ synthesise the subject diversity a single-subject dataset lacks (DECISIONS.md).
 | Metric | Value |
 |--------|-------|
 | Best model | Random Forest |
-| Training anchor | Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject (DECISIONS.md) |
+| Training data | Kaggle Gym Workout IMU (Apple Watch, 100 Hz, single subject) + our own Testdaten (DECISIONS.md) |
 | Evaluation | **Leave-one-set-out** cross-validation (leakage-free; DECISIONS.md) |
-| Macro F1 | **0.776** |
-| Accuracy | 78.2% |
-| Per-class F1 | bicep curl 0.76 · row 0.76 · tricep extension 0.81 |
-| Training sets | 75 (24 bicep · 21 row · 30 triceps) |
+| Macro F1 | **0.792** (current, Kaggle + Testdaten) · 0.776 (Kaggle-only baseline) |
+| Accuracy | 79.2% (current) · 78.2% (baseline) |
+| Per-class F1 (current) | bicep curl 0.80 · row 0.78 · tricep extension 0.79 |
+| Training sets | 110 (75 Kaggle + 35 Testdaten); baseline 75 (24 bicep · 21 row · 30 triceps) |
 
 These numbers are produced by `scripts/train_model.py` and stored in
 `models/saved/model_metrics.json` (shown live on the Model Performance page).
@@ -159,7 +159,7 @@ The original RecoFit/MM-Fit pipeline that was superseded is summarised in
 | What you need | Where to look |
 |--------------|---------------|
 | Project goals and research question | `docs/business_understanding/business_understanding.md` |
-| Dataset evaluation and selection | `docs/data_understanding/dataset_evaluation.md` |
+| Dataset evaluation and selection | `docs/data/dataset_evaluation.md` |
 | All technical decisions | `docs/DECISIONS.mdDECISIONS.md` … `DECISIONS.md` |
 | CRISP-DM progress log | `docs/project/crisp_dm_log.md` |
 | System architecture (arc42) | `docs/architecture/architecture.md` |
@@ -196,7 +196,7 @@ The original RecoFit/MM-Fit pipeline that was superseded is summarised in
 | Task | Status |
 |------|--------|
 | 3-class Apple-Watch model trained + committed | ✅ Done |
-| Leave-one-set-out evaluation (honest metrics) | ✅ Done (macro F1 0.776) |
+| Leave-one-set-out evaluation (honest metrics) | ✅ Done (macro F1 0.792 current · 0.776 baseline) |
 | Streamlit app (Home / Predict / Model Performance) | ✅ Done |
 | One-command launch on WSL / macOS / Windows | ✅ Done |
 | Honest sanity check on real Apple Watch samples | ✅ Done — see `apple_watch_validation_results.md` |

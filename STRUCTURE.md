@@ -11,7 +11,7 @@
 ml4b-project/
 │
 ├── app/                    ← Streamlit web application
-├── data/                   ← All data (mostly NOT in git — except feature_names.txt)
+├── data/                   ← All data (mostly NOT in git — except Testdaten/ + feature_names.txt)
 ├── docs/                   ← Project documentation (incl. DECISIONS.md)
 ├── models/                 ← Trained model + metrics (committed so the app runs)
 ├── notebooks/              ← Jupyter notebooks (one per CRISP-DM phase)
@@ -64,19 +64,25 @@ small text files noted below.**
 ```
 data/
 ├── raw/
-│   ├── kaggle_gym_imu/     ← CURRENT training source — Kaggle Gym Workout IMU
+│   ├── kaggle_gym_imu/     ← CURRENT training anchor — Kaggle Gym Workout IMU
 │   │                          (Apple Watch, 100 Hz, single subject; DECISIONS.md). NOT in git.
 │   ├── apple_watch/        ← Real Apple Watch test samples for the sanity check (NOT in git)
-│   ├── recofit/            ← ABANDONED original source (forearm-worn, DECISIONS.md). NOT in git.
 │   └── mm-fit/             ← ABANDONED interim source (non-Apple smartwatch, DECISIONS.md). NOT in git.
+│                              (RecoFit, the abandoned ORIGINAL source, is no longer kept locally —
+│                               its history is in docs/data/dataset_evaluation.md.)
+├── Testdaten/             ← IN git — our own committed Apple-Watch recordings, one subfolder
+│   │                          per category. The CANONICAL continual-learning input read by
+│   │                          `make update` (DECISIONS.md §8; src/ml4b/data/testdaten.py).
+│   ├── Biceps_Curls/  Rows/  Triceps_Extensions/   ← training sets (folder name = label)
+│   └── Rest/  Uncertain/                            ← calibrate the gate / validate `unknown`
 ├── processed/
 │   ├── .gitkeep
 │   ├── README.md
 │   └── feature_names.txt   ← IN git (exception) — ordered list of the 39 invariant
 │                              feature names the app/model need (DECISIONS.md)
-└── feedback/              ← Feedback store used by the lower-level retrain scripts
+└── feedback/              ← Feedback store for the lower-level retrain scripts only
                               (feedback.jsonl; DECISIONS.md §8). NOT in git. The canonical
-                              `make update` rebuild reads Testdaten/ folders directly.
+                              `make update` rebuild reads data/Testdaten/ folders directly.
 ```
 
 - Never edit files in `raw/` — treat them as immutable originals.
@@ -90,8 +96,10 @@ All project documentation, organised by topic.
 docs/
 ├── architecture/architecture.md          ← arc42 architecture (keep updated)
 ├── business_understanding/business_understanding.md ← CRISP-DM Phase 1
-├── data/data_dictionary.md               ← Sensor columns + the 39 invariant features
-├── data_understanding/dataset_evaluation.md ← CRISP-DM Phase 2: dataset choice (Kaggle)
+├── data/
+│   ├── data_dictionary.md                ← Sensor columns + the 39 invariant features
+│   └── dataset_evaluation.md             ← Dataset comparison & rationale (Kaggle + Testdaten)
+├── data_understanding/data_understanding.md ← CRISP-DM Phase 2: short narrative summary
 ├── DECISIONS.md                           ← Consolidated decision log (every major decision)
 ├── project/
 │   ├── crisp_dm_log.md                   ← CRISP-DM phase progress tracker
@@ -144,7 +152,7 @@ CRISP-DM phase notebooks, all aligned to the current 3-class Apple-Watch pipelin
 notebooks/
 ├── 02_data_understanding.ipynb  ← Kaggle dataset exploration (21 abbrevs, 3 classes, 100 Hz)
 ├── 03_data_preparation.ipynb    ← load → window 200@100Hz → gate → invariant features → augment
-├── 04_modeling.ipynb            ← Random Forest + leave-one-set-out CV (macro F1 0.776)
+├── 04_modeling.ipynb            ← Random Forest + leave-one-set-out CV (Kaggle-only baseline, macro F1 0.776)
 ├── 05_evaluation.ipynb          ← honest metrics + limitations + sanity check on test_samples
 └── 06_streamlit_demo.ipynb      ← end-to-end predict_from_sensor_logger demo (mirrors the app)
 ```
@@ -227,6 +235,9 @@ scripts/
 │                                Run: uv run python scripts/update_model.py  (--restore-base to undo)
 ├── inspect_kaggle_dataset.py ← Read-only audit of the Kaggle dataset (columns, labels,
 │                                sets per exercise, sampling rate). Run: uv run python scripts/inspect_kaggle_dataset.py
+├── generate_report_figures.py ← Render the curated handover figures into reports/figures/
+│                                from committed metrics + model (deterministic, no dataset).
+│                                Run: uv run python scripts/generate_report_figures.py
 ├── build_mmfit_dataset.py    ← LEGACY MM-Fit feature builder — abandoned (DECISIONS.md)
 └── test_apple_watch_prediction.py ← Helper: per-file predictions on real WristMotion.csv samples
 ```
@@ -236,8 +247,11 @@ Always resolve paths via `find_project_root()` / `ml4b.utils.config`.
 ---
 
 ### `reports/`
-Generated figures and result summaries. **Not committed** (only `.gitkeep`
-placeholders are tracked). `scripts/train_model.py` also writes
+Generated figures and result summaries. The curated handover figure set in
+`reports/figures/` is produced deterministically from the committed model +
+metrics by `scripts/generate_report_figures.py` (confusion matrices for both
+models, per-class/macro F1 comparison, top-15 feature importances, dataset
+composition). `scripts/train_model.py` also writes
 `reports/leave_one_set_out_results.json` here (the committed copy lives under
 `models/saved/model_metrics.json`).
 
@@ -268,7 +282,7 @@ tests/
 
 | What | Why |
 |------|-----|
-| `data/` | Large and/or personal data |
+| `data/` **except** `data/Testdaten/` and `data/processed/feature_names.txt` | Large and/or personal data. `data/Testdaten/` (our own labelled Apple-Watch recordings) is committed so `make update` reproduces the model. |
 | `models/saved/*.joblib` except `best_model.joblib` / `random_forest.joblib` / `novelty_detector.joblib` / `baseline_model.joblib` / `baseline_novelty_detector.joblib` | Binary; large. The committed exceptions (both models) let the app run + compare without the dataset. |
 | `.env` | Secrets and local paths |
 | `.venv/` | Reproducible via `uv` |

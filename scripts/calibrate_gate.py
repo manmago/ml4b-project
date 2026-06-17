@@ -15,11 +15,11 @@ It does **not** replace the existing calibration — the two bounds are compleme
 
 * EXERCISE energy (Kaggle clean sets) gives the **upper** bound: the threshold must
   stay BELOW real exercise, or real exercise gets filtered out.
-* committed ``Testdaten/Rest/`` recordings give the **lower** bound: the threshold must
+* committed ``data/data/Testdaten/Rest/`` recordings give the **lower** bound: the threshold must
   stay ABOVE genuine rest, or pauses leak through and get classified as an exercise.
 
 Rest data only adds the lower bound; the exercise upper bound stays as before. With no
-``Testdaten/Rest/`` recordings the lower bound is unverified and the tool says so.
+``data/data/Testdaten/Rest/`` recordings the lower bound is unverified and the tool says so.
 
 Apply a recommendation by editing the two constants in ``activity_gate.py``, then
 re-run ``make update`` to retrain + validate (and ``make calibrate`` to confirm).
@@ -82,7 +82,7 @@ def _exercise_energies() -> tuple[np.ndarray, np.ndarray]:
 
 
 def _rest_energies() -> tuple[np.ndarray, np.ndarray, int]:
-    """Energy of every committed Testdaten/Rest/ window (the lower bound).
+    """Energy of every committed data/Testdaten/Rest/ window (the lower bound).
 
     Returns ``(accel, gyro, n_recordings)``; empty arrays if there is no rest data.
     """
@@ -129,7 +129,7 @@ def _report_feature(
     print(f"\n[{name}]  current threshold = {current}")
     print(f"  exercise low : p01={ex_p01:.4f}  p05={ex_p05:.4f}  (stay BELOW)")
     if len(rest_vals) == 0:
-        print("  rest         : (no Testdaten/Rest/ data — lower bound UNVERIFIED)")
+        print("  rest         : (no data/Testdaten/Rest/ data — lower bound UNVERIFIED)")
         return
     rest_p95, rest_p99 = np.percentile(rest_vals, [95, 99])
     print(f"  rest high    : p95={rest_p95:.4f}  p99={rest_p99:.4f}  (stay ABOVE)")
@@ -157,7 +157,7 @@ def main() -> None:
     ex_a, ex_g = _exercise_energies()
     print(f"  {len(ex_a):,} exercise windows")
 
-    print("Loading rest energy (Testdaten/Rest/ — lower bound)...")
+    print("Loading rest energy (data/Testdaten/Rest/ — lower bound)...")
     rest_a, rest_g, n_rest = _rest_energies()
 
     # How the CURRENT thresholds score on both sides.
@@ -179,7 +179,7 @@ def main() -> None:
     _report_feature("gyro_mean", rest_g, ex_g, GYRO_MAG_MEAN_THRESHOLD)
 
     if not n_rest:
-        print("\nNo rest recordings yet. Add clean pauses under Testdaten/Rest/ (watch")
+        print("\nNo rest recordings yet. Add clean pauses under data/Testdaten/Rest/ (watch")
         print("held still, fidgeting, drinking) and re-run to verify/tune the lower")
         print("bound. Until then the thresholds sit safely below exercise energy only.")
         print("=" * 70)
