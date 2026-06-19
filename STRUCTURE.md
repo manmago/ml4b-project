@@ -101,6 +101,7 @@ docs/
 │   └── dataset_evaluation.md             ← Dataset comparison & rationale (Kaggle + Testdaten)
 ├── data_understanding/data_understanding.md ← CRISP-DM Phase 2: short narrative summary
 ├── DECISIONS.md                           ← Consolidated decision log (every major decision)
+├── Handoff.md                             ← Condensed handover summary for a team presenting the project (German)
 ├── project/
 │   ├── crisp_dm_log.md                   ← CRISP-DM phase progress tracker
 │   ├── project_overview.md               ← Plain-language overview — read this first
