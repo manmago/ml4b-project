@@ -137,6 +137,9 @@ dmypy.json
 reports/**
 !reports/**/
 !reports/**/.gitkeep
+# Exception: commit the curated handover figures (generated deterministically by
+# scripts/generate_report_figures.py) so they are available without the dataset
+!reports/figures/*.png
 
 # =============================================================================
 # Logs & Temp Files
