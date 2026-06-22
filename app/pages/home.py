@@ -1,100 +1,114 @@
-"""Home page for the ML4B Streamlit app.
+"""About-the-project tab for the ML4B Streamlit app ("Night Scope" design).
 
-Shows a plain-language project overview, the honest headline metrics (loaded
-from the committed ``model_metrics.json``), the three recognizable exercises,
-and step-by-step instructions for collecting and uploading Apple Watch data via
-the Sensor Logger app.
+Plain-language overview, the honest headline metrics (loaded from the committed
+``model_metrics.json``), the three recognizable exercises shown as animated
+figures, and step-by-step instructions for collecting and uploading Apple Watch
+data via the Sensor Logger app. Presentation only — metrics come from
+``src/ml4b/``.
 """
 
 import streamlit as st
 
+from app.ui import lottie, theme
 from ml4b.utils.metrics import load_model_metrics
 
-# The three exercise classes the model recognizes, with friendly display names.
-# rest and uncertain are NOT trained classes — see the "How It Works" section.
+# The three trained classes, with the wrist motion each one represents.
 EXERCISES = [
-    ("💪", "Bicep Curl", "elbow flexion"),
-    ("🔺", "Tricep Extension", "overhead elbow extension"),
-    ("🚣", "Row", "horizontal pull"),
+    ("bicep_curl", "elbow flexion"),
+    ("tricep_extension", "overhead elbow extension"),
+    ("row", "horizontal pull"),
 ]
 
 
 def render() -> None:
-    """Render the Home page (no arguments — static content + committed metrics)."""
-    st.title("🏋️ Gym Exercise Recognition")
-    st.subheader("ML4B SoSe 2026 · FAU Nürnberg, Lehrstuhl für Wirtschaftsinformatik")
-
+    """Render the About tab (static content + committed metrics)."""
+    st.markdown(theme.eyebrow("About the project"), unsafe_allow_html=True)
     st.markdown(
         "This app recognizes **three gym exercises from wrist-worn sensor data** "
-        "(Apple Watch accelerometer + gyroscope) using a Random Forest model "
-        "trained on the **Kaggle Gym Workout IMU dataset** — recorded on an Apple "
-        "Watch, the same device you upload from (see DECISIONS.md). Record a workout "
-        "with the **Sensor Logger** app, upload the file, and the app predicts "
-        "which exercise you performed in each 2-second window — with a confidence "
-        "score. Pauses between sets are detected automatically as **rest**."
+        "(Apple Watch accelerometer + gyroscope) using a Random Forest trained on "
+        "the **Kaggle Gym Workout IMU dataset** — recorded on an Apple Watch, the "
+        "same device you upload from (DECISIONS.md). Record a workout with the "
+        "**Sensor Logger** app, upload it, and the app predicts the exercise in "
+        "each 2-second window with a confidence score. Pauses between sets are "
+        "detected automatically as **rest**."
     )
 
     # Honest headline metrics from the committed leave-one-set-out evaluation.
     metrics = load_model_metrics()
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Best Model", "Random Forest")
-    col2.metric(
-        "Macro F1 (leave-one-set-out)",
-        f"{metrics['cv_macro_f1']:.3f}",
-        help="Honest cross-set estimate on a single-subject dataset — see DECISIONS.md.",
+    theme.metric_tiles(
+        [
+            ("Model", "Random Forest", "300 trees · seed 42", theme.AMBER),
+            (
+                "Macro F1",
+                f"{metrics['cv_macro_f1']:.3f}",
+                "leave-one-set-out",
+                theme.SKY,
+            ),
+            (
+                "Accuracy",
+                f"{metrics['cv_accuracy']:.1%}",
+                "leave-one-set-out",
+                "#A78BFA",
+            ),
+            ("Exercises", "3", "+ rest / uncertain", theme.CLASS_COLORS["rest"]),
+        ]
     )
-    col3.metric("Accuracy (leave-one-set-out)", f"{metrics['cv_accuracy']:.1%}")
-    col4.metric("Exercises", "3 classes")
 
-    st.divider()
-
-    # Two-column layout: recognizable exercises + how the pipeline works.
-    left, right = st.columns(2)
+    left, right = st.columns(2, gap="large")
     with left:
-        st.markdown("### 🎯 Recognizable Exercises")
-        for icon, name, axis in EXERCISES:
-            st.markdown(f"- {icon} **{name}** — _{axis}_")
-        st.caption(
-            "Plus two non-exercise outputs: **rest** (low-motion pauses, detected "
-            "by an energy gate) and **uncertain** (the model is not confident "
-            "enough to commit to a class)."
-        )
+        with st.container(border=True):
+            st.markdown(theme.eyebrow("Recognizable exercises"), unsafe_allow_html=True)
+            cols = st.columns(3)
+            for col, (label, desc) in zip(cols, EXERCISES):
+                with col:
+                    lottie.render_exercise(label, key=f"about-{label}", height=120)
+                    st.markdown(
+                        '<div style="text-align:center;">'
+                        f"<div style=\"font-family:'Space Grotesk',sans-serif;"
+                        f"font-weight:600;color:{theme.class_color(label)};"
+                        f'font-size:0.98rem;">{theme.humanize(label)}</div>'
+                        f"<div style=\"font-family:'IBM Plex Mono',monospace;"
+                        f'font-size:0.68rem;color:#8893A7;">{desc}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+            st.caption(
+                "Plus two non-exercise outputs: **rest** (energy-gated low-motion "
+                "pauses) and **uncertain** (model not confident enough to commit)."
+            )
     with right:
-        st.markdown("### ⚙️ How It Works")
+        with st.container(border=True):
+            st.markdown(theme.eyebrow("How it works"), unsafe_allow_html=True)
+            st.markdown(
+                "1. **Resample** the upload to 100 Hz (Apple Watch native rate)\n"
+                "2. **Sliding window** — 2 s windows (200 samples, 50% overlap)\n"
+                "3. **Activity gate** — low-motion windows labelled `rest` "
+                "(DECISIONS.md)\n"
+                "4. **Invariant features** — orientation-robust magnitude, shape "
+                "and spectral features (DECISIONS.md)\n"
+                "5. **Prediction** — Random Forest per active window; low-confidence "
+                "windows become `uncertain` (DECISIONS.md)\n\n"
+                "The app uses the **exact same preprocessing as training** "
+                "(`src/ml4b/data/`), so predictions stay consistent."
+            )
+
+    with st.container(border=True):
         st.markdown(
-            "1. **Resample** the upload to 100 Hz (Apple Watch native rate)\n"
-            "2. **Sliding window** — 2 s windows (200 samples, 50% overlap)\n"
-            "3. **Activity gate** — low-motion windows are labelled `rest` "
-            "(DECISIONS.md)\n"
-            "4. **Invariant features** — orientation-robust magnitude, shape and "
-            "spectral features (DECISIONS.md)\n"
-            "5. **Prediction** — Random Forest classifies each active window; "
-            "low-confidence windows become `uncertain` (DECISIONS.md)\n\n"
-            "The app uses the **exact same preprocessing code as training** "
-            "(`src/ml4b/data/`), so predictions stay consistent."
+            theme.eyebrow("How to collect Apple Watch data"), unsafe_allow_html=True
         )
-
-    st.divider()
-
-    # Sensor Logger collection + upload instructions.
-    st.markdown("### 📱 How to Collect Apple Watch Data")
-    st.markdown(
-        "1. Install **Sensor Logger** (free) from the iOS App Store and make sure "
-        "it is installed on your **Apple Watch** too.\n"
-        "2. In Sensor Logger, enable the **Wrist Motion** (Device Motion) sensor "
-        "— this provides accelerometer + gyroscope.\n"
-        "3. Start a recording, perform your gym exercises, then stop the recording.\n"
-        "4. Tap the recording → **Share / Export** → **Save to Files** "
-        "(choose CSV or ZIP).\n"
-        "5. Transfer the export to this computer and upload it on the "
-        "**🔮 Predict Exercise** page."
-    )
-
-    st.info(
-        "📤 **What to upload:** only the single **`WristMotion.csv`** file is "
-        "needed — or the **full ZIP** of the Sensor Logger export, and the app "
-        "finds `WristMotion.csv` inside automatically."
-    )
+        st.markdown(
+            "1. Install **Sensor Logger** (free, iOS) and make sure it is on your "
+            "**Apple Watch** too.\n"
+            "2. Enable the **Wrist Motion** (Device Motion) sensor — accelerometer "
+            "+ gyroscope.\n"
+            "3. Start a recording, perform your gym exercises, then stop it.\n"
+            "4. Tap the recording → **Share / Export** → **Save to Files** "
+            "(CSV or ZIP).\n"
+            "5. Transfer the export here and upload it on the **Classify** tab."
+        )
+        st.info(
+            "📤 **What to upload:** just the single **`WristMotion.csv`** — or the "
+            "**full ZIP** export; the app finds `WristMotion.csv` inside."
+        )
 
     st.caption(
         "New to the project? Read `docs/project/project_overview.md` and "

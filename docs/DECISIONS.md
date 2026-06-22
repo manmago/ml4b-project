@@ -1,6 +1,6 @@
 # Project Decisions — ML4B Gym Exercise Recognition
 
-**Status:** Living document · **Last updated:** 2026-06-19
+**Status:** Living document · **Last updated:** 2026-06-22
 
 Single, consolidated record of the project's important decisions — *what* was
 decided and *why*, grouped by theme. When a new significant decision is made,
@@ -246,3 +246,43 @@ aggregate can even dip slightly. The like-for-like comparison is the
 **same-recording** view on the Predict page; both pages state this. Showing only one
 model (simpler) would hide whether the extra data helped — rejected; a single
 blended metric was rejected as misleading.
+
+## 10. App UI — "Night Scope" Redesign
+
+**Decision.** Reworked the Streamlit app into a dark *wearable-telemetry* design
+("Night Scope") to be more presentable for the handover/demo. **Presentation only**
+— the `src/ml4b/` pipeline, models and predictions are unchanged.
+- **Navigation:** top **tabs** (Classify / Model & Training / About) replace the
+  sidebar radio; the sidebar is hidden.
+- **Shared design layer `app/ui/`:** `theme.py` (CSS, colour/type tokens,
+  components), `viz.py` (dark Plotly figures), `lottie.py` (animations) — all UI in
+  one place, imported by the pages so the look stays consistent.
+- **Signature element:** a sensor **oscilloscope** (accel/gyro magnitude over time,
+  loaded with the same pipeline loaders) plus a result with an animated exercise
+  icon and a confidence ring. Palette: deep blue-black + one amber signal accent;
+  type Space Grotesk / IBM Plex Mono / Inter.
+
+**Exercise animations: self-built dumbbell icons, Lottie-ready.** Each exercise is
+an animated **SVG/CSS dumbbell** (own colour + motion: curl = arc, tricep =
+overhead, row = horizontal pull, rest = float), authored in-repo — **no external
+asset, no licence**. `app/ui/lottie.py` instead renders
+`app/assets/lottie/<exercise>.json` (via `streamlit-lottie`) when such a file is
+dropped in, so the look can be upgraded to designer Lottie animations with no code
+change; missing/broken files fall back to the SVG.
+
+*Why self-built.* LottieFiles blocks programmatic download (403) and had no
+suitable, cleanly-licensed per-exercise (bicep curl / tricep extension / row)
+animations; AI/image-gen routes add cost, raster output and licence questions.
+Self-built SVG is free, crisp vector, on-brand and instant — with the Lottie
+drop-in kept as the upgrade path. An earlier stick-figure attempt was rejected as
+looking unpolished.
+
+**Dependency.** Adds `streamlit-lottie` (rendering only; the app still runs via the
+SVG fallback if it is absent).
+
+**Deferred — in-app "train your own model".** Considered surfacing the feedback /
+retrain backend (§8) in the app. Decided to keep it for a **separate branch** as a
+**feedback-→-adapt** flow (correct predictions → optional retrain into the active
+model, base preserved via backup + restore), **not** a from-scratch in-app trainer
+(slow/fragile in a live demo; the canonical reproducible path stays
+`scripts/train_model.py`).

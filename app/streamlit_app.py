@@ -1,16 +1,18 @@
-"""ML4B Gym Exercise Recognition — Streamlit Web Application.
+"""ML4B Gym Exercise Recognition — Streamlit Web Application (entry point).
 
-Entry point for the app. Loads the trained Random Forest model once at startup
-using ``st.cache_resource`` (loaded once per session, not per interaction).
+Loads the trained models once at startup (``st.cache_resource``) and presents
+three top-level tabs in the "Night Scope" wearable-telemetry design:
 
-Three pages:
-  🏠 Home             — Project overview, instructions, metrics
-  🔮 Predict Exercise — Upload sensor data, get exercise predictions
-  📊 Model Performance — Test set evaluation metrics and visualizations
+  Classify           — upload Apple Watch sensor data, get per-window predictions
+  Model & Training   — leave-one-set-out evaluation metrics and visualizations
+  About the Project  — plain-language overview, metrics and data-collection guide
+
+All presentation lives in :mod:`app.ui`; all predictions come from ``src/ml4b/``
+so the training and app pipelines stay identical (CLAUDE.md).
 
 Run with: uv run streamlit run app/streamlit_app.py
 Requires: models/saved/best_model.joblib and data/processed/feature_names.txt
-Both files are committed to git — no dataset download needed.
+(both committed to git — no dataset download needed).
 """
 
 import sys
@@ -18,7 +20,7 @@ from pathlib import Path
 
 # When launched via `streamlit run app/streamlit_app.py`, Streamlit puts the
 # app/ directory on sys.path — NOT the project root — so `import app` fails.
-# Prepend the project root so the `app.pages.*` imports resolve no matter how
+# Prepend the project root so `app.*` and `ml4b.*` imports resolve no matter how
 # the script is launched (streamlit run, AppTest, python -m, …).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -27,6 +29,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 import joblib  # noqa: E402 — imported after the sys.path bootstrap above
 import streamlit as st  # noqa: E402
 
+from app.pages import home, model_performance, prediction  # noqa: E402
+from app.ui.theme import inject_theme  # noqa: E402
 from ml4b.utils.config import (  # noqa: E402
     BASELINE_MODEL_FILE,
     BASELINE_NOVELTY_FILE,
@@ -40,8 +44,9 @@ st.set_page_config(
     page_title="ML4B — Gym Exercise Recognition",
     page_icon="🏋️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
+inject_theme()
 
 
 @st.cache_resource
@@ -66,24 +71,22 @@ def load_model():
 def load_novelty_detector():
     """Load the open-set novelty detector for Model 2 — cached for the session.
 
-    The detector flags exercises the model was never trained on as ``unknown``
-    (DECISIONS.md). It is optional: if the artifact is missing the app still runs,
-    just without out-of-distribution rejection.
+    The detector flags exercises the model was never trained on as ``unknown``.
+    It is optional: if the artifact is missing the app still runs, just without
+    out-of-distribution rejection.
 
     Returns:
         The deserialized ``NoveltyDetector``, or ``None`` if not available.
     """
     path = MODELS_DIR / NOVELTY_FILE
-    if not path.exists():
-        return None
-    return joblib.load(path)
+    return joblib.load(path) if path.exists() else None
 
 
 @st.cache_resource
 def load_baseline_model():
     """Load Model 1 (baseline — Kaggle only) for the two-model comparison.
 
-    Optional: when present, the Predict page runs BOTH models so the user can see
+    Optional: when present, the Classify tab runs BOTH models so the user can see
     the effect of our own uploaded training data. When absent (older checkout),
     the page falls back to showing the current model only.
 
@@ -91,9 +94,7 @@ def load_baseline_model():
         The deserialized baseline classifier, or ``None`` if not available.
     """
     path = MODELS_DIR / BASELINE_MODEL_FILE
-    if not path.exists():
-        return None
-    return joblib.load(path)
+    return joblib.load(path) if path.exists() else None
 
 
 @st.cache_resource
@@ -104,9 +105,7 @@ def load_baseline_novelty_detector():
         The deserialized baseline ``NoveltyDetector``, or ``None`` if not available.
     """
     path = MODELS_DIR / BASELINE_NOVELTY_FILE
-    if not path.exists():
-        return None
-    return joblib.load(path)
+    return joblib.load(path) if path.exists() else None
 
 
 @st.cache_resource
@@ -134,39 +133,40 @@ novelty_detector = load_novelty_detector()
 baseline_model = load_baseline_model()
 baseline_novelty_detector = load_baseline_novelty_detector()
 
-# Sidebar branding + navigation.
-st.sidebar.title("🏋️ ML4B Exercise Recognition")
-st.sidebar.markdown("FAU Nürnberg · SoSe 2026")
-st.sidebar.divider()
-
-page = st.sidebar.radio(
-    "Navigation",
-    ["🏠 Home", "🔮 Predict Exercise", "📊 Model Performance"],
-    label_visibility="collapsed",
+# --- Brand header ----------------------------------------------------------
+st.markdown(
+    '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;'
+    'margin-bottom:2px;">'
+    "<span style=\"font-family:'Space Grotesk',sans-serif;font-weight:700;"
+    'font-size:1.7rem;color:#EAEEF6;">🏋️ Exercise Recognition</span>'
+    "<span style=\"font-family:'IBM Plex Mono',monospace;font-size:0.74rem;"
+    'letter-spacing:0.14em;color:#8893A7;text-transform:uppercase;">'
+    "Apple Watch · wrist motion · 50 Hz</span></div>",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.72rem;"
+    'color:#5B6679;margin-bottom:14px;">ML4B · SoSe 2026 · FAU Nürnberg — '
+    "Lehrstuhl für Wirtschaftsinformatik</div>",
+    unsafe_allow_html=True,
 )
 
-st.sidebar.divider()
-_compare_note = " · 2-model compare on Predict" if baseline_model is not None else ""
-st.sidebar.caption(
-    "Model: Random Forest · Kaggle Apple-Watch · 3 classes" + _compare_note
+# --- Top tab navigation ----------------------------------------------------
+tab_classify, tab_model, tab_about = st.tabs(
+    ["◐  Classify", "▤  Model & Training", "ℹ  About the Project"]
 )
 
-# Route to the selected page's render function.
-if page == "🏠 Home":
-    from app.pages.home import render
-
-    render()
-elif page == "🔮 Predict Exercise":
-    from app.pages.prediction import render
-
-    render(
+with tab_classify:
+    prediction.render(
         model,
         feature_names,
         novelty_detector,
         baseline_model=baseline_model,
         baseline_novelty_detector=baseline_novelty_detector,
     )
-elif page == "📊 Model Performance":
-    from app.pages.model_performance import render
 
-    render()
+with tab_model:
+    model_performance.render()
+
+with tab_about:
+    home.render()

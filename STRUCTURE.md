@@ -41,19 +41,28 @@ The Streamlit web application for live exercise prediction.
 ```
 app/
 ├── __init__.py
-├── streamlit_app.py        ← Entry point: cached model loading + sidebar navigation
-└── pages/
-    ├── __init__.py
-    ├── home.py             ← render(): overview, honest metrics, Sensor Logger steps
-    ├── prediction.py       ← render(model, feature_names): CSV/ZIP upload → timeline,
-    │                          pie, results table, CSV download, detected sampling rate
-    └── model_performance.py ← render(): leave-one-set-out metrics from model_metrics.json,
-                               per-class F1, confusion matrix, model details, limitations
+├── streamlit_app.py        ← Entry point: cached model loading + top-tab navigation
+├── pages/
+│   ├── __init__.py
+│   ├── home.py             ← render(): About tab — overview, honest metrics, Sensor Logger steps
+│   ├── prediction.py       ← render(model, feature_names): Classify tab — CSV/ZIP upload →
+│   │                          oscilloscope, result (dumbbell + ring), timeline, table, CSV
+│   └── model_performance.py ← render(): Model & Training tab — leave-one-set-out metrics,
+│                               per-class F1, confusion matrix, model details, limitations
+├── ui/                     ← "Night Scope" design system (presentation only, no ML logic)
+│   ├── __init__.py
+│   ├── theme.py            ← CSS, colour/type tokens, components (dumbbell icons, ring, tiles)
+│   ├── viz.py              ← dark Plotly figures (oscilloscope, timeline, donut, F1, matrix)
+│   └── lottie.py           ← optional Lottie animations, auto-detected, with SVG fallback
+└── assets/
+    └── lottie/             ← drop-in <exercise>.json animations (README explains naming)
 ```
 
 - **What goes here:** UI code only. ML logic lives in `src/ml4b/`.
-- Navigation: a sidebar radio in `streamlit_app.py` routes to each page's
-  `render()`. `.streamlit/config.toml` disables automatic `pages/` discovery.
+- Navigation: top **tabs** in `streamlit_app.py` (Classify / Model & Training /
+  About) route to each page's `render()`. The sidebar is hidden via `app/ui/theme.py`.
+- Exercise animations: `app/ui/lottie.py` renders `app/assets/lottie/<exercise>.json`
+  if present, else falls back to the built-in animated dumbbell SVG (DECISIONS.md §10).
 
 ---
 

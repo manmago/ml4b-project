@@ -62,7 +62,7 @@ data is collectable, which forces the single-subject anchor + augmentation
 │                        ML4B System                                │
 │  src/ml4b/   ──► shared pipeline package (training AND inference) │
 │  scripts/    ──► train_model.py · inspect_kaggle_dataset.py       │
-│  app/        ──► Streamlit prediction UI (3 pages)                │
+│  app/        ──► Streamlit UI: pages/ (3 tabs) + ui/ (design layer)│
 │  models/     ──► best_model.joblib + model_metrics.json (committed)│
 └──────────────────────┬───────────────────────────────────────────┘
                        ▼
@@ -123,7 +123,8 @@ src/ml4b/
 | `scripts/rebuild_from_testdaten.py` | **Canonical** continual-learning rebuild (`make update`): retrain model + refit novelty + refresh metrics from the Kaggle anchor + committed `data/Testdaten/` folders (DECISIONS.md §8). |
 | `scripts/update_model.py` | Lower-level CLI for the offline feedback-store retrain (and `--restore-base` to undo). |
 | `scripts/add_labelled_recording.py` | Lower-level building block: add one labelled recording to the feedback store (DECISIONS.md §8). |
-| `app/pages/*.py` | `render()` for Home, Predict, Model Performance. |
+| `app/pages/*.py` | `render()` for the Classify, Model & Training and About tabs. |
+| `app/ui/*.py` | Presentation only — the "Night Scope" design system: `theme.py` (CSS, colours, components incl. the dumbbell icons + confidence ring), `viz.py` (dark Plotly figures incl. the sensor oscilloscope), `lottie.py` (optional Lottie animations with SVG fallback). No ML logic (DECISIONS.md §10). |
 
 ---
 
