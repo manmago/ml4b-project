@@ -178,9 +178,6 @@ Presentation-prompt.md
 Live_Demo.md
 presentation/
 
-# Lokale Quell-Assets (z. B. Original-Bilder, aus denen App-Assets zugeschnitten werden)
-local_assets/
-
 # Vollständiger Projektbericht + Claude-Chat-Kontext — lokal, nicht ins Repo
 PROJECT_REPORT.md
 CLAUDE_CONTEXT.md
