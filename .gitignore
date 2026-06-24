@@ -172,12 +172,3 @@ agents/
 
 # Sailboat-Retrospektiven — lokale Team-Reflexionen, nicht ins Repo
 Sailboats/
-
-# Präsentations-Material — lokal, nicht ins Repo
-Presentation-prompt.md
-Live_Demo.md
-presentation/
-
-# Vollständiger Projektbericht + Claude-Chat-Kontext — lokal, nicht ins Repo
-PROJECT_REPORT.md
-CLAUDE_CONTEXT.md
