@@ -1,0 +1,11 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Share / export">
+  <rect width="100" height="100" fill="#F4F1ED"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">
+    <!-- Tray / box, open at the top (iOS-style share) -->
+    <path d="M36 49 H31 a8 8 0 0 0 -8 8 V76 a8 8 0 0 0 8 8 H69 a8 8 0 0 0 8 -8 V57 a8 8 0 0 0 -8 -8 H64"
+          stroke="#1C1B1A"/>
+    <!-- Up arrow -->
+    <line x1="50" y1="22" x2="50" y2="58" stroke="#FF4D2E"/>
+    <path d="M40 32 L50 21 L60 32" stroke="#FF4D2E"/>
+  </g>
+</svg>

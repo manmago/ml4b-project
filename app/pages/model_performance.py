@@ -1,4 +1,4 @@
-"""Model & Training tab for the ML4B Streamlit app ("Night Scope" design).
+"""Model & Training tab for the ML4B Streamlit app ("Daylight" design).
 
 Displays the **honest leave-one-set-out** evaluation of the Random Forest trained
 on the Kaggle Gym Workout IMU dataset (Apple Watch, single subject — DECISIONS.md).
@@ -45,13 +45,13 @@ def _render_model_comparison(metrics: dict, classes: list[str]) -> None:
                     "Model 1 · Macro F1",
                     f"{baseline['cv_macro_f1']:.3f}",
                     f"{baseline['n_sets']} held-out Kaggle sets",
-                    theme.MIST,
+                    theme.MUTED,
                 ),
                 (
                     "Model 2 · Macro F1",
                     f"{metrics['cv_macro_f1']:.3f}",
                     f"Δ {delta:+.3f} · adds {n_td} of our set(s)",
-                    theme.AMBER,
+                    theme.FLAME,
                 ),
             ]
         )
@@ -65,7 +65,7 @@ def _render_model_comparison(metrics: dict, classes: list[str]) -> None:
             config=PLOTLY_CFG,
         )
         st.caption(
-            "⚠️ Not a clean apples-to-apples gain: each model is scored over its own "
+            "Not a clean apples-to-apples gain: each model is scored over its own "
             "held-out sets, and Model 2's pool also contains our own (harder, "
             "cross-person) recordings. The same-recording comparison lives on the "
             "**Classify** tab."
@@ -82,48 +82,70 @@ def render() -> None:
         "Evaluation of the **Random Forest** with **leave-one-set-out "
         "cross-validation**: each exercise *set* is held out once and predicted by "
         "a model trained on the others, so no window scores itself. This is the "
-        "honest, leakage-free estimate for a single-subject dataset (DECISIONS.md)."
+        "honest, leakage-free estimate for a single-subject dataset."
     )
 
     macro_f1 = metrics["cv_macro_f1"]
+    # Per-class precision/recall from the aggregated CV confusion matrix.
+    cm = np.array(metrics["confusion_matrix"], dtype=float)
+    recall_per_class = np.diag(cm) / cm.sum(axis=1)
+    precision_per_class = np.diag(cm) / cm.sum(axis=0)
+    macro_recall = float(recall_per_class.mean())
     theme.metric_tiles(
         [
             (
                 "Macro F1",
                 f"{macro_f1:.3f}",
                 ("≥" if macro_f1 >= TARGET_F1 else "<") + f" target {TARGET_F1:.2f}",
-                theme.AMBER if macro_f1 >= TARGET_F1 else theme.CLASS_COLORS["unknown"],
+                theme.FLAME if macro_f1 >= TARGET_F1 else theme.CLASS_COLORS["unknown"],
+            ),
+            (
+                "Macro Recall",
+                f"{macro_recall:.3f}",
+                "averaged over classes",
+                theme.STEEL,
             ),
             (
                 "Accuracy",
                 f"{metrics['cv_accuracy']:.1%}",
                 "leave-one-set-out",
-                theme.SKY,
+                theme.STEEL,
             ),
-            ("Classes", str(len(classes)), "+ rest / uncertain", "#A78BFA"),
             (
                 "Training sets",
                 str(metrics["n_sets"]),
                 "held out one at a time",
-                theme.CLASS_COLORS["rest"],
+                theme.MUTED,
             ),
         ]
     )
 
     _render_model_comparison(metrics, classes)
 
+    # Per-class quality and the confusion matrix side by side. We show the
+    # precision·recall·F1 TABLE (not a second F1-only bar chart): it is strictly
+    # more informative — adding precision and recall — and the F1-vs-target context
+    # already lives in the Macro F1 tile above, so the bar chart was redundant.
     left, right = st.columns(2, gap="large")
     with left:
         with st.container(border=True):
             st.markdown(
-                theme.eyebrow("Per-class F1 (leave-one-set-out)"),
+                theme.eyebrow("Per-class precision · recall · F1"),
                 unsafe_allow_html=True,
             )
-            per_class = metrics["cv_per_class_f1"]
-            st.plotly_chart(
-                viz.per_class_f1(classes, [per_class[c] for c in classes], TARGET_F1),
-                width="stretch",
-                config=PLOTLY_CFG,
+            pcf1_map = metrics["cv_per_class_f1"]
+            pc_table = pd.DataFrame(
+                {
+                    "Exercise": [theme.humanize(c) for c in classes],
+                    "Precision": [f"{p:.2f}" for p in precision_per_class],
+                    "Recall": [f"{r:.2f}" for r in recall_per_class],
+                    "F1": [f"{pcf1_map[c]:.2f}" for c in classes],
+                }
+            )
+            st.dataframe(pc_table, width="stretch", hide_index=True)
+            st.caption(
+                f"Target macro F1 ≥ {TARGET_F1:.2f}. Precision, recall and F1 come "
+                "from the aggregated leave-one-set-out confusion matrix."
             )
     with right:
         with st.container(border=True):
@@ -160,11 +182,11 @@ def render() -> None:
                     "Confidence threshold",
                 ],
                 "Value": [
-                    "Random Forest (300 trees, class_weight='balanced', seed 42)",
+                    "Random Forest · 300 trees · balanced · seed 42",
                     "Kaggle Gym Workout IMU — Apple Watch, 100 Hz, single subject",
                     ", ".join(theme.humanize(c) for c in classes)
                     + " (+ rest, uncertain)",
-                    f"{metrics['n_features']} device-invariant features (DECISIONS.md)",
+                    f"{metrics['n_features']} device-invariant features (orientation-robust)",
                     "200 samples = 2 s @ 100 Hz, 50% overlap",
                     f"{metrics['n_augment']}× rotation+time-warp+mirror+jitter",
                     f"{metrics['evaluation']}",
@@ -177,12 +199,12 @@ def render() -> None:
         st.dataframe(details, width="stretch", hide_index=True)
 
     st.info(
-        "ℹ️ **Why macro F1, not accuracy?** Macro F1 averages F1 equally across all "
+        "**Why macro F1, not accuracy?** Macro F1 averages F1 equally across all "
         "classes regardless of size, rewarding the model for getting *every* "
         "exercise right — what matters for a balanced 3-class recognizer."
     )
     st.warning(
-        "⚠️ **Honest limitations — read before trusting these numbers.**\n\n"
+        "**Honest limitations — read before trusting these numbers.**\n\n"
         "- **Single-subject training anchor.** The Kaggle dataset is one person on "
         "one Apple Watch. True leave-one-*subject*-out is impossible, so the score "
         "measures generalisation to an unseen *set*, **not** a new *person*.\n"

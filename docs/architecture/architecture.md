@@ -124,7 +124,7 @@ src/ml4b/
 | `scripts/update_model.py` | Lower-level CLI for the offline feedback-store retrain (and `--restore-base` to undo). |
 | `scripts/add_labelled_recording.py` | Lower-level building block: add one labelled recording to the feedback store (DECISIONS.md §8). |
 | `app/pages/*.py` | `render()` for the Classify, Model & Training and About tabs. |
-| `app/ui/*.py` | Presentation only — the "Night Scope" design system: `theme.py` (CSS, colours, components incl. the dumbbell icons + confidence ring), `viz.py` (dark Plotly figures incl. the sensor oscilloscope), `lottie.py` (optional Lottie animations with SVG fallback). No ML logic (DECISIONS.md §10). |
+| `app/ui/*.py` | Presentation only — the "Daylight" design system: `theme.py` (CSS, colour/type/status tokens, components incl. the dumbbell icons + confidence ring), `viz.py` (light Plotly figures incl. the shared-axis sensor oscilloscope + timeline), `lottie.py` (optional Lottie animations with SVG fallback), `journey.py` (onboarding walkthrough). No ML logic (DECISIONS.md §10). |
 
 ---
 

@@ -32,10 +32,12 @@ Konfidenz.
   eigene Daten) laufen parallel auf derselben Aufnahme — der Effekt eigener Daten
   wird sichtbar.
 - **Performance-Seite**: Accuracy, Confusion-Matrix, F1 pro Klasse.
-- **Dunkles „Night Scope"-UI** (Wearable-Telemetrie-Look): Tab-Navigation, Sensor-
-  **Oszilloskop**, animierte Hantel-Icons + Konfidenz-Ring. Reine
-  Präsentationsebene in `app/ui/`; Animationen per Lottie-Datei austauschbar
-  (DECISIONS.md §10).
+- **Helles „Daylight"-UI** (löst das frühere dunkle „Night Scope" ab): Tab-
+  Navigation, Sensor-**Oszilloskop** auf **gemeinsamer Zeitachse** mit den
+  Vorhersage-Bändern, animierte Hantel-Icons + Konfidenz-Ring (Ø). Der Zwei-Modell-
+  Vergleich erzählt die „Rescue"-Story (wo Modell 1 abgesagt hat, committet Modell
+  2). Reine Präsentationsebene in `app/ui/`; Animationen per Lottie-Datei
+  austauschbar (DECISIONS.md §10).
 - Start mit **einem** Befehl: `uv run streamlit run app/streamlit_app.py` (bzw.
   `make run`).
 

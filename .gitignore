@@ -169,11 +169,18 @@ tmp/
 # Local-only developer tooling — kept on disk, intentionally not tracked.
 CLAUDE.md
 agents/
-TEAM_PRAESENTATION.md
 
 # Sailboat-Retrospektiven — lokale Team-Reflexionen, nicht ins Repo
 Sailboats/
 
-# Autonome Nacht-Arbeitsprotokolle — lokale Notizen, nicht ins Repo
-Nightsession_LOG.md
-Night_log.md
+# Präsentations-Material — lokal, nicht ins Repo
+Presentation-prompt.md
+Live_Demo.md
+presentation/
+
+# Lokale Quell-Assets (z. B. Original-Bilder, aus denen App-Assets zugeschnitten werden)
+local_assets/
+
+# Vollständiger Projektbericht + Claude-Chat-Kontext — lokal, nicht ins Repo
+PROJECT_REPORT.md
+CLAUDE_CONTEXT.md

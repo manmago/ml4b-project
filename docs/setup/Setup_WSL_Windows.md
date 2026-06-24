@@ -99,7 +99,7 @@ Branch workflow: `main → develop → feature/xxx`; never commit to `main`.
 | Symptom | Fix |
 |---------|-----|
 | `uv: command not found` | Restart the terminal or `source $HOME/.local/bin/env`. |
-| `localhost:8501` won't open | Launch from the WSL terminal; try `http://127.0.0.1:8501`. |
+| `localhost:8501` won't open in Windows | WSL2's localhost forwarding occasionally hangs. **Quick fix:** open the WSL IP instead — run `hostname -I` in WSL and browse to `http://<that-ip>:8501`. **Permanent fix:** in Windows PowerShell run `wsl --shutdown`, reopen the terminal and `make run` again; or enable mirrored networking by adding `[wsl2]` + `networkingMode=mirrored` to `C:\Users\<you>\.wslconfig`, then `wsl --shutdown`. |
 | Port 8501 in use | `uv run streamlit run app/streamlit_app.py --server.port 8502`. |
 | `make: command not found` | `sudo apt install -y make`, or use `./run_app.sh`. |
 | Slow file access / git | Keep the repo in the Linux filesystem (`~/projects/...`), not `/mnt/c/`. |

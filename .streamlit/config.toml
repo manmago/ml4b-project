@@ -8,6 +8,17 @@
 [client]
 showSidebarNavigation = false
 
+[server]
+# Serve files from app/static/ (the exercise GIFs) over the app's own URL, so the
+# app is fully self-contained and needs no internet connection at runtime.
+enableStaticServing = true
+
+# "Daylight" theme — clean white surfaces with an orange-red (flame) accent.
+# These drive Streamlit's own widgets (progress columns, focus rings, dataframe
+# header, file uploader) so the native controls match app/ui/theme.py exactly.
 [theme]
-primaryColor = "#FF4B4B"
 base = "light"
+primaryColor = "#FF4D2E"              # flame accent (matches theme.FLAME)
+backgroundColor = "#FBF9F7"           # app canvas (theme.PAPER)
+secondaryBackgroundColor = "#FFFFFF"  # cards / widget surfaces (theme.CARD)
+textColor = "#1C1B1A"                 # primary text (theme.INK)

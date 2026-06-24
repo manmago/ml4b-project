@@ -44,16 +44,17 @@ app/
 ├── streamlit_app.py        ← Entry point: cached model loading + top-tab navigation
 ├── pages/
 │   ├── __init__.py
-│   ├── home.py             ← render(): About tab — overview, honest metrics, Sensor Logger steps
+│   ├── home.py             ← render(): About tab — overview, honest metrics, how-to-read results
 │   ├── prediction.py       ← render(model, feature_names): Classify tab — CSV/ZIP upload →
-│   │                          oscilloscope, result (dumbbell + ring), timeline, table, CSV
+│   │                          shared-axis scope+timeline, result (dumbbell + ring), comparison, CSV
 │   └── model_performance.py ← render(): Model & Training tab — leave-one-set-out metrics,
-│                               per-class F1, confusion matrix, model details, limitations
-├── ui/                     ← "Night Scope" design system (presentation only, no ML logic)
+│                               precision·recall·F1 table, confusion matrix, model details, limitations
+├── ui/                     ← "Daylight" design system (presentation only, no ML logic)
 │   ├── __init__.py
-│   ├── theme.py            ← CSS, colour/type tokens, components (dumbbell icons, ring, tiles)
-│   ├── viz.py              ← dark Plotly figures (oscilloscope, timeline, donut, F1, matrix)
-│   └── lottie.py           ← optional Lottie animations, auto-detected, with SVG fallback
+│   ├── theme.py            ← CSS, colour/type/status tokens, components (dumbbell icons, ring, tiles)
+│   ├── viz.py              ← light Plotly figures (shared-axis scope+timeline, donut, F1, matrix)
+│   ├── lottie.py           ← optional Lottie animations, auto-detected, with SVG fallback
+│   └── journey.py          ← numbered onboarding walkthrough (Classify empty state)
 └── assets/
     └── lottie/             ← drop-in <exercise>.json animations (README explains naming)
 ```

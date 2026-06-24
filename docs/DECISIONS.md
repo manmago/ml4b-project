@@ -247,20 +247,50 @@ aggregate can even dip slightly. The like-for-like comparison is the
 model (simpler) would hide whether the extra data helped — rejected; a single
 blended metric was rejected as misleading.
 
-## 10. App UI — "Night Scope" Redesign
+## 10. App UI — "Daylight" Redesign (supersedes the earlier "Night Scope")
 
-**Decision.** Reworked the Streamlit app into a dark *wearable-telemetry* design
-("Night Scope") to be more presentable for the handover/demo. **Presentation only**
-— the `src/ml4b/` pipeline, models and predictions are unchanged.
+**Decision.** Reworked the Streamlit app's look to be more presentable for the
+handover/demo. **Presentation only** — the `src/ml4b/` pipeline, models and
+predictions are unchanged. The **current** design is **"Daylight"** — a clean,
+light, editorial theme (bright off-white canvas, soft white cards, one warm
+flame/coral accent `#FF4D2E`). It **supersedes** the earlier dark *wearable-
+telemetry* "Night Scope" look; the dark palette is no longer used.
 - **Navigation:** top **tabs** (Classify / Model & Training / About) replace the
   sidebar radio; the sidebar is hidden.
 - **Shared design layer `app/ui/`:** `theme.py` (CSS, colour/type tokens,
-  components), `viz.py` (dark Plotly figures), `lottie.py` (animations) — all UI in
-  one place, imported by the pages so the look stays consistent.
+  components, `classify_change`/status tokens), `viz.py` (light Plotly figures),
+  `lottie.py` (animations), `journey.py` (onboarding) — all UI in one place,
+  imported by the pages so the look stays consistent.
 - **Signature element:** a sensor **oscilloscope** (accel/gyro magnitude over time,
-  loaded with the same pipeline loaders) plus a result with an animated exercise
-  icon and a confidence ring. Palette: deep blue-black + one amber signal accent;
+  loaded with the same pipeline loaders) **stacked on one shared time axis with the
+  coloured per-window prediction band(s)**, so a motion burst lines up vertically
+  with the window it was classified as. Plus a result with an animated exercise
+  icon and a confidence ring. Palette: light Daylight surfaces + flame accent;
   type Space Grotesk / IBM Plex Mono / Inter.
+
+**Finalisation pass (branch `feature/streamlit-redesign`).** A round of fact-fix +
+readability polish, still presentation-only:
+- **Hero subtitle fixed to 100 Hz** (it wrongly read 50 Hz; the rest of the app
+  already said 100 Hz — the Apple-Watch native rate, §4).
+- **Two-model comparison made a directional "rescue" story.** The headline now
+  leads with how many windows Model 2 *commits* to where Model 1 abstained, with a
+  Rescued / Lost / Swapped breakdown. Categories are heuristics over the two
+  models' own outputs (no ground truth): *Rescued* = M1 `uncertain`/`unknown` → M2
+  real class; *Lost* = the reverse; *Swapped* = real class A → B. Shared helper
+  `theme.classify_change`.
+- **Per-window comparison table** gains a **Model 1 confidence** column (order:
+  Window · M1 · M1 conf · M2 · M2 conf · Status) and replaces the checkbox column
+  with a colour-coded **Status badge** (green/red/amber/grey) consistent with the
+  headline breakdown.
+- **`rest` vs `uncertain` greys pushed apart** for projector legibility, and
+  `uncertain` given a dotted timeline pattern (`theme.CLASS_PATTERNS`).
+- **One shared timeline legend** across both comparison bands (deduplicated) instead
+  of two; the confidence ring is relabelled **"Ø CONFIDENCE"** (it is the mean over
+  windows); the status chip reads **LOADED/IDLE** instead of a blinking **REC**
+  (the app analyses an upload, it never records).
+- **Model & Training:** dropped the per-class F1 **bar chart** (redundant with the
+  Macro-F1 tile's target context) and kept the strictly more informative
+  **precision · recall · F1 table** next to the confusion matrix.
 
 **Exercise animations: self-built dumbbell icons, Lottie-ready.** Each exercise is
 an animated **SVG/CSS dumbbell** (own colour + motion: curl = arc, tricep =

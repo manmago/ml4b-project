@@ -1,7 +1,7 @@
 """ML4B Gym Exercise Recognition — Streamlit Web Application (entry point).
 
 Loads the trained models once at startup (``st.cache_resource``) and presents
-three top-level tabs in the "Night Scope" wearable-telemetry design:
+three top-level tabs in the clean, light "Daylight" design:
 
   Classify           — upload Apple Watch sensor data, get per-window predictions
   Model & Training   — leave-one-set-out evaluation metrics and visualizations
@@ -30,7 +30,7 @@ import joblib  # noqa: E402 — imported after the sys.path bootstrap above
 import streamlit as st  # noqa: E402
 
 from app.pages import home, model_performance, prediction  # noqa: E402
-from app.ui.theme import inject_theme  # noqa: E402
+from app.ui.theme import hero_banner, inject_theme  # noqa: E402
 from ml4b.utils.config import (  # noqa: E402
     BASELINE_MODEL_FILE,
     BASELINE_NOVELTY_FILE,
@@ -42,7 +42,6 @@ from ml4b.utils.config import (  # noqa: E402
 
 st.set_page_config(
     page_title="ML4B — Gym Exercise Recognition",
-    page_icon="🏋️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -59,9 +58,8 @@ def load_model():
     path = MODELS_DIR / BEST_MODEL_FILE
     if not path.exists():
         st.error(
-            f"❌ Model not found at `{path}`.\n\n"
-            "Run `uv run python scripts/train_model.py` to train the model first, "
-            "or clone the full repo which includes the pre-trained model."
+            "The trained model could not be loaded. Please reinstall the app or "
+            "restart it, then try again."
         )
         st.stop()
     return joblib.load(path)
@@ -118,8 +116,8 @@ def load_feature_names() -> list[str]:
     path = DATA_PROCESSED / "feature_names.txt"
     if not path.exists():
         st.error(
-            f"❌ Feature names not found at `{path}`.\n\n"
-            "Run `uv run python scripts/train_model.py` first."
+            "The model configuration could not be loaded. Please reinstall the app "
+            "or restart it, then try again."
         )
         st.stop()
     return path.read_text().strip().split("\n")
@@ -133,27 +131,12 @@ novelty_detector = load_novelty_detector()
 baseline_model = load_baseline_model()
 baseline_novelty_detector = load_baseline_novelty_detector()
 
-# --- Brand header ----------------------------------------------------------
-st.markdown(
-    '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;'
-    'margin-bottom:2px;">'
-    "<span style=\"font-family:'Space Grotesk',sans-serif;font-weight:700;"
-    'font-size:1.7rem;color:#EAEEF6;">🏋️ Exercise Recognition</span>'
-    "<span style=\"font-family:'IBM Plex Mono',monospace;font-size:0.74rem;"
-    'letter-spacing:0.14em;color:#8893A7;text-transform:uppercase;">'
-    "Apple Watch · wrist motion · 50 Hz</span></div>",
-    unsafe_allow_html=True,
-)
-st.markdown(
-    "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.72rem;"
-    'color:#5B6679;margin-bottom:14px;">ML4B · SoSe 2026 · FAU Nürnberg — '
-    "Lehrstuhl für Wirtschaftsinformatik</div>",
-    unsafe_allow_html=True,
-)
+# --- Brand hero banner (gym backdrop + project title) ----------------------
+hero_banner()
 
 # --- Top tab navigation ----------------------------------------------------
 tab_classify, tab_model, tab_about = st.tabs(
-    ["◐  Classify", "▤  Model & Training", "ℹ  About the Project"]
+    ["Classify", "Model & Training", "About the Project"]
 )
 
 with tab_classify:

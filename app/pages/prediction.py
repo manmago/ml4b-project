@@ -1,4 +1,4 @@
-"""Classify page for the ML4B Streamlit app ("Night Scope" design).
+"""Classify page for the ML4B Streamlit app ("Daylight" design).
 
 Accepts a Sensor Logger export (``WristMotion.csv`` directly, or the full ZIP),
 runs the shared prediction pipeline from
@@ -23,7 +23,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from app.ui import lottie, theme, viz
+from app.ui import journey, lottie, theme, viz
 from ml4b.data.apple_watch_loader import (
     load_sensor_logger_csv,
     load_sensor_logger_zip,
@@ -33,13 +33,6 @@ from ml4b.data.session import dominant_label, format_set_summary, summarize_sess
 
 # Below this many windows the recording is likely too short to be meaningful.
 MIN_WINDOWS_WARNING = 5
-
-# The three trained exercises shown as an animated teaser on the empty state.
-TRAINED_EXERCISES = [
-    ("bicep_curl", "elbow flexion"),
-    ("tricep_extension", "overhead extension"),
-    ("row", "horizontal pull"),
-]
 
 PLOTLY_CFG = {"displayModeBar": False}
 
@@ -119,30 +112,35 @@ def _sets_line(results: pd.DataFrame) -> str:
 # ---------------------------------------------------------------------------
 # Shared panels
 # ---------------------------------------------------------------------------
-def _signal_panel(signal: pd.DataFrame | None) -> None:
-    """Render the oscilloscope panel (the page signature)."""
+def _scope_timeline_panel(
+    signal: pd.DataFrame | None, bands: list[tuple[str, pd.DataFrame]]
+) -> None:
+    """Oscilloscope + coloured prediction band(s) on one shared, x-aligned time axis.
+
+    Args:
+        signal: Raw normalized signal for the scope (``None`` → scope omitted).
+        bands: ``(title, results)`` per timeline band — one for the single-model
+            view, two (Model 1 / Model 2) for the comparison view.
+    """
     with st.container(border=True):
         st.markdown(
-            theme.eyebrow("Sensor signal · oscilloscope"), unsafe_allow_html=True
+            theme.eyebrow("Signal & prediction · shared time axis"),
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(
+            viz.scope_with_timelines(signal, bands), width="stretch", config=PLOTLY_CFG
         )
         if signal is None or signal.empty:
-            st.caption("Raw signal preview unavailable for this file format.")
-            return
-        st.plotly_chart(viz.oscilloscope(signal), width="stretch", config=PLOTLY_CFG)
-        st.caption(
-            "Total acceleration |a| (amber) and rotation rate |ω| (sky) over the "
-            "whole recording — exactly the signal the model windows and classifies."
-        )
-
-
-def _timeline_panel(results: pd.DataFrame, title: str = "Per-window timeline") -> None:
-    """Render the coloured per-window class timeline."""
-    with st.container(border=True):
-        st.markdown(theme.eyebrow(title), unsafe_allow_html=True)
-        st.plotly_chart(viz.class_timeline(results), width="stretch", config=PLOTLY_CFG)
-        st.caption(
-            "Each segment is one 2-second window, coloured by its predicted label."
-        )
+            st.caption(
+                "Raw signal preview unavailable for this file format — showing the "
+                "prediction timeline only. Each segment is one 2-second window."
+            )
+        else:
+            st.caption(
+                "Acceleration |a| (amber) and rotation |ω| (sky) over the recording, "
+                "x-aligned with the prediction band(s) below: drop a vertical line "
+                "from a motion burst straight onto the window it was classified as."
+            )
 
 
 def _detail_expander(results: pd.DataFrame) -> None:
@@ -171,7 +169,7 @@ def _detail_expander(results: pd.DataFrame) -> None:
             },
         )
         st.download_button(
-            "⬇  Download predictions (CSV)",
+            "Download predictions (CSV)",
             data=results[
                 ["window_id", "predicted_class", "confidence", "time_start_seconds"]
             ]
@@ -201,13 +199,13 @@ def _result_hero(label: str, confidence: float, key: str) -> None:
         st.markdown(
             '<div style="padding-top:22px;">'
             "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.72rem;"
-            'letter-spacing:0.16em;text-transform:uppercase;color:#8893A7;">'
+            'letter-spacing:0.16em;text-transform:uppercase;color:#8E8A85;">'
             "Recognized exercise</div>"
             f"<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:700;"
             f'font-size:2.1rem;line-height:1.1;margin:2px 0;color:{color};">'
             f"{theme.humanize(label)}</div>"
             "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.72rem;"
-            'color:#8893A7;">dominant label across the recording</div></div>',
+            'color:#8E8A85;">dominant label across the recording</div></div>',
             unsafe_allow_html=True,
         )
     with c_ring:
@@ -229,15 +227,14 @@ def _render_single(results: pd.DataFrame, signal: pd.DataFrame | None) -> None:
         _result_hero(overall, avg_conf, key="result-current")
     theme.metric_tiles(
         [
-            ("Windows", str(len(results)), "2 s each", theme.AMBER),
-            ("Duration", f"{total_s:.0f} s", "recording length", theme.SKY),
-            ("Avg confidence", f"{avg_conf:.0%}", "classified windows", "#A78BFA"),
+            ("Windows", str(len(results)), "2 s each", theme.FLAME),
+            ("Duration", f"{total_s:.0f} s", "recording length", theme.STEEL),
+            ("Avg confidence", f"{avg_conf:.0%}", "classified windows", theme.VIOLET),
             ("Rest", f"{rest_pct:.0%}", "energy-gated", theme.CLASS_COLORS["rest"]),
         ]
     )
 
-    _signal_panel(signal)
-    _timeline_panel(results)
+    _scope_timeline_panel(signal, [("Per-window timeline", results)])
 
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -249,7 +246,7 @@ def _render_single(results: pd.DataFrame, signal: pd.DataFrame | None) -> None:
             st.markdown(theme.eyebrow("Detected sets"), unsafe_allow_html=True)
             st.markdown(
                 f"<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:600;"
-                f'font-size:1.15rem;color:#EAEEF6;">{_sets_line(results)}</div>',
+                f'font-size:1.15rem;color:#1C1B1A;">{_sets_line(results)}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -276,7 +273,7 @@ def _compact_result(model_name: str, results: pd.DataFrame, key: str) -> None:
     with c_meta:
         st.markdown(
             "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.7rem;"
-            "letter-spacing:0.14em;text-transform:uppercase;color:#8893A7;"
+            "letter-spacing:0.14em;text-transform:uppercase;color:#8E8A85;"
             f'padding-top:10px;">{model_name}</div>'
             f"<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:700;"
             f'font-size:1.5rem;line-height:1.1;color:{color};margin-bottom:6px;">'
@@ -286,22 +283,64 @@ def _compact_result(model_name: str, results: pd.DataFrame, key: str) -> None:
         )
 
 
+def _change_counts(merged: pd.DataFrame) -> dict[str, int]:
+    """Count per-window change categories between Model 1 and Model 2.
+
+    Args:
+        merged: Per-window join with ``predicted_class_m1`` / ``predicted_class_m2``.
+
+    Returns:
+        Mapping of each :func:`theme.classify_change` category to its window count.
+    """
+    counts = {key: 0 for key in theme.STATUS_LABELS}
+    for m1, m2 in zip(merged["predicted_class_m1"], merged["predicted_class_m2"]):
+        counts[theme.classify_change(m1, m2)] += 1
+    return counts
+
+
+def _change_chips(counts: dict[str, int]) -> str:
+    """Build the coloured rescued / lost / swapped breakdown chips (HTML)."""
+    chips = [("improved", "↑ Rescued"), ("regressed", "↓ Lost"), ("swap", "⇄ Swapped")]
+    spans = []
+    for key, text in chips:
+        color = theme.STATUS_COLORS[key]
+        spans.append(
+            '<span style="display:inline-flex;align-items:center;gap:6px;'
+            f"background:{color}14;color:{color};border:1px solid {color}33;"
+            "border-radius:999px;padding:5px 13px;margin:0 8px 6px 0;"
+            "font-family:'IBM Plex Mono',monospace;font-size:0.84rem;"
+            f'font-weight:600;">{text} · {counts[key]}</span>'
+        )
+    return '<div style="margin:8px 0 2px;">' + "".join(spans) + "</div>"
+
+
+def _fmt_conf(value: float) -> str:
+    """Format a window confidence as a percent, or '—' when absent (rest/abstain)."""
+    return "—" if pd.isna(value) else f"{value:.0%}"
+
+
+def _status_css(category: str) -> str:
+    """Return the per-window status-badge cell CSS for a change category."""
+    color = theme.STATUS_COLORS[category]
+    # 8-digit hex (color + alpha) gives a soft tinted badge; the text is the hue.
+    return f"background-color:{color}1A;color:{color};font-weight:600;"
+
+
 def _render_comparison(
     r1: pd.DataFrame, r2: pd.DataFrame, signal: pd.DataFrame | None
 ) -> None:
     """Two-model comparison view (Model 1 baseline vs Model 2 current)."""
-    merged = r1[["window_id", "predicted_class"]].merge(
+    # Join both models per window, keeping BOTH confidences so the table can show
+    # Model 1's confidence next to Model 2's.
+    merged = r1[["window_id", "predicted_class", "confidence"]].merge(
         r2[["window_id", "predicted_class", "confidence"]],
         on="window_id",
         suffixes=("_m1", "_m2"),
     )
-    agreement = float(
-        (merged["predicted_class_m1"] == merged["predicted_class_m2"]).mean()
-    )
-    n_changed = int(
-        (merged["predicted_class_m1"] != merged["predicted_class_m2"]).sum()
-    )
-    total_s = float(r2["time_start_seconds"].max()) + 2.0
+    counts = _change_counts(merged)
+    n_changed = sum(counts[k] for k in ("improved", "regressed", "swap", "other"))
+    m1_conf = _avg_conf(r1)
+    m2_conf = _avg_conf(r2)
 
     st.info(
         "**Model 1** was trained on the Kaggle anchor only; **Model 2** adds our "
@@ -319,57 +358,85 @@ def _render_comparison(
             st.markdown(theme.eyebrow("Model 2 · + our data"), unsafe_allow_html=True)
             _compact_result("Model 2 · + our data", r2, key="cmp-m2")
 
-    theme.metric_tiles(
-        [
-            ("Windows", str(len(r2)), "2 s each", theme.AMBER),
-            ("Duration", f"{total_s:.0f} s", "recording length", theme.SKY),
-            (
-                "Agreement",
-                f"{agreement:.0%}",
-                f"{n_changed} windows changed",
-                "#A78BFA",
-            ),
-            ("Avg conf · M2", f"{_avg_conf(r2):.0%}", "current model", "#A78BFA"),
-        ]
+    # Lead with the rescue story: where Model 1 abstained, Model 2 now commits to a
+    # real exercise. Phrase it positively and directionally, with a small per-
+    # category breakdown (categories inferred from the two models' own outputs).
+    if counts["improved"]:
+        headline = (
+            f"Model 2 commits to {counts['improved']} window(s) that Model 1 left "
+            "uncertain or unknown — turning abstentions into a real exercise."
+        )
+    elif n_changed:
+        headline = (
+            f"Model 2 re-labels {n_changed} of {len(merged)} windows vs. Model 1."
+        )
+    else:
+        headline = "Model 2 and Model 1 agree on every window."
+
+    with st.container(border=True):
+        st.markdown(
+            theme.eyebrow("Effect of our own data · window changes"),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:600;"
+            'font-size:1.12rem;line-height:1.35;color:#1C1B1A;margin:2px 0;">'
+            f"{headline}</div>",
+            unsafe_allow_html=True,
+        )
+        cc_left, cc_right = st.columns([3, 1.3], gap="large")
+        with cc_left:
+            st.markdown(_change_chips(counts), unsafe_allow_html=True)
+        with cc_right:
+            cc_right.metric(
+                "Ø confidence · Model 2",
+                f"{m2_conf:.0%}",
+                delta=f"{(m2_conf - m1_conf) * 100:+.1f} pp vs. Model 1",
+            )
+        st.caption(
+            "Categories are inferred from the two models' own outputs (no ground "
+            "truth): **Rescued** = Model 1 abstained, Model 2 committed; **Lost** = "
+            "the reverse; **Swapped** = both committed, but to different exercises."
+        )
+
+    # Oscilloscope + both prediction bands share one x-aligned time axis.
+    _scope_timeline_panel(
+        signal,
+        [("Model 1 · Kaggle only", r1), ("Model 2 · + our data", r2)],
     )
-
-    _signal_panel(signal)
-
-    _timeline_panel(r1, title="Timeline · Model 1 (Kaggle only)")
-    _timeline_panel(r2, title="Timeline · Model 2 (+ our data)")
 
     with st.container(border=True):
         st.markdown(theme.eyebrow("Per-window comparison"), unsafe_allow_html=True)
-        table = merged.copy()
-        table["changed"] = table["predicted_class_m1"] != table["predicted_class_m2"]
-        table["predicted_class_m1"] = table["predicted_class_m1"].map(theme.humanize)
-        table["predicted_class_m2"] = table["predicted_class_m2"].map(theme.humanize)
-        table = table.rename(
-            columns={
-                "window_id": "Window",
-                "predicted_class_m1": "Model 1",
-                "predicted_class_m2": "Model 2",
-                "confidence": "M2 confidence",
-                "changed": "Changed?",
+        categories = [
+            theme.classify_change(m1, m2)
+            for m1, m2 in zip(
+                merged["predicted_class_m1"], merged["predicted_class_m2"]
+            )
+        ]
+        # Order: Window | Model 1 | M1 conf | Model 2 | M2 conf | Status — with a
+        # coloured Status badge instead of a checkbox (which looked interactive).
+        table = pd.DataFrame(
+            {
+                "Window": merged["window_id"],
+                "Model 1": merged["predicted_class_m1"].map(theme.humanize),
+                "M1 conf": merged["confidence_m1"].map(_fmt_conf),
+                "Model 2": merged["predicted_class_m2"].map(theme.humanize),
+                "M2 conf": merged["confidence_m2"].map(_fmt_conf),
+                "Status": [theme.STATUS_LABELS[c] for c in categories],
             }
         )
-        st.dataframe(
-            table,
-            width="stretch",
-            height=340,
-            column_config={
-                "M2 confidence": st.column_config.ProgressColumn(
-                    "M2 confidence", min_value=0.0, max_value=1.0, format="%.2f"
-                )
-            },
+        styled = table.style.apply(
+            lambda _col: [_status_css(c) for c in categories], subset=["Status"]
         )
+        st.dataframe(styled, width="stretch", height=340, hide_index=True)
         st.download_button(
-            "⬇  Download both models' predictions (CSV)",
+            "Download both models' predictions (CSV)",
             data=merged.rename(
                 columns={
                     "predicted_class_m1": "model1_kaggle_only",
+                    "confidence_m1": "model1_confidence",
                     "predicted_class_m2": "model2_with_our_data",
-                    "confidence": "model2_confidence",
+                    "confidence_m2": "model2_confidence",
                 }
             )
             .to_csv(index=False)
@@ -383,26 +450,13 @@ def _render_comparison(
 # Empty state
 # ---------------------------------------------------------------------------
 def _render_empty_state() -> None:
-    """Animated teaser + brief instructions shown before any upload."""
-    with st.container(border=True):
-        st.markdown(theme.eyebrow("Recognizable exercises"), unsafe_allow_html=True)
-        cols = st.columns(3)
-        for col, (label, desc) in zip(cols, TRAINED_EXERCISES):
-            with col:
-                lottie.render_exercise(label, key=f"empty-{label}", height=140)
-                st.markdown(
-                    '<div style="text-align:center;">'
-                    f"<div style=\"font-family:'Space Grotesk',sans-serif;"
-                    f"font-weight:600;color:{theme.class_color(label)};"
-                    f'font-size:1.05rem;">{theme.humanize(label)}</div>'
-                    f"<div style=\"font-family:'IBM Plex Mono',monospace;"
-                    f'font-size:0.72rem;color:#8893A7;">{desc}</div></div>',
-                    unsafe_allow_html=True,
-                )
-        st.caption(
-            "Plus **rest** (low-motion pauses, energy-gated) and **uncertain** / "
-            "**unknown** for windows the model abstains on or has never seen."
-        )
+    """Numbered step-by-step onboarding journey shown before any upload."""
+    journey.render()
+    st.caption(
+        "Besides the three exercises, the app also outputs **rest** (low-motion "
+        "pauses, energy-gated) and **uncertain** / **unknown** for windows the "
+        "model abstains on or has never seen."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -444,8 +498,13 @@ def render(
         return
 
     tmp_path = _save_upload_to_tempfile(uploaded_file)
+    spinner_msg = (
+        "Running prediction pipeline (both models)…"
+        if compare
+        else "Running prediction pipeline…"
+    )
     try:
-        with st.spinner("Running prediction pipeline…"):
+        with st.spinner(spinner_msg):
             signal = _load_signal(tmp_path)
             results = _run_model(tmp_path, model, feature_names, novelty_detector)
             baseline_results = (
@@ -457,11 +516,11 @@ def render(
             )
     except (ValueError, FileNotFoundError) as exc:
         theme.status_bar(file_label=uploaded_file.name, live=False)
-        st.error(f"❌ Could not process the file:\n\n{exc}")
+        st.error(f"Could not process the file:\n\n{exc}")
         return
     except Exception as exc:  # noqa: BLE001 — surface any unexpected error
         theme.status_bar(file_label=uploaded_file.name, live=False)
-        st.error(f"❌ Unexpected error while processing the file: {exc}")
+        st.error(f"Unexpected error while processing the file: {exc}")
         return
     finally:
         tmp_path.unlink(missing_ok=True)
@@ -481,7 +540,7 @@ def render(
     )
     if len(results) < MIN_WINDOWS_WARNING:
         st.warning(
-            f"⚠️ Only {len(results)} window(s) detected — record at least "
+            f"Only {len(results)} window(s) detected — record at least "
             "~15–30 seconds for reliable results."
         )
 

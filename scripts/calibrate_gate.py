@@ -129,7 +129,9 @@ def _report_feature(
     print(f"\n[{name}]  current threshold = {current}")
     print(f"  exercise low : p01={ex_p01:.4f}  p05={ex_p05:.4f}  (stay BELOW)")
     if len(rest_vals) == 0:
-        print("  rest         : (no data/Testdaten/Rest/ data — lower bound UNVERIFIED)")
+        print(
+            "  rest         : (no data/Testdaten/Rest/ data — lower bound UNVERIFIED)"
+        )
         return
     rest_p95, rest_p99 = np.percentile(rest_vals, [95, 99])
     print(f"  rest high    : p95={rest_p95:.4f}  p99={rest_p99:.4f}  (stay ABOVE)")
@@ -179,7 +181,9 @@ def main() -> None:
     _report_feature("gyro_mean", rest_g, ex_g, GYRO_MAG_MEAN_THRESHOLD)
 
     if not n_rest:
-        print("\nNo rest recordings yet. Add clean pauses under data/Testdaten/Rest/ (watch")
+        print(
+            "\nNo rest recordings yet. Add clean pauses under data/Testdaten/Rest/ (watch"
+        )
         print("held still, fidgeting, drinking) and re-run to verify/tune the lower")
         print("bound. Until then the thresholds sit safely below exercise energy only.")
         print("=" * 70)
