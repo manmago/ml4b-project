@@ -169,6 +169,3 @@ tmp/
 # Local-only developer tooling — kept on disk, intentionally not tracked.
 CLAUDE.md
 agents/
-
-# Sailboat-Retrospektiven — lokale Team-Reflexionen, nicht ins Repo
-Sailboats/
