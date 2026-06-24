@@ -256,29 +256,56 @@ def _render_single(results: pd.DataFrame, signal: pd.DataFrame | None) -> None:
 # ---------------------------------------------------------------------------
 # Two-model comparison view
 # ---------------------------------------------------------------------------
-def _compact_result(model_name: str, results: pd.DataFrame, key: str) -> None:
-    """Compact result card (animation + name + ring) for one model in a column.
+def _compact_result_html(model_name: str, results: pd.DataFrame) -> str:
+    """Return the inner result-card HTML (figure + name + ring) for one model.
+
+    A single flexbox card so the figure and the text share one row: a square
+    exercise figure on the left whose height follows the centred content block on
+    the right (model tag, exercise name, confidence ring). The content block
+    defines the card height; the figure stretches to match it and the GIF/SVG
+    fills that box with ``object-fit:contain`` (no distortion). All layout lives
+    in the ``.cmp-*`` rules in :mod:`app.ui.theme`. Returned as a string so the
+    caller can wrap it (eyebrow + padding) in one HTML block.
 
     Args:
         model_name: Short tag shown above the exercise name (e.g. ``"baseline"``).
         results: That model's per-window results.
-        key: Unique element key for the animation in this run.
+
+    Returns:
+        HTML string for the ``.cmp-card`` row (render with unsafe_allow_html).
     """
     label = _overall(results)
     conf = _avg_conf(results)
     color = theme.class_color(label)
-    c_anim, c_meta = st.columns([1, 1.5], gap="small")
-    with c_anim:
-        lottie.render_exercise(label, key=key, height=120)
-    with c_meta:
+    return (
+        '<div class="cmp-card">'
+        f'<div class="cmp-fig">{lottie.figure_inner(label)}</div>'
+        '<div class="cmp-content">'
+        f'<div class="cmp-tag">{model_name}</div>'
+        f'<div class="cmp-name" style="color:{color};">{theme.humanize(label)}</div>'
+        f"{theme.confidence_ring(conf, color)}"
+        "</div></div>"
+    )
+
+
+def _model_card(eyebrow: str, model_name: str, results: pd.DataFrame) -> None:
+    """Render one comparison card: bordered container + padded eyebrow + result.
+
+    The eyebrow and the result row are emitted as a single ``.cmp-pad`` block so
+    we can inset them uniformly from the card border. Streamlit 1.57 applies the
+    bordered container's own padding to an internal styled wrapper that exposes
+    no stable selector, so the extra breathing room is added here, inside markup
+    we control, rather than by overriding Streamlit's container padding.
+
+    Args:
+        eyebrow: Section label shown at the top of the card.
+        model_name: Short tag shown above the exercise name.
+        results: That model's per-window results.
+    """
+    with st.container(border=True):
         st.markdown(
-            "<div style=\"font-family:'IBM Plex Mono',monospace;font-size:0.7rem;"
-            "letter-spacing:0.14em;text-transform:uppercase;color:#8E8A85;"
-            f'padding-top:10px;">{model_name}</div>'
-            f"<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:700;"
-            f'font-size:1.5rem;line-height:1.1;color:{color};margin-bottom:6px;">'
-            f"{theme.humanize(label)}</div>"
-            f"{theme.confidence_ring(conf, color)}",
+            f'<div class="cmp-pad">{theme.eyebrow(eyebrow)}'
+            f"{_compact_result_html(model_name, results)}</div>",
             unsafe_allow_html=True,
         )
 
@@ -350,13 +377,9 @@ def _render_comparison(
 
     c1, c2 = st.columns(2, gap="large")
     with c1:
-        with st.container(border=True):
-            st.markdown(theme.eyebrow("Model 1 · Kaggle only"), unsafe_allow_html=True)
-            _compact_result("Model 1 · baseline", r1, key="cmp-m1")
+        _model_card("Model 1 · Kaggle only", "Model 1 · baseline", r1)
     with c2:
-        with st.container(border=True):
-            st.markdown(theme.eyebrow("Model 2 · + our data"), unsafe_allow_html=True)
-            _compact_result("Model 2 · + our data", r2, key="cmp-m2")
+        _model_card("Model 2 · + our data", "Model 2 · + our data", r2)
 
     # Lead with the rescue story: where Model 1 abstained, Model 2 now commits to a
     # real exercise. Phrase it positively and directionally, with a small per-

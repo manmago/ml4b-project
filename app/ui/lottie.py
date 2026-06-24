@@ -122,6 +122,28 @@ def figure_html(label: str, max_height: int = 150) -> str:
     )
 
 
+def figure_inner(label: str) -> str:
+    """Return the bare figure element (GIF ``<img>`` or SVG), with no wrapper.
+
+    Like :func:`figure_html` but without the ``.ex-gif`` card wrapper, so the
+    caller can drop the figure into its own sized container (e.g. the square
+    tile of the two-model comparison card) and control sizing entirely via that
+    container's CSS. As in :func:`figure_html`, the Lottie branch is omitted —
+    Lottie is a Streamlit component and only :func:`render_exercise` can place
+    it; the configured exercise classes resolve to a GIF or the SVG fallback.
+
+    Args:
+        label: Raw class label (e.g. ``"bicep_curl"``).
+
+    Returns:
+        HTML string (render with ``unsafe_allow_html=True``).
+    """
+    gif = _gif_url(label)
+    if gif:
+        return f'<img src="{gif}" alt="{theme.humanize(label)}" loading="lazy">'
+    return theme.exercise_figure(label)
+
+
 def render_exercise(label: str, key: str, height: int = 150) -> None:
     """Render the figure for a class label: GIF if set, else Lottie, else SVG.
 

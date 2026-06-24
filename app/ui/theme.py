@@ -351,6 +351,67 @@ a { color: var(--flame); }
     border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(28,27,26,0.07);
 }
 
+/* ---- Two-model comparison cards (Classify tab) ---- */
+/* Each card is a flex row: a fixed-width figure column on the left and a centred
+   content block (model tag + exercise name + confidence ring) on the right.
+   The CONTENT defines the card height; the figure column has a fixed width but
+   stretches its HEIGHT to match the content (align-items/align-self:stretch),
+   and the GIF/SVG fills that box with object-fit:contain — so it scales to the
+   full content height WITHOUT distortion. The column width (~the content height)
+   keeps the box near-square for our 220×220 figures. We give the figure a fixed
+   width rather than deriving it from the stretched height via aspect-ratio,
+   because that flex+aspect-ratio combination collapses the column to zero width.
+   The content column is centred (align/justify:center), giving it equal space to
+   the figure on its left and the card edge on its right. */
+/* Extra, uniform breathing room inside each comparison card. Streamlit 1.57
+   draws the card border and its ~15px padding on internal emotion-styled divs
+   that carry no stable selector (there is no stVerticalBlockBorderWrapper
+   testid in this version), so we cannot reliably override that padding. Instead
+   we render the eyebrow + result inside this wrapper, which we fully control,
+   and inset them further on every side — the bordered container keeps drawing
+   the frame, this just pushes the content (GIF left, ring right) off the edges.
+   The flex column restores the eyebrow→content spacing that separate Streamlit
+   elements used to provide. */
+.cmp-pad { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
+.cmp-pad > .tlm-eyebrow { margin: 0; }  /* spacing comes from the flex gap */
+.cmp-card { display: flex; align-items: stretch; gap: 20px; }
+/* No box-shadow here: this tile sits *inside* the bordered card, which has no
+   overflow clipping, so a drop shadow would bleed past the card's bottom edge
+   and read as the inner box spilling out. The border + subtle fill alone give a
+   clean tile; the outer card already carries the elevation shadow. */
+.cmp-fig {
+    flex: 0 0 auto; align-self: stretch; width: 168px; position: relative;
+    border-radius: 16px; background: var(--subtle); border: 1px solid var(--line);
+    overflow: hidden;
+}
+/* Absolute fill so the figure's natural size never inflates the row — the
+   content block alone drives the height, and the figure follows it. The small
+   padding (with box-sizing:border-box) insets the figure into the tile so
+   object-fit:contain fits it inside the *padded* area — keeping it clear of the
+   rounded edges instead of sitting flush against (and seeming to spill past)
+   the bottom border. */
+.cmp-fig img, .cmp-fig svg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    padding: 10px; box-sizing: border-box; object-fit: contain;
+}
+.cmp-content {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 6px;
+}
+.cmp-tag {
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+}
+.cmp-name {
+    font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.1;
+}
+/* Narrow viewports: stack the figure above the text so nothing overflows. */
+@media (max-width: 640px) {
+    .cmp-card { flex-direction: column; align-items: center; }
+    .cmp-fig { width: 150px; height: 150px; align-self: center; }
+}
+
 /* ---- Numbered onboarding journey: a vertical, connected timeline ---- */
 .jrn { position: relative; margin: 6px 0 4px; }
 .jrn-step { display: flex; gap: 18px; padding-bottom: 18px; }
