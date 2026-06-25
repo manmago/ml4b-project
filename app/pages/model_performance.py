@@ -39,19 +39,22 @@ def _render_model_comparison(metrics: dict, classes: list[str]) -> None:
         )
         n_td = metrics.get("n_testdaten_sets", 0)
         delta = metrics["cv_macro_f1"] - baseline["cv_macro_f1"]
+        # Show Model 1's baseline and the *change* our data makes — not Model 2's
+        # absolute macro F1, which is already the headline "Macro F1" tile above
+        # (repeating it read as redundant). Model 2 = baseline + this change.
         theme.metric_tiles(
             [
                 (
                     "Model 1 · Macro F1",
                     f"{baseline['cv_macro_f1']:.3f}",
-                    f"{baseline['n_sets']} held-out Kaggle sets",
+                    f"baseline · {baseline['n_sets']} held-out Kaggle sets",
                     theme.MUTED,
                 ),
                 (
-                    "Model 2 · Macro F1",
-                    f"{metrics['cv_macro_f1']:.3f}",
-                    f"Δ {delta:+.3f} · adds {n_td} of our set(s)",
-                    theme.FLAME,
+                    "Macro F1 · change",
+                    f"{delta:+.3f}",
+                    f"adding {n_td} of our sets (Model 2 vs. Model 1)",
+                    theme.FLAME if delta >= 0 else theme.CLASS_COLORS["unknown"],
                 ),
             ]
         )
@@ -105,11 +108,16 @@ def render() -> None:
                 "averaged over classes",
                 theme.STEEL,
             ),
+            # We deliberately do NOT show accuracy here: on this balanced 3-class
+            # problem it lands on ~the same value as macro F1 (and macro precision /
+            # recall), so a separate tile only read as a redundant duplicate. The
+            # per-class breakdown lives in the table below; this slot shows dataset
+            # scale instead.
             (
-                "Accuracy",
-                f"{metrics['cv_accuracy']:.1%}",
-                "leave-one-set-out",
-                theme.STEEL,
+                "Windows",
+                f"{metrics['n_original_windows']:,}",
+                "labelled 2 s windows",
+                theme.VIOLET,
             ),
             (
                 "Training sets",
@@ -122,10 +130,11 @@ def render() -> None:
 
     _render_model_comparison(metrics, classes)
 
-    # Per-class quality and the confusion matrix side by side. We show the
-    # precision·recall·F1 TABLE (not a second F1-only bar chart): it is strictly
-    # more informative — adding precision and recall — and the F1-vs-target context
-    # already lives in the Macro F1 tile above, so the bar chart was redundant.
+    # Per-class quality and the confusion matrix side by side. The
+    # precision·recall·F1 TABLE is the primary read (more informative than a bar
+    # chart alone — it adds precision and recall). Beneath it, a compact per-class
+    # F1 bar gives an at-a-glance comparison AND fills the card so it balances the
+    # taller confusion-matrix card beside it — no dead whitespace under the table.
     left, right = st.columns(2, gap="large")
     with left:
         with st.container(border=True):
@@ -143,6 +152,24 @@ def render() -> None:
                 }
             )
             st.dataframe(pc_table, width="stretch", hide_index=True)
+            # At-a-glance F1 per class (each bar in its exercise's colour). The bar
+            # lengths surface the gap between classes more directly than the table's
+            # numbers, and fill the card so it lines up with the matrix on the right.
+            st.markdown(theme.eyebrow("Per-class F1 · visual"), unsafe_allow_html=True)
+            st.markdown(
+                theme.score_bars(
+                    [
+                        (
+                            theme.humanize(c),
+                            pcf1_map[c],
+                            theme.class_color(c),
+                            f"{pcf1_map[c]:.2f}",
+                        )
+                        for c in classes
+                    ]
+                ),
+                unsafe_allow_html=True,
+            )
             st.caption(
                 f"Target macro F1 ≥ {TARGET_F1:.2f}. Precision, recall and F1 come "
                 "from the aggregated leave-one-set-out confusion matrix."
@@ -157,8 +184,12 @@ def render() -> None:
             # Row-normalize so each cell is the fraction of a true class predicted
             # as each class (rows sum to 1) — comparable across class sizes.
             cm_norm = cm / cm.sum(axis=1, keepdims=True)
+            # Height trimmed (default 420 → 360) so the matrix card sits closer to
+            # the precision/recall/F1 + per-class-F1 card on the left.
             st.plotly_chart(
-                viz.confusion(cm_norm, classes), width="stretch", config=PLOTLY_CFG
+                viz.confusion(cm_norm, classes, height=360),
+                width="stretch",
+                config=PLOTLY_CFG,
             )
             st.caption(
                 "Bicep curl and tricep extension are the most-confused pair — both "

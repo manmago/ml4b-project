@@ -292,6 +292,36 @@ readability polish, still presentation-only:
   Macro-F1 tile's target context) and kept the strictly more informative
   **precision · recall · F1 table** next to the confusion matrix.
 
+**Team-review polish pass (presentation-only).** A round of UI tweaks from a
+project-team review — no pipeline, model or metric change:
+- **`uncertain` timeline colour darkened** `#D8D2CB` → `#B0A89F`. The old near-white
+  band was barely visible on the white cards. It stays *lighter* than `rest`
+  (`#8C857D`) and keeps its dotted pattern, so the two greys remain separable.
+- **`uncertain` gets a GIF mascot** (a kid dancing — bundled offline at
+  `app/static/uncertain.gif`, wired via `theme`/`lottie.EXERCISE_GIFS`). It renders
+  wherever an `uncertain` figure appears: the Classify result hero / comparison
+  cards and the About-tab "Recognizable exercises" panel — so an honest abstain
+  reads as friendly rather than a failure.
+- **Classify: the aggregate "Effect of our own data · window changes" panel removed**
+  (headline + Rescued / Lost / Swapped chips + Ø-confidence delta + its intro info
+  box, plus the now-unused `_change_counts` / `_change_chips` helpers). The two model
+  cards, the shared-axis dual timeline and the per-window comparison table (with its
+  Status badges) stay — the side-by-side comparison is kept, only the editorialised
+  aggregate summary is dropped.
+- **Model & Training: redundant scalar tiles trimmed.** On this balanced 3-class
+  problem accuracy ≈ macro-F1 ≈ macro-precision / recall, so the `Accuracy` tile
+  (a near-duplicate of `Macro F1`) is replaced by a dataset-scale `Windows` tile,
+  and the "effect of our data" section now shows Model 1's baseline + the macro-F1
+  *change* instead of repeating Model 2's absolute (already the headline tile).
+- **Per-class card balanced:** a compact per-class **F1 bar** (`theme.score_bars`)
+  sits under the precision · recall · F1 table and the confusion matrix is trimmed
+  (420 → 360 px) so the two cards line up with no dead whitespace beneath the table.
+- **About tips corrected:** recommend the **left wrist** (matches the training
+  device/placement, §4); reframe "record the whole session in one go" → **one
+  exercise per recording** (several sets of the *same* exercise are fine; mixing
+  *different* exercises back-to-back is untested); and drop the "an honest unsure
+  beats a confident wrong answer" line.
+
 **Exercise animations: self-built dumbbell icons, Lottie-ready.** Each exercise is
 an animated **SVG/CSS dumbbell** (own colour + motion: curl = arc, tricep =
 overhead, row = horizontal pull, rest = float), authored in-repo — **no external

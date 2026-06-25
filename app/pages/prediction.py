@@ -310,37 +310,6 @@ def _model_card(eyebrow: str, model_name: str, results: pd.DataFrame) -> None:
         )
 
 
-def _change_counts(merged: pd.DataFrame) -> dict[str, int]:
-    """Count per-window change categories between Model 1 and Model 2.
-
-    Args:
-        merged: Per-window join with ``predicted_class_m1`` / ``predicted_class_m2``.
-
-    Returns:
-        Mapping of each :func:`theme.classify_change` category to its window count.
-    """
-    counts = {key: 0 for key in theme.STATUS_LABELS}
-    for m1, m2 in zip(merged["predicted_class_m1"], merged["predicted_class_m2"]):
-        counts[theme.classify_change(m1, m2)] += 1
-    return counts
-
-
-def _change_chips(counts: dict[str, int]) -> str:
-    """Build the coloured rescued / lost / swapped breakdown chips (HTML)."""
-    chips = [("improved", "↑ Rescued"), ("regressed", "↓ Lost"), ("swap", "⇄ Swapped")]
-    spans = []
-    for key, text in chips:
-        color = theme.STATUS_COLORS[key]
-        spans.append(
-            '<span style="display:inline-flex;align-items:center;gap:6px;'
-            f"background:{color}14;color:{color};border:1px solid {color}33;"
-            "border-radius:999px;padding:5px 13px;margin:0 8px 6px 0;"
-            "font-family:'IBM Plex Mono',monospace;font-size:0.84rem;"
-            f'font-weight:600;">{text} · {counts[key]}</span>'
-        )
-    return '<div style="margin:8px 0 2px;">' + "".join(spans) + "</div>"
-
-
 def _fmt_conf(value: float) -> str:
     """Format a window confidence as a percent, or '—' when absent (rest/abstain)."""
     return "—" if pd.isna(value) else f"{value:.0%}"
@@ -364,63 +333,12 @@ def _render_comparison(
         on="window_id",
         suffixes=("_m1", "_m2"),
     )
-    counts = _change_counts(merged)
-    n_changed = sum(counts[k] for k in ("improved", "regressed", "swap", "other"))
-    m1_conf = _avg_conf(r1)
-    m2_conf = _avg_conf(r2)
-
-    st.info(
-        "**Model 1** was trained on the Kaggle anchor only; **Model 2** adds our "
-        "own uploaded recordings (Testdaten) — same pipeline and augmentation. "
-        "Differences below are purely the effect of our own data."
-    )
 
     c1, c2 = st.columns(2, gap="large")
     with c1:
         _model_card("Model 1 · Kaggle only", "Model 1 · baseline", r1)
     with c2:
         _model_card("Model 2 · + our data", "Model 2 · + our data", r2)
-
-    # Lead with the rescue story: where Model 1 abstained, Model 2 now commits to a
-    # real exercise. Phrase it positively and directionally, with a small per-
-    # category breakdown (categories inferred from the two models' own outputs).
-    if counts["improved"]:
-        headline = (
-            f"Model 2 commits to {counts['improved']} window(s) that Model 1 left "
-            "uncertain or unknown — turning abstentions into a real exercise."
-        )
-    elif n_changed:
-        headline = (
-            f"Model 2 re-labels {n_changed} of {len(merged)} windows vs. Model 1."
-        )
-    else:
-        headline = "Model 2 and Model 1 agree on every window."
-
-    with st.container(border=True):
-        st.markdown(
-            theme.eyebrow("Effect of our own data · window changes"),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div style=\"font-family:'Space Grotesk',sans-serif;font-weight:600;"
-            'font-size:1.12rem;line-height:1.35;color:#1C1B1A;margin:2px 0;">'
-            f"{headline}</div>",
-            unsafe_allow_html=True,
-        )
-        cc_left, cc_right = st.columns([3, 1.3], gap="large")
-        with cc_left:
-            st.markdown(_change_chips(counts), unsafe_allow_html=True)
-        with cc_right:
-            cc_right.metric(
-                "Ø confidence · Model 2",
-                f"{m2_conf:.0%}",
-                delta=f"{(m2_conf - m1_conf) * 100:+.1f} pp vs. Model 1",
-            )
-        st.caption(
-            "Categories are inferred from the two models' own outputs (no ground "
-            "truth): **Rescued** = Model 1 abstained, Model 2 committed; **Lost** = "
-            "the reverse; **Swapped** = both committed, but to different exercises."
-        )
 
     # Oscilloscope + both prediction bands share one x-aligned time axis.
     _scope_timeline_panel(

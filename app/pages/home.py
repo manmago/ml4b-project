@@ -59,6 +59,22 @@ def render() -> None:
                     f'font-size:0.68rem;color:#8E8A85;">{desc}</div></div>',
                     unsafe_allow_html=True,
                 )
+        # A light-hearted look at the non-exercise output: anything that isn't one
+        # of the three above (or that the model just isn't confident about) comes
+        # back as `uncertain` — here's its dancing mascot.
+        _, mid, _ = st.columns([1, 2, 1])
+        with mid:
+            lottie.render_exercise("uncertain", key="about-uncertain", height=150)
+            st.markdown(
+                '<div style="text-align:center;">'
+                "<div style=\"font-family:'Space Grotesk',sans-serif;"
+                f"font-weight:600;color:{theme.class_color('uncertain')};"
+                'font-size:0.98rem;">Uncertain</div>'
+                "<div style=\"font-family:'IBM Plex Mono',monospace;"
+                'font-size:0.68rem;color:#8E8A85;">anything else / not sure</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
         st.caption(
             "Plus two non-exercise outputs: **rest** (energy-gated low-motion "
             "pauses) and **uncertain** (model not confident enough to commit)."
@@ -91,8 +107,7 @@ def render() -> None:
             "- **`rest`** — not a guess. The activity gate measured very little "
             "motion (a pause between sets), so the model is not even asked.\n"
             "- **`uncertain`** — the most likely exercise was still below the "
-            "confidence threshold, so the app deliberately does **not** commit. An "
-            "honest *“unsure”* beats a confident wrong answer.\n"
+            "confidence threshold, so the app deliberately does **not** commit.\n"
             "- **Confidence** — how strongly the Random Forest votes for the "
             "chosen class. Clean, full reps tend to score higher than half-reps "
             "or unusual movements."
@@ -102,15 +117,19 @@ def render() -> None:
     with st.container(border=True):
         st.markdown(theme.eyebrow("Tips for the best results"), unsafe_allow_html=True)
         st.markdown(
-            "- **Wear it normally.** The features are orientation-robust, so you "
-            "don't need a special wrist position — just the watch on snug.\n"
+            "- **Wear it on your left wrist.** That matches how the training data "
+            "was recorded (Apple Watch, left wrist). The features are "
+            "orientation-robust, so exact strap position isn't critical — just wear "
+            "the watch snug.\n"
             "- **Do full, controlled reps.** A handful of reps per set is enough "
             "for the 2-second windows to lock on.\n"
             "- **Stick to the three exercises above.** Other movements will "
             "usually come back as `uncertain` or get mislabelled — that's "
             "expected for a three-class model.\n"
-            "- **Record the whole session in one go.** Pauses are auto-detected "
-            "as `rest`, so you don't need to stop and start between sets.\n"
+            "- **Record one exercise per session.** Several sets of the *same* "
+            "exercise are fine — the pauses between them are auto-detected as "
+            "`rest`. We haven't tested recordings that mix *different* exercises "
+            "back-to-back, so record each exercise separately for now.\n"
             "- **What to upload:** just the single **`WristMotion.csv`** — or the "
             "**full ZIP** export; the app finds `WristMotion.csv` inside."
         )

@@ -45,6 +45,11 @@ EXERCISE_GIFS: dict[str, str] = {
     "tricep_extension": "app/static/tricep_extension.gif",
     "row": "app/static/row.gif",
     "rest": "",  # no GIF → falls back to the gently-floating SVG dumbbell
+    # A playful "the model isn't sure" mascot — a kid dancing — shown wherever an
+    # `uncertain` figure is rendered (Classify result hero, comparison cards, the
+    # About-tab "Recognizable exercises" panel). Source: Tenor "happy-kid-dancing"
+    # (mediumgif export, resized/optimized to ~390 KB so the repo stays light).
+    "uncertain": "app/static/uncertain.gif",
 }
 
 # streamlit-lottie is optional: guard the import so a missing/broken renderer

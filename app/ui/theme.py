@@ -12,6 +12,7 @@ Public API:
   eyebrow(text)                   — small uppercase section label (returns HTML)
   metric_tiles(items)             — row of metric cards
   prob_bars(shares)               — horizontal per-class share bars
+  score_bars(rows)                — horizontal labelled score bars (custom text)
   confidence_ring(pct, color)     — animated SVG confidence ring (returns HTML)
   exercise_figure(label)          — animated dumbbell icon per exercise
   humanize(label) / class_color() — label helpers shared with the pages
@@ -49,7 +50,9 @@ CLASS_COLORS: dict[str, str] = {
     "tricep_extension": "#7A5AF0",  # violet
     "row": "#1FA0A0",  # teal
     "rest": "#8C857D",  # medium warm grey — calm, low energy
-    "uncertain": "#D8D2CB",  # much lighter warm grey — model abstained
+    "uncertain": "#B0A89F",  # lighter warm grey — model abstained; darkened from the
+    #                          former near-white so the timeline band is actually
+    #                          visible on a white card, yet still lighter than `rest`
     "unknown": "#E5484D",  # red — out of distribution
 }
 
@@ -655,6 +658,34 @@ def prob_bars(shares: dict[str, float]) -> str:
             f'<div class="pct">{pct:.0f}%</div></div>'
         )
     return "".join(rows)
+
+
+def score_bars(rows: list[tuple[str, float, str, str]]) -> str:
+    """Build horizontal score bars with an explicit value label (no sorting).
+
+    Like :func:`prob_bars` but the caller controls the order, the bar colour and
+    the right-hand text per row — so it can show e.g. per-class F1 as ``0.79``
+    rather than a percentage. Reuses the same ``.tlm-bar`` styling.
+
+    Args:
+        rows: ``(label, value_0_1, hex_color, value_text)`` per bar, rendered in
+            the given order. ``value_0_1`` drives the fill width; ``value_text``
+            is shown verbatim on the right.
+
+    Returns:
+        HTML string for all rows (render with unsafe_allow_html).
+    """
+    out = []
+    for label, value, color, text in rows:
+        pct = max(0.0, min(1.0, value)) * 100
+        out.append(
+            f'<div class="tlm-bar"><div class="name">'
+            f'<span class="swatch" style="background:{color};"></span>{label}</div>'
+            f'<div class="track"><div class="fill" '
+            f'style="width:{pct:.1f}%;background:{color};"></div></div>'
+            f'<div class="pct">{text}</div></div>'
+        )
+    return "".join(out)
 
 
 def confidence_ring(pct: float, color: str, label: str = "Ø CONFIDENCE") -> str:
