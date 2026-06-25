@@ -42,80 +42,29 @@ VIOLET = "#7A5AF0"  # tertiary accent for metric tiles
 
 # One colour per model output. The three trained exercises get distinct, legible
 # hues (the flagship curl takes the brand flame); the non-exercise states read as
-# "not a real class" (calm grey / warn red). The two greys are kept far apart in
-# lightness so `rest` and `uncertain` stay separable on a projector (DECISIONS.md
-# §10); `uncertain` additionally gets a dotted pattern in the timeline (below).
+# "not a real class" — `rest` a calm grey, `uncertain` a caution amber, `unknown` a
+# warn red. `rest` (grey) and `uncertain` (amber) are clearly separable by hue on a
+# projector; `uncertain` additionally gets a dotted pattern in the timeline (below).
 CLASS_COLORS: dict[str, str] = {
     "bicep_curl": "#FF4D2E",  # flame — the brand accent
     "tricep_extension": "#7A5AF0",  # violet
     "row": "#1FA0A0",  # teal
     "rest": "#8C857D",  # medium warm grey — calm, low energy
-    "uncertain": "#B0A89F",  # lighter warm grey — model abstained; darkened from the
-    #                          former near-white so the timeline band is actually
-    #                          visible on a white card, yet still lighter than `rest`
+    "uncertain": "#E0A33E",  # amber — model abstained. A grey here washed out to
+    #                          near-white in the timeline (white dots over a pale
+    #                          grey); amber reads as "unsure/caution", stays clearly
+    #                          visible on the white cards, and is distinct from every
+    #                          exercise hue and from `rest`.
     "unknown": "#E5484D",  # red — out of distribution
 }
 
 # Per-class fill patterns for the Plotly timeline bars. Only `uncertain` carries a
-# pattern: it makes the (intentionally pale) abstain band unmistakable next to the
-# solid `rest` grey even on a low-contrast projector. Plotly pattern shape codes.
+# pattern: a sparse dotted texture that marks the abstain band as "not a committed
+# class" without lightening it (the dots are dark and low-density — see ui.viz).
+# Plotly pattern shape codes.
 CLASS_PATTERNS: dict[str, str] = {
     "uncertain": ".",  # dotted
 }
-
-# Non-committal model outputs. `rest` is rule-based (the energy gate runs before
-# the model and is identical for both models), so a label *change* between Model 1
-# and Model 2 is only ever among real classes / `uncertain` / `unknown`.
-ABSTAIN_LABELS: frozenset[str] = frozenset({"rest", "uncertain", "unknown"})
-
-# Semantic colours + short labels for how Model 2's label for a window compares to
-# Model 1's. Shared by the comparison headline breakdown and the per-window status
-# badges so the two always tell the same story (green = gained, red = lost, amber
-# = swapped, grey = unchanged/other).
-STATUS_COLORS: dict[str, str] = {
-    "improved": "#1B9E5A",  # green — Model 2 commits where Model 1 abstained
-    "regressed": "#E5484D",  # red — Model 2 abstains where Model 1 committed
-    "swap": "#E08A2B",  # amber — real class A → real class B
-    "other": "#8E8A85",  # grey — abstain → a different abstain state
-    "same": "#C7C2BC",  # light grey — unchanged
-}
-STATUS_LABELS: dict[str, str] = {
-    "improved": "Rescued",
-    "regressed": "Lost",
-    "swap": "Swapped",
-    "other": "Changed",
-    "same": "Same",
-}
-
-
-def classify_change(m1_label: str, m2_label: str) -> str:
-    """Categorise how Model 2's window label differs from Model 1's.
-
-    The category is derived purely from the two models' own outputs — no ground
-    truth is involved. A window is *improved* when Model 2 commits to a real
-    exercise where Model 1 abstained (`uncertain`/`unknown`), *regressed* when the
-    reverse happens, a *swap* when both commit but to different exercises, and
-    otherwise unchanged (`same`) or a non-committal-to-non-committal change
-    (`other`).
-
-    Args:
-        m1_label: Model 1 (baseline) raw label for the window.
-        m2_label: Model 2 (current) raw label for the window.
-
-    Returns:
-        One of ``"improved"``, ``"regressed"``, ``"swap"``, ``"other"``, ``"same"``.
-    """
-    if m1_label == m2_label:
-        return "same"
-    m1_real = m1_label not in ABSTAIN_LABELS
-    m2_real = m2_label not in ABSTAIN_LABELS
-    if not m1_real and m2_real:
-        return "improved"
-    if m1_real and not m2_real:
-        return "regressed"
-    if m1_real and m2_real:
-        return "swap"
-    return "other"
 
 
 def humanize(label: str) -> str:

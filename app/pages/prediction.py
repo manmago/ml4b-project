@@ -315,13 +315,6 @@ def _fmt_conf(value: float) -> str:
     return "—" if pd.isna(value) else f"{value:.0%}"
 
 
-def _status_css(category: str) -> str:
-    """Return the per-window status-badge cell CSS for a change category."""
-    color = theme.STATUS_COLORS[category]
-    # 8-digit hex (color + alpha) gives a soft tinted badge; the text is the hue.
-    return f"background-color:{color}1A;color:{color};font-weight:600;"
-
-
 def _render_comparison(
     r1: pd.DataFrame, r2: pd.DataFrame, signal: pd.DataFrame | None
 ) -> None:
@@ -348,14 +341,8 @@ def _render_comparison(
 
     with st.container(border=True):
         st.markdown(theme.eyebrow("Per-window comparison"), unsafe_allow_html=True)
-        categories = [
-            theme.classify_change(m1, m2)
-            for m1, m2 in zip(
-                merged["predicted_class_m1"], merged["predicted_class_m2"]
-            )
-        ]
-        # Order: Window | Model 1 | M1 conf | Model 2 | M2 conf | Status — with a
-        # coloured Status badge instead of a checkbox (which looked interactive).
+        # Order: Window | Model 1 | M1 conf | Model 2 | M2 conf — each model's
+        # per-window label and confidence side by side, no derived status column.
         table = pd.DataFrame(
             {
                 "Window": merged["window_id"],
@@ -363,13 +350,9 @@ def _render_comparison(
                 "M1 conf": merged["confidence_m1"].map(_fmt_conf),
                 "Model 2": merged["predicted_class_m2"].map(theme.humanize),
                 "M2 conf": merged["confidence_m2"].map(_fmt_conf),
-                "Status": [theme.STATUS_LABELS[c] for c in categories],
             }
         )
-        styled = table.style.apply(
-            lambda _col: [_status_css(c) for c in categories], subset=["Status"]
-        )
-        st.dataframe(styled, width="stretch", height=340, hide_index=True)
+        st.dataframe(table, width="stretch", height=340, hide_index=True)
         st.download_button(
             "Download both models' predictions (CSV)",
             data=merged.rename(

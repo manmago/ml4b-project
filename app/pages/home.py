@@ -43,11 +43,14 @@ def render() -> None:
             "predictions stay consistent — no duplication, no divergence."
         )
 
-    # The three recognizable exercises, full width.
+    # The three recognizable exercises plus the playful `uncertain` mascot, all in
+    # ONE equal-width row (the dancing figure is what the app shows when the motion
+    # isn't one of the three, or the model isn't confident enough to commit). One
+    # uniform 4-column grid keeps every figure the same size.
     with st.container(border=True):
         st.markdown(theme.eyebrow("Recognizable exercises"), unsafe_allow_html=True)
-        cols = st.columns(3)
-        for col, (label, desc) in zip(cols, EXERCISES):
+        figures = EXERCISES + [("uncertain", "anything else / not sure")]
+        for col, (label, desc) in zip(st.columns(4), figures):
             with col:
                 lottie.render_exercise(label, key=f"about-{label}", height=120)
                 st.markdown(
@@ -59,25 +62,10 @@ def render() -> None:
                     f'font-size:0.68rem;color:#8E8A85;">{desc}</div></div>',
                     unsafe_allow_html=True,
                 )
-        # A light-hearted look at the non-exercise output: anything that isn't one
-        # of the three above (or that the model just isn't confident about) comes
-        # back as `uncertain` — here's its dancing mascot.
-        _, mid, _ = st.columns([1, 2, 1])
-        with mid:
-            lottie.render_exercise("uncertain", key="about-uncertain", height=150)
-            st.markdown(
-                '<div style="text-align:center;">'
-                "<div style=\"font-family:'Space Grotesk',sans-serif;"
-                f"font-weight:600;color:{theme.class_color('uncertain')};"
-                'font-size:0.98rem;">Uncertain</div>'
-                "<div style=\"font-family:'IBM Plex Mono',monospace;"
-                'font-size:0.68rem;color:#8E8A85;">anything else / not sure</div>'
-                "</div>",
-                unsafe_allow_html=True,
-            )
         st.caption(
-            "Plus two non-exercise outputs: **rest** (energy-gated low-motion "
-            "pauses) and **uncertain** (model not confident enough to commit)."
+            "The first three are the trained exercises; **uncertain** is shown when "
+            "the motion isn't one of them or confidence is too low. A fourth state, "
+            "**rest**, marks energy-gated low-motion pauses."
         )
 
     # How a prediction is produced, full width.

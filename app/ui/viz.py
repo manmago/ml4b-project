@@ -136,8 +136,10 @@ def _add_timeline_band(
         sub = df[df["predicted_class"] == label]
         marker = dict(color=CLASS_COLORS.get(label, FLAME))
         if label in CLASS_PATTERNS:
+            # Dark, low-density dots (not white) so the patterned band keeps its own
+            # colour and never washes out to near-white on the light card.
             marker["pattern"] = dict(
-                shape=CLASS_PATTERNS[label], fgcolor=CARD, size=4, solidity=0.45
+                shape=CLASS_PATTERNS[label], fgcolor=INK, size=3, solidity=0.18
             )
         fig.add_trace(
             go.Bar(

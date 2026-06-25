@@ -294,20 +294,23 @@ readability polish, still presentation-only:
 
 **Team-review polish pass (presentation-only).** A round of UI tweaks from a
 project-team review — no pipeline, model or metric change:
-- **`uncertain` timeline colour darkened** `#D8D2CB` → `#B0A89F`. The old near-white
-  band was barely visible on the white cards. It stays *lighter* than `rest`
-  (`#8C857D`) and keeps its dotted pattern, so the two greys remain separable.
+- **`uncertain` timeline colour switched to amber** `#D8D2CB` → `#E0A33E`. Greys
+  here washed out to near-white in the timeline (white dots over a pale grey), so it
+  moved to a "caution" amber — clearly visible on the white cards and distinct by
+  *hue* from `rest` (`#8C857D`). The dotted pattern stays, but its dots are now dark
+  and low-density (`ui.viz`) so they texture the band instead of whitening it.
 - **`uncertain` gets a GIF mascot** (a kid dancing — bundled offline at
   `app/static/uncertain.gif`, wired via `theme`/`lottie.EXERCISE_GIFS`). It renders
   wherever an `uncertain` figure appears: the Classify result hero / comparison
-  cards and the About-tab "Recognizable exercises" panel — so an honest abstain
-  reads as friendly rather than a failure.
-- **Classify: the aggregate "Effect of our own data · window changes" panel removed**
-  (headline + Rescued / Lost / Swapped chips + Ø-confidence delta + its intro info
-  box, plus the now-unused `_change_counts` / `_change_chips` helpers). The two model
-  cards, the shared-axis dual timeline and the per-window comparison table (with its
-  Status badges) stay — the side-by-side comparison is kept, only the editorialised
-  aggregate summary is dropped.
+  cards and the About-tab "Recognizable exercises" panel (a uniform 4-figure row) —
+  so an honest abstain reads as friendly rather than a failure.
+- **Classify: the "effect of our own data" framing fully removed.** Gone: the
+  aggregate "window changes" panel (headline + Rescued / Lost / Swapped chips +
+  Ø-confidence delta + intro info box) AND the per-window table's **Status** column.
+  With them, the now-dead helpers (`_change_counts`, `_change_chips`, `_status_css`)
+  and theme tokens (`classify_change`, `STATUS_COLORS`, `STATUS_LABELS`,
+  `ABSTAIN_LABELS`). What stays: the two model cards, the shared-axis dual timeline,
+  and the per-window table showing each model's label + confidence side by side.
 - **Model & Training: redundant scalar tiles trimmed.** On this balanced 3-class
   problem accuracy ≈ macro-F1 ≈ macro-precision / recall, so the `Accuracy` tile
   (a near-duplicate of `Macro F1`) is replaced by a dataset-scale `Windows` tile,
