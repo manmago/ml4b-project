@@ -58,7 +58,7 @@ def _build_split(name: str, workout_ids: list[str], n_rotations: int = 0):
         name: Split name ("train" / "val" / "test"), used only for logging.
         workout_ids: MM-Fit workout ids belonging to this split.
         n_rotations: Rotation-augmentation copies per window. Should be > 0 only
-            for the train split; val/test are never augmented (honest metrics).
+            for the train split; val/test are never augmented (leak-free metrics).
 
     Returns:
         Feature DataFrame (one row per window) for the split.

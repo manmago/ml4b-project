@@ -123,7 +123,7 @@ def test_dominant_label_ignores_rest_only():
 
 
 def test_dominant_label_tie_prefers_non_exercise():
-    """On an exact tie, the honest non-exercise label wins over an exercise."""
+    """On an exact tie, the non-exercise label wins over an exercise."""
     assert dominant_label(["bicep_curl", "uncertain"]) == "uncertain"
 
 

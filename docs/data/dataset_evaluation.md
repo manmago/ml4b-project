@@ -120,7 +120,7 @@ Currently committed (per category):
 
 ---
 
-## 4. Honest limitation
+## 4. Limitation
 
 The anchor is **one subject**, so true leave-one-*subject*-out is impossible. We
 evaluate with **leave-one-set-out** cross-validation (each recording held out

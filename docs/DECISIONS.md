@@ -1,6 +1,6 @@
 # Project Decisions — ML4B Gym Exercise Recognition
 
-**Status:** Living document · **Last updated:** 2026-06-22
+**Status:** Living document · **Last updated:** 2026-06-25
 
 Single, consolidated record of the project's important decisions — *what* was
 decided and *why*, grouped by theme. When a new significant decision is made,
@@ -129,7 +129,7 @@ confidently emitting a wrong label on real, open-ended recordings:
   *calibrate the gate* rather than becoming a class (~90 % of Kaggle exercise
   windows clear the gate; the rest are low-energy pauses).
 - **Confidence threshold → `uncertain`.** A top class probability below `0.50` is
-  reported `uncertain` instead of a forced class — honest abstention.
+  reported `uncertain` instead of a forced class — explicit abstention.
 - **Novelty detection → `unknown`.** An optional per-class Gaussian + Mahalanobis
   detector (Ledoit-Wolf covariance, 99th-percentile per-class threshold) rejects
   windows unlike any known class, so untrained exercises (squats, etc.) aren't
@@ -145,7 +145,7 @@ confidently emitting a wrong label on real, open-ended recordings:
 
 ## 6. Evaluation
 
-**Honest metric: leave-one-set-out cross-validation.** Each Kaggle file is one set
+**Leak-free metric: leave-one-set-out cross-validation.** Each Kaggle file is one set
 (group); for every held-out set the model trains on all others (incl. their
 augmentations) and is tested only on that set's original windows — the strongest
 leak-free estimate for a single subject (macro-F1 ≈ 0.78). Random window/k-fold
@@ -211,7 +211,7 @@ rejection (the novelty detector should flag them `unknown`). We deliberately do 
 train an "everything-else" class — it only memorises the few foreign exercises
 recorded, whereas the novelty detector rejects unseen foreign motion too.
 
-**Superseded.** The earlier in-app "✏️ Correct & Improve" editor and the
+**Superseded.** The earlier in-app "Correct & Improve" editor and the
 `feedback.jsonl` loop are removed — they produced per-laptop local state (the
 divergence above). `add_labelled_recording.py` / `update_model.py` remain as
 lower-level building blocks, but `rebuild_from_testdaten.py` is the canonical full
@@ -239,113 +239,10 @@ hyper-parameters and novelty calibration. That is what makes the comparison fair
 `make train` writes the Kaggle model into *both* slots, so before any Testdaten the
 two are identical ("no own-data effect yet").
 
-**Honest caveat (surfaced in the app).** The two CV macro-F1 numbers are not a clean
+**Caveat (surfaced in the app).** The two CV macro-F1 numbers are not a clean
 apples-to-apples improvement — each is evaluated over its own held-out sets, and
 Model 2's pool also contains our own (cross-person, harder) recordings, so the
 aggregate can even dip slightly. The like-for-like comparison is the
 **same-recording** view on the Predict page; both pages state this. Showing only one
 model (simpler) would hide whether the extra data helped — rejected; a single
 blended metric was rejected as misleading.
-
-## 10. App UI — "Daylight" Redesign (supersedes the earlier "Night Scope")
-
-**Decision.** Reworked the Streamlit app's look to be more presentable for the
-handover/demo. **Presentation only** — the `src/ml4b/` pipeline, models and
-predictions are unchanged. The **current** design is **"Daylight"** — a clean,
-light, editorial theme (bright off-white canvas, soft white cards, one warm
-flame/coral accent `#FF4D2E`). It **supersedes** the earlier dark *wearable-
-telemetry* "Night Scope" look; the dark palette is no longer used.
-- **Navigation:** top **tabs** (Classify / Model & Training / About) replace the
-  sidebar radio; the sidebar is hidden.
-- **Shared design layer `app/ui/`:** `theme.py` (CSS, colour/type tokens,
-  components, `classify_change`/status tokens), `viz.py` (light Plotly figures),
-  `lottie.py` (animations), `journey.py` (onboarding) — all UI in one place,
-  imported by the pages so the look stays consistent.
-- **Signature element:** a sensor **oscilloscope** (accel/gyro magnitude over time,
-  loaded with the same pipeline loaders) **stacked on one shared time axis with the
-  coloured per-window prediction band(s)**, so a motion burst lines up vertically
-  with the window it was classified as. Plus a result with an animated exercise
-  icon and a confidence ring. Palette: light Daylight surfaces + flame accent;
-  type Space Grotesk / IBM Plex Mono / Inter.
-
-**Finalisation pass (branch `feature/streamlit-redesign`).** A round of fact-fix +
-readability polish, still presentation-only:
-- **Hero subtitle fixed to 100 Hz** (it wrongly read 50 Hz; the rest of the app
-  already said 100 Hz — the Apple-Watch native rate, §4).
-- **Two-model comparison made a directional "rescue" story.** The headline now
-  leads with how many windows Model 2 *commits* to where Model 1 abstained, with a
-  Rescued / Lost / Swapped breakdown. Categories are heuristics over the two
-  models' own outputs (no ground truth): *Rescued* = M1 `uncertain`/`unknown` → M2
-  real class; *Lost* = the reverse; *Swapped* = real class A → B. Shared helper
-  `theme.classify_change`.
-- **Per-window comparison table** gains a **Model 1 confidence** column (order:
-  Window · M1 · M1 conf · M2 · M2 conf · Status) and replaces the checkbox column
-  with a colour-coded **Status badge** (green/red/amber/grey) consistent with the
-  headline breakdown.
-- **`rest` vs `uncertain` greys pushed apart** for projector legibility, and
-  `uncertain` given a dotted timeline pattern (`theme.CLASS_PATTERNS`).
-- **One shared timeline legend** across both comparison bands (deduplicated) instead
-  of two; the confidence ring is relabelled **"Ø CONFIDENCE"** (it is the mean over
-  windows); the status chip reads **LOADED/IDLE** instead of a blinking **REC**
-  (the app analyses an upload, it never records).
-- **Model & Training:** dropped the per-class F1 **bar chart** (redundant with the
-  Macro-F1 tile's target context) and kept the strictly more informative
-  **precision · recall · F1 table** next to the confusion matrix.
-
-**Team-review polish pass (presentation-only).** A round of UI tweaks from a
-project-team review — no pipeline, model or metric change:
-- **`uncertain` timeline colour switched to amber** `#D8D2CB` → `#E0A33E`. Greys
-  here washed out to near-white in the timeline (white dots over a pale grey), so it
-  moved to a "caution" amber — clearly visible on the white cards and distinct by
-  *hue* from `rest` (`#8C857D`). The dotted pattern stays, but its dots are now dark
-  and low-density (`ui.viz`) so they texture the band instead of whitening it.
-- **`uncertain` gets a GIF mascot** (a kid dancing — bundled offline at
-  `app/static/uncertain.gif`, wired via `theme`/`lottie.EXERCISE_GIFS`). It renders
-  wherever an `uncertain` figure appears: the Classify result hero / comparison
-  cards and the About-tab "Recognizable exercises" panel (a uniform 4-figure row) —
-  so an honest abstain reads as friendly rather than a failure.
-- **Classify: the "effect of our own data" framing fully removed.** Gone: the
-  aggregate "window changes" panel (headline + Rescued / Lost / Swapped chips +
-  Ø-confidence delta + intro info box) AND the per-window table's **Status** column.
-  With them, the now-dead helpers (`_change_counts`, `_change_chips`, `_status_css`)
-  and theme tokens (`classify_change`, `STATUS_COLORS`, `STATUS_LABELS`,
-  `ABSTAIN_LABELS`). What stays: the two model cards, the shared-axis dual timeline,
-  and the per-window table showing each model's label + confidence side by side.
-- **Model & Training: redundant scalar tiles trimmed.** On this balanced 3-class
-  problem accuracy ≈ macro-F1 ≈ macro-precision / recall, so the `Accuracy` tile
-  (a near-duplicate of `Macro F1`) is replaced by a dataset-scale `Windows` tile,
-  and the "effect of our data" section now shows Model 1's baseline + the macro-F1
-  *change* instead of repeating Model 2's absolute (already the headline tile).
-- **Per-class card balanced:** a compact per-class **F1 bar** (`theme.score_bars`)
-  sits under the precision · recall · F1 table and the confusion matrix is trimmed
-  (420 → 360 px) so the two cards line up with no dead whitespace beneath the table.
-- **About tips corrected:** recommend the **left wrist** (matches the training
-  device/placement, §4); reframe "record the whole session in one go" → **one
-  exercise per recording** (several sets of the *same* exercise are fine; mixing
-  *different* exercises back-to-back is untested); and drop the "an honest unsure
-  beats a confident wrong answer" line.
-
-**Exercise animations: self-built dumbbell icons, Lottie-ready.** Each exercise is
-an animated **SVG/CSS dumbbell** (own colour + motion: curl = arc, tricep =
-overhead, row = horizontal pull, rest = float), authored in-repo — **no external
-asset, no licence**. `app/ui/lottie.py` instead renders
-`app/assets/lottie/<exercise>.json` (via `streamlit-lottie`) when such a file is
-dropped in, so the look can be upgraded to designer Lottie animations with no code
-change; missing/broken files fall back to the SVG.
-
-*Why self-built.* LottieFiles blocks programmatic download (403) and had no
-suitable, cleanly-licensed per-exercise (bicep curl / tricep extension / row)
-animations; AI/image-gen routes add cost, raster output and licence questions.
-Self-built SVG is free, crisp vector, on-brand and instant — with the Lottie
-drop-in kept as the upgrade path. An earlier stick-figure attempt was rejected as
-looking unpolished.
-
-**Dependency.** Adds `streamlit-lottie` (rendering only; the app still runs via the
-SVG fallback if it is absent).
-
-**Deferred — in-app "train your own model".** Considered surfacing the feedback /
-retrain backend (§8) in the app. Decided to keep it for a **separate branch** as a
-**feedback-→-adapt** flow (correct predictions → optional retrain into the active
-model, base preserved via backup + restore), **not** a from-scratch in-app trainer
-(slow/fragile in a live demo; the canonical reproducible path stays
-`scripts/train_model.py`).

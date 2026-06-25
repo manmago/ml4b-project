@@ -25,13 +25,13 @@ DECISIONS.md for the full journey. Only **Wrist Motion** (accel + gyro) is used.
 | Priority | Quality Goal | Scenario |
 |----------|-------------|----------|
 | 1 | Reproducibility | Any team member runs the app with one command on a new machine (`uv run streamlit run …`) |
-| 2 | Honest evaluation | Metrics are leakage-free (leave-one-set-out) and limitations are documented |
+| 2 | Leak-free evaluation | Metrics are leakage-free (leave-one-set-out) and limitations are documented |
 | 3 | Modularity / shared pipeline | Training and inference import the *same* preprocessing modules |
 | 4 | Explainability | Predictions and confidence are shown per window in the app |
 
-**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80 — achieved 0.792
-(current model, Kaggle + Testdaten; 0.776 for the Kaggle-only baseline;
-single-subject ceiling, DECISIONS.md).
+**Performance target:** macro F1 (leave-one-set-out CV) ≥ 0.80. Reached **0.792**
+(current model, Kaggle + Testdaten; **0.776** Kaggle-only baseline) — just below
+target, at the single-subject ceiling (DECISIONS.md).
 
 **Key constraints:** Python 3.11 + `uv` (one-command run, DECISIONS.md); Streamlit UI
 (Python-native, no frontend work); scikit-learn (interpretable tabular models);
@@ -89,14 +89,16 @@ src/ml4b/
 │   ├── activity_gate.py      # Energy-threshold rest detection (DECISIONS.md)
 │   ├── novelty.py            # Open-set novelty detection → unknown (DECISIONS.md)
 │   ├── session.py            # Bout segmentation → per-set summary (DECISIONS.md)
+│   ├── testdaten.py          # Testdaten/ folder discovery + labels (shared by rebuild + calibrate)
 │   ├── features_invariant.py # 39 device-invariant features (DECISIONS.md)
 │   ├── augmentation.py       # rotation+time-warp+mirror+jitter (DECISIONS.md)
 │   ├── features.py           # LEGACY 47 per-axis features (abandoned)
 │   ├── loader.py / mmfit_loader.py / splitting.py  # LEGACY (abandoned)
 ├── models/
 │   ├── train.py              # train_random_forest() / xgboost / svm (DECISIONS.md)
+│   ├── pipeline.py           # SHARED build: augment→features→RF+novelty, CV, metrics — one source for both models (DECISIONS.md §9)
 │   └── evaluate.py           # evaluate_model(), compare_models(), save_model()
-├── feedback/                 # CONTINUAL LEARNING (DECISIONS.md §8)
+├── feedback/                 # CONTINUAL LEARNING — lower-level building blocks (DECISIONS.md §8)
 │   ├── store.py              # persist/load user label corrections (data/feedback/)
 │   └── retrain.py            # rebuild model from base data + corrections (same pipeline)
 └── utils/
@@ -124,7 +126,7 @@ src/ml4b/
 | `scripts/update_model.py` | Lower-level CLI for the offline feedback-store retrain (and `--restore-base` to undo). |
 | `scripts/add_labelled_recording.py` | Lower-level building block: add one labelled recording to the feedback store (DECISIONS.md §8). |
 | `app/pages/*.py` | `render()` for the Classify, Model & Training and About tabs. |
-| `app/ui/*.py` | Presentation only — the "Daylight" design system: `theme.py` (CSS, colour/type/status tokens, components incl. the dumbbell icons + confidence ring), `viz.py` (light Plotly figures incl. the shared-axis sensor oscilloscope + timeline), `lottie.py` (optional Lottie animations with SVG fallback), `journey.py` (onboarding walkthrough). No ML logic (DECISIONS.md §10). |
+| `app/ui/*.py` | Presentation only — the "Daylight" design system: `theme.py` (CSS, colour/type/status tokens, components incl. the dumbbell icons + confidence ring), `viz.py` (light Plotly figures incl. the shared-axis sensor oscilloscope + timeline), `lottie.py` (optional Lottie animations with SVG fallback), `journey.py` (onboarding walkthrough). No ML logic. |
 
 ---
 
@@ -186,23 +188,26 @@ Training (`kaggle_loader`) and inference (`apple_watch_loader`) both import
 `canonical`, `windowing`, `activity_gate`, and `features_invariant`. Logic is
 never duplicated, so predictions in the app match training exactly.
 
-### Honest evaluation & limitations
+### Evaluation & limitations
 - **Leave-one-set-out CV** (DECISIONS.md): no same-set or augmented windows leak into
   the test fold.
 - **Single-subject anchor:** cross-*person* performance cannot be measured and
   will be below the reported macro F1; augmentation (DECISIONS.md) is the documented
   mitigation. This is stated in the README, project overview, and the app.
 
-### Continual learning (human-in-the-loop)
-The app captures the user's per-window label corrections (`feedback/store.py`);
-clean labelled sets can also be added directly via
-`scripts/add_labelled_recording.py`. The model is rebuilt from the base data
-**plus** those corrections through the *same* pipeline (`feedback/retrain.py`) —
-the direct attack on the single-subject limitation. Capture is decoupled from
-training (corrections are always saved); **retraining is an explicit offline step**
-(`scripts/update_model.py`, never live in the app) and reuses
-windowing/augmentation/features so the model contract is unchanged. New labels
-become new classes (DECISIONS.md §8).
+### Continual learning (folder-based retraining)
+The robust fix for the single-subject limitation is more of our **own** labelled
+Apple-Watch recordings. The canonical flow commits whole recordings under
+`data/Testdaten/<Exercise>/` (folder name = label) and rebuilds **both** models
+deterministically from the Kaggle anchor **plus** those recordings through the
+*same* pipeline (`scripts/rebuild_from_testdaten.py`, `make update`; DECISIONS.md
+§8/§9). We **commit data, not models** — the model is a build artifact, so the
+whole team converges on one model state. Retraining is an explicit **offline**
+step (never live in the app) and reuses windowing/augmentation/features, so the
+model contract is unchanged. The earlier in-app per-window "Correct & Improve"
+loop was removed (it produced per-laptop divergence); `feedback/store.py` +
+`feedback/retrain.py` and `scripts/update_model.py` / `add_labelled_recording.py`
+remain only as lower-level building blocks (DECISIONS.md §8).
 
 ### Reproducibility
 - `uv.lock` pins every dependency; `uv run` provisions and runs in one step

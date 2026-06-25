@@ -2,7 +2,7 @@
 
 > CRISP-DM Phase 1 | Status: **Done** | Completed: 2026-05-15
 
-> 🔁 **Final-iteration update (DECISIONS.md, 2026-05-31).** After two dataset
+> **Final-iteration update (DECISIONS.md, 2026-05-31).** After two dataset
 > iterations (RecoFit → MM-Fit) failed to transfer to real Apple-Watch uploads,
 > the project settled on the **Kaggle Gym Workout IMU dataset** (recorded *on*
 > an Apple Watch) and **three** biomechanically distinct classes: **bicep_curl,
@@ -131,7 +131,7 @@ and **DECISIONS.md**.
 > training on a non-Apple sensor never generalised to a real Apple Watch. The
 > Kaggle dataset removes that shift by being recorded on the Apple Watch itself.
 > Its weakness is being single-subject, mitigated by augmentation (DECISIONS.md) and
-> documented honestly (DECISIONS.md).
+> documented openly (DECISIONS.md).
 
 #### Phase B — Generalization Test: Self-Recorded Apple Watch Data
 
@@ -158,7 +158,7 @@ Apple Watch via Sensor Logger delivers Wrist Motion data at approximately **50�
 | Criterion | Target | How to Measure |
 |-----------|--------|----------------|
 | Classification (macro F1) | ≥ 0.80 | Leave-one-set-out CV on the Apple-Watch data (achieved 0.792 current, Kaggle + Testdaten; 0.776 Kaggle-only baseline — DECISIONS.md) |
-| Honest evaluation | Leakage-free | No same-set windows across train/test; single-subject limitation documented |
+| Leak-free evaluation | Leakage-free | No same-set windows across train/test; single-subject limitation documented |
 | App Usability | Functional demo | Streamlit app runs without errors, predictions render correctly |
 | Reproducibility | One command | `uv run streamlit run app/streamlit_app.py` runs the app; `make train` retrains (DECISIONS.md) |
 | Documentation | Complete | arc42 + CRISP-DM log + DECISIONS.md up to date at project end |

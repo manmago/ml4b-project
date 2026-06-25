@@ -105,7 +105,7 @@ These numbers are produced by `scripts/train_model.py` and stored in
 
 ---
 
-## 6. Limitations (read this honestly)
+## 6. Limitations (read this carefully)
 
 This is a methodologically sound project with a **data-limited ceiling**:
 
@@ -160,12 +160,12 @@ The original RecoFit/MM-Fit pipeline that was superseded is summarised in
 |--------------|---------------|
 | Project goals and research question | `docs/business_understanding/business_understanding.md` |
 | Dataset evaluation and selection | `docs/data/dataset_evaluation.md` |
-| All technical decisions | `docs/DECISIONS.mdDECISIONS.md` … `DECISIONS.md` |
+| All technical decisions | `docs/DECISIONS.md` |
 | CRISP-DM progress log | `docs/project/crisp_dm_log.md` |
 | System architecture (arc42) | `docs/architecture/architecture.md` |
 | Sensor columns + features | `docs/data/data_dictionary.md` |
-| How to collect Apple Watch data | `docs/project/apple_watch_data_collection_guide.md` |
-| Honest sanity-check results | `docs/project/apple_watch_validation_results.md` |
+| How to record + improve the model | `docs/project/continual_training.md` |
+| Sanity-check results | `docs/project/apple_watch_validation_results.md` |
 | Folder and file descriptions | `STRUCTURE.md` |
 | OS-specific setup | `docs/setup/Setup_*.md` |
 | Reusable ML code | `src/ml4b/` |
@@ -196,8 +196,8 @@ The original RecoFit/MM-Fit pipeline that was superseded is summarised in
 | Task | Status |
 |------|--------|
 | 3-class Apple-Watch model trained + committed | ✅ Done |
-| Leave-one-set-out evaluation (honest metrics) | ✅ Done (macro F1 0.792 current · 0.776 baseline) |
-| Streamlit app (Home / Predict / Model Performance) | ✅ Done |
+| Leave-one-set-out evaluation (leak-free metrics) | ✅ Done (macro F1 0.792 current · 0.776 baseline) |
+| Streamlit app (Classify / Model & Training / About) | ✅ Done |
 | One-command launch on WSL / macOS / Windows | ✅ Done |
-| Honest sanity check on real Apple Watch samples | ✅ Done — see `apple_watch_validation_results.md` |
+| Sanity check on real Apple Watch samples | ✅ Done — see `apple_watch_validation_results.md` |
 | Cross-subject generalisation | ⚠️ Not achievable (single-subject anchor; documented) |

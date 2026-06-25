@@ -69,9 +69,7 @@ Phase 6 completed: 2026-05-29
 - **Deliverable:** `notebooks/05_evaluation.ipynb`, `src/ml4b/data/apple_watch_loader.py`, data collection guide
 - **Status (2026-05-28 — COMPLETE):**
   - `src/ml4b/data/apple_watch_loader.py` — `load_sensor_logger_csv()`, `predict_from_sensor_logger()` — handles Sensor Logger CSV format variations, unit conversion (m/s² → g), dummy metadata for inference
-  - `notebooks/05_evaluation.ipynb` — test set evaluation, val vs test comparison, error analysis, Apple Watch placeholder (Cell 14)
-  - `docs/project/apple_watch_data_collection_guide.md` — recording protocol, export instructions, troubleshooting
-  - `data/raw/apple_watch/` — directory created for future Apple Watch CSV files
+  - `notebooks/05_evaluation.ipynb` — test set evaluation, val vs test comparison, error analysis, Apple Watch placeholder (Cell 14)  - `data/raw/apple_watch/` — directory created for future Apple Watch CSV files
   - Apple Watch generalization test: **PENDING** — data not yet collected
   - **Final results:** Test Accuracy = 0.9630, Test Macro F1 = 0.8006 ✅ (target ≥ 0.80 met)
   - **Generalization gap:** 1.3% (val 0.8136 → test 0.8006) — model does not overfit
@@ -151,7 +149,7 @@ on *any* non-Apple sensor does not transfer to an Apple Watch.
   DECISIONS.md). **Macro F1 = 0.776, accuracy 0.782** (bicep 0.76 / row 0.76 /
   triceps 0.81). Metrics committed to `models/saved/model_metrics.json`.
 - **Deployment:** app + all three pages updated to the 3-class reality and the
-  honest metrics; one-command launch on all 3 OS (DECISIONS.md). Sanity check on real
+  leak-free metrics; one-command launch on all 3 OS (DECISIONS.md). Sanity check on real
   Apple-Watch samples recorded in `apple_watch_validation_results.md`.
 
 ---
@@ -168,7 +166,7 @@ metrics, the feature list, and a reproducible training script. *(Later extended
 with our own Testdaten to macro F1 0.792 — see the continual-learning note below.)* Sensor Logger
 exports are accepted as either `WristMotion.csv` or a full ZIP. The project is
 handover-ready: every decision is documented in `docs/DECISIONS.md`,
-the single-subject limitation is documented honestly, and OS-specific setup
+the single-subject limitation is documented openly, and OS-specific setup
 guides cover WSL, macOS, and Windows.
 
 **Continuous-session support (2026-06-02, DECISIONS.md):** the inference pipeline
@@ -191,20 +189,13 @@ of 0.776 (the current shipped model adds our Testdaten → 0.792).
 There is no `01_business_understanding.ipynb` or `06_deployment.ipynb` in the
 repo; those phases are documented under `docs/` instead.
 
-**Continual learning — folder-based retraining (2026-06-05 → 2026-06-17, DECISIONS.md §8):**
-the direct attack on the single-subject limitation (DECISIONS.md §6) is to add more
-of our **own** Apple-Watch data. Rather than per-window corrections inside the app
-(the earlier in-app "Correct & Improve" loop, now **removed** because it produced
-per-laptop local state), we commit whole labelled recordings under
-`data/Testdaten/<Exercise>/` — the folder name sets the label. `make update`
-(`scripts/rebuild_from_testdaten.py`) rebuilds the model deterministically from the
-Kaggle anchor **plus** those recordings through the identical windowing → augmentation
-→ invariant-feature → Random Forest pipeline, refits the novelty detector, and
-recomputes the leave-one-set-out metrics. Data is committed, the model is a build
-artifact (DECISIONS.md §8).
+**Continual learning — folder-based retraining (2026-06-05 → 2026-06-17):** added a
+deterministic, folder-based retrain (`make update`) that rebuilds the model from the
+Kaggle anchor **plus** our own committed `data/Testdaten/<Exercise>/` recordings; the
+earlier in-app "Correct & Improve" loop was removed. Rationale and the full how-to:
+DECISIONS.md §8 and `docs/project/continual_training.md`.
 
-**Two-model comparison (2026-06-17, DECISIONS.md §9):** the app ships **two** models —
-a frozen **baseline** (Kaggle only, leave-one-set-out macro F1 **0.776**) and the
-**current** model (Kaggle + our Testdaten, macro F1 **0.792**, the shipped
-`best_model.joblib`) — and runs both on every upload so the effect of our own data is
-visible and honest rather than asserted.
+**Two-model comparison (2026-06-17):** the app ships a frozen **baseline** (Kaggle
+only, macro F1 **0.776**) and the **current** model (Kaggle + Testdaten, macro F1
+**0.792**) and runs both on every upload to make the effect of our own data visible.
+Details: DECISIONS.md §9.

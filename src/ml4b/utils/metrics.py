@@ -1,6 +1,6 @@
 """Load the committed model-evaluation metrics.
 
-``scripts/train_model.py`` writes the honest leave-one-set-out results to
+``scripts/train_model.py`` writes the leave-one-set-out results to
 ``models/saved/model_metrics.json`` (committed, so the Streamlit app can show
 real numbers after a fresh clone). Both the Home and Model Performance pages read
 them through this single helper so the displayed metrics can never drift from

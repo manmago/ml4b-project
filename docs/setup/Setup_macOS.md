@@ -64,8 +64,7 @@ The app ships with a trained model, so this is only for reproducing it.
 <details>
 <summary><b>Record your own Apple Watch data (Sensor Logger)</b></summary>
 
-See `docs/project/apple_watch_data_collection_guide.md`. In short: record with
-the free **Sensor Logger** iOS app (Device Motion enabled), export (you can
+Record with the free **Sensor Logger** iOS app (Device Motion enabled), export (you can
 AirDrop it to your Mac), and upload the single **`WristMotion.csv`** (or the
 whole ZIP) on the app's Predict page.
 </details>

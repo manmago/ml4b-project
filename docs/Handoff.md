@@ -24,7 +24,7 @@ Konfidenz.
 - Vorverarbeitung mit **exakt demselben Code** wie im Training (kein Duplizieren).
 - **Zeitstrahl**: welche Übung wann, plus Konfidenz pro Fenster.
 - **Pausen** zwischen Sätzen werden automatisch als `rest` markiert.
-- Unsichere Fenster → `uncertain`; unbekannte Bewegungen → `unknown` (ehrliches
+- Unsichere Fenster → `uncertain`; unbekannte Bewegungen → `unknown` (klares
   „weiß ich nicht" statt Raten).
 - **„Detected Sets"**: Fenster werden zu Sätzen (Bouts) zusammengefasst — Nutzer
   denken in Sätzen, nicht in 2-s-Fenstern.
@@ -37,7 +37,7 @@ Konfidenz.
   Vorhersage-Bändern, animierte Hantel-Icons + Konfidenz-Ring (Ø). Der Zwei-Modell-
   Vergleich erzählt die „Rescue"-Story (wo Modell 1 abgesagt hat, committet Modell
   2). Reine Präsentationsebene in `app/ui/`; Animationen per Lottie-Datei
-  austauschbar (DECISIONS.md §10).
+  austauschbar.
 - Start mit **einem** Befehl: `uv run streamlit run app/streamlit_app.py` (bzw.
   `make run`).
 
@@ -62,7 +62,7 @@ Sensor Logger CSV → preprocessing → features → Random Forest → Streamlit
   - **XGBoost:** als dokumentiertes Backup behalten.
   - **SVM-RBF:** verworfen (schlechterer F1, langsame Wahrscheinlichkeits-Kalibrierung).
 - **Bewusst gedämpft (`max_depth=20`).** Ungebremst memorierten die Bäume die
-  Trainingsdaten; das Deckeln kostet kaum F1, liefert aber **ehrlichere
+  Trainingsdaten; das Deckeln kostet kaum F1, liefert aber **besser kalibrierte
   Konfidenzwerte** — wichtig, weil die App sie als „Konfidenz" anzeigt.
 
 ## 5. Der Datensatz — und warum genau dieser
@@ -113,7 +113,7 @@ richten, trinken) ganz anders aussieht als die Trainings-Ruhe. Der Schwellwert i
 **geräte- und personenunabhängig** und überträgt sich daher viel besser. Zwei
 weitere Sicherungen:
 
-- **`uncertain`** bei Konfidenz < 0,50 (ehrliche Enthaltung).
+- **`uncertain`** bei Konfidenz < 0,50 (bewusste Enthaltung statt Raten).
 - **`unknown`** via Novelty-Detektor für Bewegungen, die zu keiner bekannten Klasse
   passen (z. B. Kniebeugen) — statt sie in eine der 3 Klassen zu pressen.
 
@@ -121,11 +121,11 @@ weitere Sicherungen:
 
 **Leave-one-set-out-Kreuzvalidierung:** Jede Aufnahmedatei ist ein „Satz"; das
 Modell trainiert auf allen anderen und testet **nur** auf dem ausgelassenen Satz.
-Das ist die **ehrlichste leckfreie** Schätzung bei einer Person — **macro-F1 ≈
+Das ist die **strengste leckfreie** Schätzung bei einer Person — **macro-F1 ≈
 0,78**. Zufällige Fenster-Splits würden Werte künstlich aufblähen (Fenster derselben
 Aufnahme gleichzeitig in Train und Test) → verworfen.
 
-## 10. Limitationen (ehrlich)
+## 10. Limitationen
 
 - **Single-subject:** Auf einer **neuen Person** ist die reale Genauigkeit
   **niedriger** als 0,78. Echtes „leave-one-subject-out" ist unmöglich (nur eine
@@ -154,7 +154,7 @@ einer Demo.
    ähnliche.
 4. **Augmentation ersetzt teilweise fehlende Personen-Vielfalt** — als Ergänzung,
    nicht als vollwertiger Ersatz für echte zweite Personen.
-5. **Ehrlichkeit > schöne Zahlen.** Leckfreie Bewertung, sichtbar gemachte
+5. **Transparenz > schöne Zahlen.** Leckfreie Bewertung, sichtbar gemachte
    Limitationen und `uncertain`/`unknown` statt erzwungener Antworten machen das
    System vertrauenswürdig.
 6. **Ein Modell, geteilte Pipeline.** Identischer Code in Training und App + Modell
@@ -169,7 +169,7 @@ einer Demo.
 | Architektur & Datenfluss | `docs/architecture/architecture.md` |
 | CRISP-DM-Verlauf | `docs/project/crisp_dm_log.md` |
 | Feature-/Daten-Lexikon | `docs/data/data_dictionary.md` |
-| Eigene Daten aufnehmen | `docs/project/apple_watch_data_collection_guide.md` |
+| Eigene Daten aufnehmen / Modell aktualisieren | `docs/project/continual_training.md` |
 | Ordner-Übersicht des Repos | `STRUCTURE.md` |
 | Pipeline-Code (Training = App) | `src/ml4b/` |
 | Web-App | `app/streamlit_app.py` |

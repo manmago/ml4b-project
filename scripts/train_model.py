@@ -12,7 +12,7 @@ The pipeline (shared with the app and the rebuild via ``ml4b.models.pipeline``) 
 
 Evaluation uses **leave-one-set-out** cross-validation (each Kaggle file is one
 set / group), so windows from the same set never appear in both train and test —
-the only honest estimate for a single-subject dataset. Augmented copies of a
+the only leak-free estimate for a single-subject dataset. Augmented copies of a
 held-out set are excluded from its training folds, so there is no leakage.
 
 Because there is no Testdaten here, this script writes the SAME Kaggle-only model
@@ -97,7 +97,7 @@ def main() -> None:
     tm = build_training_matrix(window_df, n_augment=N_AUGMENT)
     print(f"  Features: {len(tm.feature_names)} | windows after aug: {len(tm.X):,}")
 
-    print("Step 4/5: Leave-one-set-out cross-validation (honest metric)...")
+    print("Step 4/5: Leave-one-set-out cross-validation (leak-free metric)...")
     cv_results = leave_one_set_out_cv(tm, CLASS_NAMES, REPORTS_DIR)
     print(f"  CV Macro F1 : {cv_results['macro_f1']:.4f}")
     print(f"  CV Accuracy : {cv_results['accuracy']:.4f}")

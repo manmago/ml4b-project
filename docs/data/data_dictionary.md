@@ -116,7 +116,7 @@ produced at inference, not trained.
 = one set). Each set is held out once; its augmented copies are excluded from
 training. True leave-one-*subject*-out is impossible (single subject). The
 shipped model (Kaggle + Testdaten) is trained on all sets + augmentation; the
-honest metric is the cross-validation aggregate (macro F1 0.792; the Kaggle-only
+reported metric is the cross-validation aggregate (macro F1 0.792; the Kaggle-only
 baseline is 0.776), stored in `models/saved/model_metrics.json`.
 
 ---

@@ -42,11 +42,11 @@ trained model is committed to the repo (DECISIONS.md). OS-specific guides:
 
 ## What the App Does
 
-| Page | Purpose |
+| Tab | Purpose |
 |------|---------|
-| 🏠 **Home** | Project overview, honest metrics, Sensor Logger instructions |
-| 🔮 **Predict Exercise** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window timeline, **detected sets** (e.g. "2 sets of Bicep Curl"), distribution, results table, CSV download, plus ✏️ correct & improve |
-| 📊 **Model Performance** | Leave-one-set-out metrics, per-class F1, confusion matrix, model details, honest limitations |
+| **Classify** | Upload `WristMotion.csv` or a Sensor Logger ZIP → per-window timeline, **detected sets** (e.g. "2 sets of Bicep Curl"), distribution, results table, CSV download |
+| **Model & Training** | Leave-one-set-out metrics, per-class F1, confusion matrix, model details, limitations |
+| **About** | Project overview, leak-free metrics, Sensor Logger instructions |
 
 **Recognized exercises (3 classes):** Bicep Curl · Tricep Extension · Row.
 Plus two non-exercise outputs produced *outside* the model: **rest** (energy
@@ -65,7 +65,7 @@ gate) and **uncertain** (low confidence).
 | Accuracy | 79.2% (current) · 78.2% (baseline) |
 | Per-class F1 (current) | bicep curl 0.80 · row 0.78 · tricep extension 0.79 |
 
-> ⚠️ **Honest limitation.** The training anchor is a **single subject**, so true
+> ⚠️ **Key limitation.** The training anchor is a **single subject**, so true
 > cross-*person* performance cannot be measured and will be **below** these
 > numbers. Augmentation (rotation/time-warp/mirror/jitter) synthesises the
 > missing subject diversity (DECISIONS.md). The methodology — Apple-Watch training
@@ -121,8 +121,8 @@ model is rebuilt from the committed recordings, so the whole team stays on one m
 state (see [DECISIONS.md §8](docs/DECISIONS.md) and
 [`docs/project/continual_training.md`](docs/project/continual_training.md)).
 
-1. **Record** one exercise per file (one clean set) with Sensor Logger — see
-   [`docs/project/apple_watch_data_collection_guide.md`](docs/project/apple_watch_data_collection_guide.md).
+1. **Record** one exercise per file (one clean set) with the free **Sensor Logger**
+   iOS app (Device Motion enabled); export `WristMotion.csv` or the ZIP.
 2. **Commit** it into the folder for that exercise — the **folder name** is the
    label: `data/Testdaten/Biceps_Curls/`, `data/Testdaten/Rows/`, `data/Testdaten/Triceps_Extensions/`.
 3. **Rebuild** (one person with the Kaggle dataset, or CI):
@@ -141,7 +141,7 @@ Random Forest has no `partial_fit`; rebuilding from scratch keeps it reproducibl
 avoids catastrophic forgetting. Roll back with `git checkout HEAD~1 -- models/saved/`.
 
 `Rest/` and `Uncertain/` recordings are **not** training classes — they validate the
-rest gate and the open-set `unknown` rejection respectively (see the guide).
+rest gate and the open-set `unknown` rejection respectively.
 
 ---
 

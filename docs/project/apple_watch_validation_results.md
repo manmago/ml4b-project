@@ -1,4 +1,4 @@
-# Apple Watch Sanity-Check Results (one-shot, honest)
+# Apple Watch Sanity-Check Results (one-shot)
 
 > **Purpose & method.** A one-time, no-tuning sanity check of the final 3-class
 > model on the **real Apple Watch** recordings in `data/raw/apple_watch/test_samples/`.
@@ -25,7 +25,7 @@ adds our Testdaten → 0.792).
 
 ---
 
-## Honest interpretation
+## Interpretation
 
 - **Bicep curls are recognized correctly on real Apple-Watch data.** In both
   curl recordings the **majority exercise label is `bicep_curl`** — decisively so
@@ -58,4 +58,4 @@ adds our Testdaten → 0.792).
   single-subject anchor.
 
 No parameters, thresholds, features, or model settings were changed in response
-to these results, per the project's honesty rule.
+to these results — it is a fixed-protocol check.

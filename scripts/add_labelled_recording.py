@@ -7,7 +7,7 @@ the recording is stored under your label; afterwards run
 ``scripts/update_model.py`` to retrain on the base data **plus** your additions.
 
 Recording protocol (one exercise per file): see
-``docs/project/apple_watch_data_collection_guide.md``.
+``docs/project/continual_training.md``.
 
 Run:
     uv run python scripts/add_labelled_recording.py PATH --label bicep_curl

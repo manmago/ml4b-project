@@ -172,8 +172,8 @@ def detect_and_normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         "Could not detect Sensor Logger column format.\n"
         f"Columns found: {list(df.columns)}\n"
         f"Expected one of: {[list(m.keys()) for m in WRIST_MOTION_COLUMN_MAPPINGS]}\n"
-        "See docs/project/apple_watch_data_collection_guide.md for the "
-        "supported formats."
+        "Export 'Device Motion' from Sensor Logger to get the "
+        "supported columns."
     )
 
 

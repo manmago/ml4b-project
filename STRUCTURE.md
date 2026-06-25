@@ -44,7 +44,7 @@ app/
 ├── streamlit_app.py        ← Entry point: cached model loading + top-tab navigation
 ├── pages/
 │   ├── __init__.py
-│   ├── home.py             ← render(): About tab — overview, honest metrics, how-to-read results
+│   ├── home.py             ← render(): About tab — overview, leak-free metrics, how-to-read results
 │   ├── prediction.py       ← render(model, feature_names): Classify tab — CSV/ZIP upload →
 │   │                          shared-axis scope+timeline, result (dumbbell + ring), comparison, CSV
 │   └── model_performance.py ← render(): Model & Training tab — leave-one-set-out metrics,
@@ -63,7 +63,7 @@ app/
 - Navigation: top **tabs** in `streamlit_app.py` (Classify / Model & Training /
   About) route to each page's `render()`. The sidebar is hidden via `app/ui/theme.py`.
 - Exercise animations: `app/ui/lottie.py` renders `app/assets/lottie/<exercise>.json`
-  if present, else falls back to the built-in animated dumbbell SVG (DECISIONS.md §10).
+  if present, else falls back to the built-in animated dumbbell SVG.
 
 ---
 
@@ -115,8 +115,8 @@ docs/
 ├── project/
 │   ├── crisp_dm_log.md                   ← CRISP-DM phase progress tracker
 │   ├── project_overview.md               ← Plain-language overview — read this first
-│   ├── apple_watch_data_collection_guide.md ← Sensor Logger recording protocol
-│   └── apple_watch_validation_results.md ← Honest one-shot sanity-check results (Phase 5)
+│   ├── continual_training.md             ← How-to: add data + retrain (continual learning)
+│   └── apple_watch_validation_results.md ← One-shot sanity-check results (Phase 5)
 └── setup/
     ├── Setup_macOS.md
     ├── Setup_Windows.md
@@ -138,7 +138,7 @@ models/
     ├── best_model.joblib       ← IN git — Model 2 (Kaggle + Testdaten), used by the app (compressed)
     ├── random_forest.joblib    ← IN git — archive copy of Model 2
     ├── novelty_detector.joblib ← IN git — open-set novelty detector for Model 2 (DECISIONS.md)
-    ├── model_metrics.json      ← IN git — honest leave-one-set-out metrics for Model 2
+    ├── model_metrics.json      ← IN git — leave-one-set-out metrics for Model 2
     │                           shown on the Model Performance page
     ├── baseline_model.joblib            ← IN git — Model 1 (Kaggle only); the app runs both so
     │                                      the Predict page shows the effect of our data (DECISIONS.md §9)
@@ -164,7 +164,7 @@ notebooks/
 ├── 02_data_understanding.ipynb  ← Kaggle dataset exploration (21 abbrevs, 3 classes, 100 Hz)
 ├── 03_data_preparation.ipynb    ← load → window 200@100Hz → gate → invariant features → augment
 ├── 04_modeling.ipynb            ← Random Forest + leave-one-set-out CV (Kaggle-only baseline, macro F1 0.776)
-├── 05_evaluation.ipynb          ← honest metrics + limitations + sanity check on test_samples
+├── 05_evaluation.ipynb          ← metrics + limitations + sanity check on test_samples
 └── 06_streamlit_demo.ipynb      ← end-to-end predict_from_sensor_logger demo (mirrors the app)
 ```
 

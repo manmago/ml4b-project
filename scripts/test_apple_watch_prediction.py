@@ -49,7 +49,7 @@ def _true_label_from_name(filename: str) -> str:
 
 
 def main() -> None:
-    """Predict on every sanity-check sample and print an honest summary."""
+    """Predict on every sanity-check sample and print a summary."""
     model = joblib.load(MODELS_DIR / "best_model.joblib")
     feature_names = (
         (DATA_PROCESSED / "feature_names.txt").read_text().strip().split("\n")

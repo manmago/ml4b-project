@@ -17,7 +17,7 @@ Four physically-motivated augmentations are composed per copy:
 
 Each original window spawns several augmented copies (default 5, i.e. 6× total),
 multiplying the effective number of "subjects". Only TRAIN windows are
-augmented; held-out sets stay pristine so leave-one-set-out metrics stay honest.
+augmented; held-out sets stay pristine so leave-one-set-out metrics stay leak-free.
 
 ``augment_windows`` is the orchestrator used by training. The older
 ``augment_windows_with_rotation`` is retained for the rotation-only unit tests.

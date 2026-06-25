@@ -40,8 +40,8 @@ model that keeps getting better; the **mechanism** is retraining, not online lea
 ## The workflow
 
 ### 1. Record (one clean set per file)
-- Record **one** exercise per file (one set), following
-  [`apple_watch_data_collection_guide.md`](apple_watch_data_collection_guide.md).
+- Record **one** exercise per file (one set) with the free **Sensor Logger** iOS app
+  (Device Motion enabled); export the **`WristMotion.csv`** (or the whole ZIP).
 - Single sets keep labels unambiguous — that is why we train on them.
 
 ### 2. Commit the recording into the right folder

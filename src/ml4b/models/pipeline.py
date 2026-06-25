@@ -161,11 +161,11 @@ def leave_one_set_out_cv(
     random_state: int = 42,
     progress: bool = False,
 ) -> dict:
-    """Honest leave-one-set-out CV: train on all other sets, test on held-out
+    """Leave-one-set-out CV: train on all other sets, test on held-out
     originals only.
 
     Augmented copies of the held-out set are excluded from its test fold, so
-    there is no leakage through augmentation or window overlap — the only honest
+    there is no leakage through augmentation or window overlap — the only leak-free
     estimate available for a single-subject anchor (DECISIONS.md).
 
     Args:

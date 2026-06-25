@@ -42,7 +42,7 @@ def dominant_label(
     for the app's whole-recording summary, so the two never disagree. ``rest`` is
     ignored by default because it is a pause, not a result; **``uncertain`` and
     ``unknown`` ARE counted** — if the model was unsure (or saw an untrained
-    movement) for the plurality of windows, that is the honest answer and we do
+    movement) for the plurality of windows, that is the correct answer and we do
     not promote a minority exercise over it.
 
     Ties are broken conservatively: if a non-exercise output (``uncertain`` /

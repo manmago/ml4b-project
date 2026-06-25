@@ -206,7 +206,7 @@ def _train_and_save(
 
     cv_results: dict | None = None
     if run_cv:
-        print(f"  Leave-one-set-out CV over {n_sets} sets (honest metric)...")
+        print(f"  Leave-one-set-out CV over {n_sets} sets (leak-free metric)...")
         cv_results = leave_one_set_out_cv(
             tm, CLASS_NAMES, REPORTS_DIR, label=f"LOSO CV — {name}", progress=True
         )

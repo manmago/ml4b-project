@@ -1,6 +1,6 @@
 """Model & Training tab for the ML4B Streamlit app ("Daylight" design).
 
-Displays the **honest leave-one-set-out** evaluation of the Random Forest trained
+Displays the **leave-one-set-out** evaluation of the Random Forest trained
 on the Kaggle Gym Workout IMU dataset (Apple Watch, single subject — DECISIONS.md).
 All numbers are loaded from the committed ``models/saved/model_metrics.json`` so
 the page always reflects what training actually produced (no hardcoded metrics,
@@ -85,7 +85,7 @@ def render() -> None:
         "Evaluation of the **Random Forest** with **leave-one-set-out "
         "cross-validation**: each exercise *set* is held out once and predicted by "
         "a model trained on the others, so no window scores itself. This is the "
-        "honest, leakage-free estimate for a single-subject dataset."
+        "leakage-free estimate for a single-subject dataset."
     )
 
     macro_f1 = metrics["cv_macro_f1"]
@@ -235,7 +235,7 @@ def render() -> None:
         "exercise right — what matters for a balanced 3-class recognizer."
     )
     st.warning(
-        "**Honest limitations — read before trusting these numbers.**\n\n"
+        "**Limitations — read before trusting these numbers.**\n\n"
         "- **Single-subject training anchor.** The Kaggle dataset is one person on "
         "one Apple Watch. True leave-one-*subject*-out is impossible, so the score "
         "measures generalisation to an unseen *set*, **not** a new *person*.\n"
