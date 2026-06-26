@@ -2,6 +2,10 @@
 
 **ML4B SoSe 2026 · FAU Nürnberg · Lehrstuhl für Wirtschaftsinformatik**
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ml4b-gym-fau.streamlit.app)
+
+**Live demo (runs in your browser, no install): [ml4b-gym-fau.streamlit.app](https://ml4b-gym-fau.streamlit.app)** — or run it locally with the one-command [Quickstart](#quickstart--one-command) below.
+
 Recognize **three gym exercises — bicep curl, tricep extension, row —** from
 wrist-worn **Apple Watch** sensor data (accelerometer + gyroscope). Record a
 workout with the free **Sensor Logger** app, upload the file to the Streamlit web
